@@ -3,7 +3,7 @@ React = require 'react'
 $ = React.DOM
 
 module.exports = React.createClass
-  displayName: 'Token'
+  displayName: 'Line'
 
   render: ->
-    $.div {}, 'token'
+    $.div {}, 'line'
