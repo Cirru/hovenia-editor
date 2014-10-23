@@ -2,14 +2,41 @@
 React = require 'react'
 $ = React.DOM
 
+store = require '../store'
+
 module.exports = React.createClass
   displayName: 'Token'
 
+  onClick: ->
+    store.focusTo @props.data.id
+
+  getInitialState: ->
+    marginLeft: 0, marginTop: 0
+
+  componentDidMount: ->
+    @adjustMargin()
+
+  onKeyUp: (event) ->
+    text = event.target.innerText
+    store.update text
+    @adjustMargin()
+
+  adjustMargin: ->
+    dom = @refs.node.getDOMNode()
+    width = dom.clientWidth
+    height = dom.clientHeight
+    @setState marginLeft: width/2, marginTop: height/2
+
   render: ->
     $.div
+      ref: 'node'
       contentEditable: true
       className: 'token'
+      onClick: @onClick
+      onKeyUp: @onKeyUp
       style:
         left: @props.position.x
         top: @props.position.y
+        marginLeft: "-#{@state.marginLeft}px"
+        marginTop: "-#{@state.marginTop}px"
       @props.data.text

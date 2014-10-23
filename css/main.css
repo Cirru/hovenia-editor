@@ -2,18 +2,55 @@
 body {
   margin: 0;
   position: relative;
+  font-family: Menlo;
 }
 
 body * {
   box-sizing: border-box;
-  box-shadow: 0 0 1px red;
+  box-shadow: 0 0 1px black;
 }
 
-svg line {}
+.fractal {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+svg line {
+    stroke: rgb(137, 98, 253);
+    stroke-width: 4px;
+}
+
+svg line.is-parent {
+    stroke: rgb(255, 132, 132);
+}
 
 .token {
     position: absolute;
     min-height: 20px;
     min-width: 20px;
-    background: blue;
+    text-align: center;
+    padding: 4px 8px;
+    transition-duration: 400ms;
+    background-color: rgba(232, 232, 232, 0.8);
+}
+
+.button {
+  width: 60px;
+  height: 20px;
+  font-size: 13px;
+  font-family: optima;
+  line-height: 20px;
+  text-align: center;
+  float: right;
+  cursor: pointer;
+}
+
+.controls {
+    position: absolute;
+    right: 0;
+}
+
+.button.is-younger {
+    right: 70px;
 }
