@@ -27,13 +27,18 @@ module.exports = React.createClass
     height = dom.clientHeight
     @setState marginLeft: width/2, marginTop: height/2
 
+  onDragStart: (event) ->
+    event.dataTransfer.setData 'text', @props.data.id
+
   render: ->
     $.div
       ref: 'node'
+      draggable: yes
       contentEditable: true
       className: 'token'
       onClick: @onClick
       onKeyUp: @onKeyUp
+      onDragStart: @onDragStart
       style:
         left: @props.position.x
         top: @props.position.y

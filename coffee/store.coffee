@@ -58,4 +58,18 @@ exports.focusTo = (id) ->
   caret = id
   @emit()
 
-exports.dropTo = (id) ->
+exports.dropTo = (dragId, type, fromId, toId) ->
+  from = byId store, fromId
+  node = byId store, dragId
+
+  if type is 'parent'
+    node.parent = toId
+    node.brother = null
+    from.parent = dragId
+  else if type is 'brother'
+    node.parent = null
+    node.brother = toId
+    from.brother = dragId
+
+  caret = 'root'
+  @emit()

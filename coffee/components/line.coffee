@@ -2,6 +2,8 @@
 React = require 'react'
 $ = React.DOM
 
+store = require '../store'
+
 module.exports = React.createClass
   displayName: 'Line'
 
@@ -9,7 +11,8 @@ module.exports = React.createClass
     event.preventDefault()
 
   onDrop: (event) ->
-    store.dropTo @props.data
+    dragId = event.dataTransfer.getData('text')
+    store.dropTo dragId, @props.type, @props.from.id, @props.to.id
 
   render: ->
     x1 = @props.from.position.x
