@@ -16,13 +16,16 @@ body * {
     height: 100%;
 }
 
-svg line {
-    stroke: rgb(137, 98, 253);
-    stroke-width: 4px;
+.line {
+    position: absolute;
+    background-color: rgb(137, 98, 253);
+    height: 4px;
+    transform-origin: left center;
+    transition-duration: 400ms;
 }
 
-svg line.is-parent {
-    stroke: rgb(255, 132, 132);
+.line.is-parent {
+    background-color: rgb(255, 132, 132);
 }
 
 .token {
@@ -33,6 +36,9 @@ svg line.is-parent {
     padding: 4px 8px;
     transition-duration: 400ms;
     background-color: rgba(232, 232, 232, 0.8);
+    outline: none;
+    font-size: 11px;
+    border-radius: 10px;
 }
 
 .button {

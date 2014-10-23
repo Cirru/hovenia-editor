@@ -16,3 +16,9 @@ exports.byBrother = (list, id) ->
   for item in list
     if item.brother is id
       return item
+
+exports.byKey = (a, b) ->
+  switch a.key < b.key
+    when yes then -1
+    when no then 1
+    else 0

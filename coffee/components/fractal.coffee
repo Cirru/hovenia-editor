@@ -7,7 +7,7 @@ v0 = x: 100, y: 100
 p0 = x: (innerWidth / 2), y: (innerHeight / 2)
 
 store = require '../store'
-{byId, byParent, byBrother} = require '../algorithm/by'
+{byId, byParent, byBrother, byKey} = require '../algorithm/by'
 {add, minus, inverse} = require '../algorithm/math'
 Line = require './line'
 Node = require './node'
@@ -97,20 +97,22 @@ module.exports = React.createClass
     .map (node) ->
       key: node.data.id
       component: Node key: node.data.id, data: node.data, position: node.position
-    .sort (a, b) ->
-      switch a.key < b.key
-        when yes then -1
-        when no then 1
-        else 0
+    .sort byKey
     .map (wrap) ->
       wrap.component
 
-    lineComponents = lines.map (line) ->
-      Line
-        key: "#{line.from.id}-#{line.to.id}"
+    lineComponents = lines
+    .map (line) ->
+      key = "#{line.from.id}-#{line.to.id}"
+      key: key
+      component: Line
+        key: key
         from: line.from
         type: line.type
         to: line.to
+    .sort byKey
+    .map (wrap) ->
+      wrap.component
 
     $.div
       className: 'fractal'
@@ -122,8 +124,5 @@ module.exports = React.createClass
             $.div className: 'button', onClick: @createYounger, 'younger'
         unless focus.id is 'root'
           $.div className: 'button', onClick: @delete, 'delete'
-      $.svg
-        width: innerWidth
-        height: innerHeight
-        lineComponents
+      lineComponents
       nodeComponents
