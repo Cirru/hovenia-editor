@@ -6,4 +6,10 @@ module.exports = React.createClass
   displayName: 'Token'
 
   render: ->
-    $.div {}, 'token'
+    $.div
+      contentEditable: true
+      className: 'token'
+      style:
+        left: @props.position.x
+        top: @props.position.y
+      @props.data.text

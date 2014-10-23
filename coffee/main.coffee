@@ -9,6 +9,6 @@ store.emit = ->
   component = Fractal
     data: store.getData()
     caret: store.getCaret()
-  React.renderComponent Fractal(), document.body
+  React.renderComponent component, document.body
 
 store.emit()
