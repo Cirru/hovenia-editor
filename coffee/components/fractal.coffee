@@ -3,12 +3,12 @@ React = require 'react'
 layout = require '../algorithm/layout'
 
 $ =  React.DOM
-v0 = x: 80, y: 60
+v0 = x: 100, y: 100
 p0 = x: (innerWidth / 2), y: (innerHeight / 2)
 
 store = require '../store'
 {byId, byParent, byBrother} = require '../algorithm/by'
-{minus, inverse} = require '../algorithm/math'
+{add, minus, inverse} = require '../algorithm/math'
 Line = require './line'
 Node = require './node'
 
@@ -36,7 +36,7 @@ module.exports = React.createClass
     drawDown = (from, position, vector, distance) =>
       child = byParent @props.data, from.id
       if child?
-        dest = layout.getChild position, vector
+        dest = layout.downRight position, vector
         unless child.id in idMemory
           idMemory.push child.id
           nodes.push position: dest, data: child
@@ -44,11 +44,11 @@ module.exports = React.createClass
             type: 'parent'
             from: {position: dest, id: child.id}
             to: {position: position, id: from.id}
-          vector = minus dest, position
-          drawDown child, dest, vector, (distance + 1)
+          newVector = minus dest, position
+          drawDown child, dest, newVector, (distance + 1)
       younger = byBrother @props.data, from.id
       if younger?
-        dest = layout.getYounger position, vector
+        dest = layout.downLeft position, vector
         unless younger.id in idMemory
           idMemory.push younger.id
           nodes.push position: dest, data: younger
@@ -56,42 +56,54 @@ module.exports = React.createClass
             type: 'brother'
             from: {position: dest, id: younger.id}
             to: {position: position, id: from.id}
-          vector = minus dest, position
-          drawDown younger, dest, vector, (distance + 1)
+          newVector = minus dest, position
+          drawDown younger, dest, newVector, (distance + 1)
 
     drawUp = (from, position, vector, distance) =>
+      shifted = add position, vector
       if from.parent?
         parent = byId @props.data, from.parent
         unless parent.id in idMemory
-          dest = layout.getParent position, vector
+          dest = layout.rightUp shifted, vector
           idMemory.push parent.id
-          nodes.push position: dest, data: parent
+          nodes.push position: shifted, data: parent
           lines.push
             type: 'parent'
             from: {position: position, id: from.id}
-            to: {position: dest, id: parent.id}
-          vector = minus dest, position
-          drawUp parent, dest, vector, (distance + 1)
+            to: {position: shifted, id: parent.id}
+          newVector = minus dest, shifted
+          drawUp parent, shifted, newVector, (distance + 1)
           drawDown from, position, (inverse vector), distance
       else if from.brother?
         older = byId @props.data, from.brother
         unless older.id in idMemory
-          dest = layout.getOlder position, vector
+          dest = layout.leftUp shifted, vector
           idMemory.push older.id
-          nodes.push position: dest, data: older
+          nodes.push position: shifted, data: older
           lines.push
             type: 'brother'
             from: {position: position, id: from.id}
-            to: {position: dest, id: older.id}
-          vector = minus dest, position
-          drawUp older, dest, vector, (distance + 1)
+            to: {position: shifted, id: older.id}
+          newVector = minus dest, shifted
+          drawUp older, shifted, newVector, (distance + 1)
           drawDown from, position, (inverse vector), distance
 
-    drawDown focus, p0, v0, 1
-    drawUp focus, p0, (inverse v0), 1
+    if focus.id is 'root'
+      drawDown focus, p0, v0, 1
+    else
+      drawUp focus, p0, (inverse v0), 1
 
-    nodeComponents = nodes.map (node) ->
-      Node key: node.data.id, data: node.data, position: node.position
+    nodeComponents = nodes
+    .map (node) ->
+      key: node.data.id
+      component: Node key: node.data.id, data: node.data, position: node.position
+    .sort (a, b) ->
+      switch a.key < b.key
+        when yes then -1
+        when no then 1
+        else 0
+    .map (wrap) ->
+      wrap.component
 
     lineComponents = lines.map (line) ->
       Line

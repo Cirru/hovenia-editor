@@ -1,14 +1,22 @@
 
 {add, multiply} = require './math'
 
-exports.getChild = (position, vector) ->
-  add position, (multiply vector, x: 0.8, y: -0.6)
+gen = (theta, rate) ->
+  x: rate * Math.cos(theta / 180 * Math.PI)
+  y: rate * Math.sin(theta / 180 * Math.PI)
 
-exports.getYounger = (position, vector) ->
-  add position, (multiply vector, x: 0.8, y: 0.6)
+exports.downLeft = (position, vector) ->
+  factor = gen 60, 0.8
+  add position, (multiply vector, factor)
 
-exports.getParent = (position, vector) ->
-  add position, (multiply vector, x: 0.8, y: 0.6)
+exports.downRight = (position, vector) ->
+  factor = gen -60, 0.8
+  add position, (multiply vector, factor)
 
-exports.getOlder = (position, vector) ->
-  add position, (multiply vector, x: 0.8, y: -0.6)
+exports.leftUp = (position, vector) ->
+  factor = gen -60, 1/0.8
+  add position, (multiply vector, factor)
+
+exports.rightUp = (position, vector) ->
+  factor = gen 60, 1/0.8
+  add position, (multiply vector, factor)
