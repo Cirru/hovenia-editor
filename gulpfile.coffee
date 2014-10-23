@@ -142,7 +142,7 @@ gulp.task 'rsync', ->
     src: '.'
     recursive: true
     args: ['--verbose']
-    dest: "tiye:~/repo/noisy-chat"
+    dest: "tiye:~/repo/cirru/fractal-editor"
     deleteAll: yes
     exclude: [
       'bower_components/'

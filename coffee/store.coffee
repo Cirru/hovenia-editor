@@ -3,12 +3,14 @@ shortid = require 'shortid'
 
 {byId, byParent, byBrother} = require './algorithm/by'
 
+gc = require './algorithm/gc'
+
 rawData = localStorage.getItem('fractal-editor') or '[]'
 store = JSON.parse rawData
 caret = 'root'
 
 window.onbeforeunload = ->
-  rawData = JSON.stringify store
+  rawData = JSON.stringify (gc store)
   localStorage.setItem 'fractal-editor', rawData
 
 unless store.length
