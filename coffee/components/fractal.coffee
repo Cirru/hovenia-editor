@@ -101,6 +101,8 @@ module.exports = React.createClass
     .map (wrap) ->
       wrap.component
 
+    console.log lines
+
     lineComponents = lines
     .map (line) ->
       key = "#{line.from.id}-#{line.to.id}"
@@ -116,6 +118,9 @@ module.exports = React.createClass
 
     $.div
       className: 'fractal'
+      $.svg width: innerWidth, height: innerHeight,
+        lineComponents
+      nodeComponents
       $.div className: 'controls',
         unless byParent(@props.data, focus.id)?
           $.div className: 'button', onClick: @createChild, 'child'
@@ -124,5 +129,3 @@ module.exports = React.createClass
             $.div className: 'button', onClick: @createYounger, 'younger'
         unless focus.id is 'root'
           $.div className: 'button', onClick: @delete, 'delete'
-      lineComponents
-      nodeComponents

@@ -10,6 +10,10 @@ body * {
   box-shadow: 0 0 1px black;
 }
 
+svg {
+    position: absolute;
+}
+
 .fractal {
     position: absolute;
     width: 100%;
@@ -17,15 +21,12 @@ body * {
 }
 
 .line {
-    position: absolute;
-    background-color: rgb(137, 98, 253);
-    height: 4px;
-    transform-origin: left center;
-    transition-duration: 400ms;
+    stroke: rgb(137, 98, 253);
+    stroke-width: 4;
 }
 
 .line.is-parent {
-    background-color: rgb(255, 132, 132);
+    stroke: rgb(255, 132, 132);
 }
 
 .token {
@@ -34,6 +35,7 @@ body * {
     text-align: center;
     padding: 4px 8px;
     transition-duration: 400ms;
+    transition-timing-function: linear;
     background-color: rgba(232, 232, 232, 0.8);
     outline: none;
     font-size: 11px;

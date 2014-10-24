@@ -5,6 +5,7 @@ dev = yes
 libraries = [
   'react'
   'shortid'
+  'react-tween-state'
 ]
 
 gulp.task 'folder', ->

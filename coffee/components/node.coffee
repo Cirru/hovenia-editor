@@ -15,6 +15,9 @@ module.exports = React.createClass
 
   componentDidMount: ->
     @adjustMargin()
+    el = @refs.node.getDOMNode()
+    if el.innerText is ''
+      el.focus()
 
   onKeyUp: (event) ->
     text = event.target.innerText

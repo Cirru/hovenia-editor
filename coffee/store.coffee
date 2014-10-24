@@ -32,6 +32,7 @@ exports.createChild = ->
     parent: caret
     brother: null
   store.push node
+  caret = node.id
   @emit()
 
 exports.createYounger = ->
@@ -41,6 +42,7 @@ exports.createYounger = ->
     parent: null
     brother: caret
   store.push node
+  caret = node.id
   @emit()
 
 exports.delete = ->
