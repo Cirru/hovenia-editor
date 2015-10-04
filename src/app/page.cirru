@@ -5,7 +5,6 @@ var
 
 var
   data $ require :../../data/demo.json
-  stencil $ require :../config/stencil
 
 var
   Fractal $ React.createFactory $ require :./fractal

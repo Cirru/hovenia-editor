@@ -29,6 +29,7 @@ var
         :fill $ ... (Color) (hsl 180 40 70) (hslString)
         :onClick @onClick
         :style (@styleRoot)
+        :draggable true
 
   :styleRoot $ \ ()
     {}

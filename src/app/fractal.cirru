@@ -7,7 +7,6 @@ var
 var
   math $ require :../util/math
   layout $ require :../util/layout
-  stencil $ require :../config/stencil
 
 var
   Node $ React.createFactory $ require :./node
@@ -29,11 +28,33 @@ var
       :baseX $ / window.innerWidth 2
       :baseY $ + (/ window.innerHeight 2) 0
 
+  :getInitialState $ \ ()
+    {}
+      :stencilTop $ {} (:x -24) (:y -50)
+      :stencilDown $ {} (:x 0) (:y 42)
+      :stencilRight $ {} (:x 30) (:y -5)
+
+  :getStencil $ \ ()
+    {}
+      :top @state.stencilTop
+      :down @state.stencilDown
+      :right @state.stencilRight
+      :zero $ {} (:x 0) (:y 0)
+
   :onCoordClick $ \ (coord)
     @props.onCoordClick coord
 
+  :onMouseMove $ \ (event)
+    var
+      target event.currentTarget
+      x $ - event.clientX target.offsetLeft (/ target.clientWidth 2)
+      y $ - event.clientY target.offsetTop (/ target.clientHeight 2)
+
+    console.log x y event.shiftKey event.nativeEvent
+
   :render $ \ ()
     var
+      stencil (@getStencil)
       path $ layout.expandCoord @props.coord
       originPoint $ layout.findOriginPoint path stencil
       originVector $ layout.findOriginVector path stencil
