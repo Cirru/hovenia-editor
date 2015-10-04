@@ -18,10 +18,13 @@ var checked $ \ (f)
     :x $ + p1.x p2.x
     :y $ + p1.y p2.y
 
-= exports.minus $ \ (p1 p2)
+= exports.inverse $ \ (p1)
   {}
-    :x $ - p1.x p2.x
-    :y $ - p1.y p2.y
+    :x $ - 0 p1.x
+    :y $ - 0 p1.y
+
+= exports.minus $ \ (p1 p2)
+  exports.add p1 $ exports.inverse p2
 
 = exports.multiply $ \ (p1 p2)
   {}

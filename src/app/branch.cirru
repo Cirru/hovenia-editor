@@ -8,7 +8,7 @@ var
   math $ require :../util/math
 
 var
-  ({}~ circle g line) React.DOM
+  ({}~ circle) React.DOM
 
 = module.exports $ React.createClass $ {}
   :displayName :app-branch
@@ -17,22 +17,19 @@ var
     :point React.PropTypes.object.isRequired
     :vector React.PropTypes.object.isRequired
     :isFocused React.PropTypes.bool.isRequired
+    :currentCoord React.PropTypes.array.isRequired
+    :onClick React.PropTypes.func.isRequired
+
+  :onClick $ \ ()
+    @props.onClick @props.currentCoord
 
   :render $ \ ()
-    var
-      from $ math.minus @props.point @props.vector
-    g ({})
-      line $ {}
-        :x1 from.x
-        :y1 from.y
-        :x2 @props.point.x
-        :y2 @props.point.y
-        :style (@styleLine)
-      circle
-        {} (:cx @props.point.x) (:cy @props.point.y) (:r 10)
-          :fill $ ... (Color) (hsl 200 40 50) (hslString)
+    circle
+      {} (:cx @props.point.x) (:cy @props.point.y) (:r 6)
+        :fill $ ... (Color) (hsl 180 40 70) (hslString)
+        :onClick @onClick
+        :style (@styleRoot)
 
-  :styleLine $ \ ()
+  :styleRoot $ \ ()
     {}
-      :stroke $ ... (Color) (hsl 0 20 20) (hslString)
-      :strokeWidth 2
+      :cursor :pointer

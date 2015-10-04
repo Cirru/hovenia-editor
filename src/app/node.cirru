@@ -1,6 +1,7 @@
 
 var
   React $ require :react
+  Color $ require :color
   Immutable $ require :immutable
 
 var
@@ -12,7 +13,12 @@ var
   Branch $ React.createFactory $ require :./branch
 
 var
-  ({}~ g) React.DOM
+  ({}~ g line) React.DOM
+
+var isValidPath $ \ (path)
+  or
+    is (path.get 0) undefined
+    is (path.get 0) false
 
 = module.exports $ React.createClass $ {}
   :displayName :app-node
@@ -26,44 +32,87 @@ var
     :rightFactor React.PropTypes.object.isRequired
     :path $ . (React.PropTypes.instanceOf Immutable.List) :isRequired
 
+  :onCoordClick $ \ (coord)
+    @props.onCoordClick coord
+
   :render $ \ ()
     var
       downPath $ @props.path.push true
       rightPath $ @props.path.push false
       downCoord $ layout.toCoord downPath
       rightCoord $ layout.toCoord rightPath
-      downNode $ @props.tree.getIn (downCoord.toJS)
-      rightNode $ @props.tree.getIn (rightCoord.toJS)
+      downNode $ @props.tree.getIn downCoord
+      rightNode $ @props.tree.getIn rightCoord
       downVector $ math.multiply @props.downFactor @props.vector
       rightVector $ math.multiply @props.rightFactor @props.vector
+      downPoint $ math.add @props.point downVector
+      rightPoint $ math.add @props.point rightVector
     var
       currentCoord $ layout.toCoord @props.path
-      currentNode $ @props.tree.getIn (currentCoord.toJS)
+      currentNode $ @props.tree.getIn currentCoord
+
+    console.log (@props.path.toJS) currentCoord
 
     g ({})
-      cond (? downNode)
+      cond
+        and (? downNode) (isValidPath downPath)
+        line $ {}
+          :x1 @props.point.x
+          :y1 @props.point.y
+          :x2 downPoint.x
+          :y2 downPoint.y
+          :style (@styleDownLine)
+        , undefined
+      cond
+        and (? rightNode) (isValidPath rightPath)
+        line $ {}
+          :x1 @props.point.x
+          :y1 @props.point.y
+          :x2 rightPoint.x
+          :y2 rightPoint.y
+          :style (@styleRightLine)
+        , undefined
+      cond
+        and (? downNode) (isValidPath downPath)
         React.createElement module.exports $ {}
-          :point $ math.add @props.point downVector
+          :point downPoint
           :vector downVector
           :tree @props.tree
           :coord @props.coord
           :downFactor @props.downFactor
           :rightFactor @props.rightFactor
           :path downPath
+          :onCoordClick @onCoordClick
         , undefined
-      cond (? rightNode)
+      cond
+        and (? rightNode) (isValidPath rightPath)
         React.createElement module.exports $ {}
-          :point $ math.add @props.point rightVector
+          :point rightPoint
           :vector rightVector
           :tree @props.tree
           :coord @props.coord
           :downFactor @props.downFactor
           :rightFactor @props.rightFactor
           :path rightPath
+          :onCoordClick @onCoordClick
         , undefined
       case (typeof currentNode)
         :string $ Leaf $ {} (:point @props.point) (:isFocused false)
           :text currentNode
           :vector @props.vector
+          :onClick @onCoordClick
+          :currentCoord currentCoord
         :object $ Branch $ {} (:point @props.point) (:isFocused false)
           :vector @props.vector
+          :onClick @onCoordClick
+          :currentCoord currentCoord
+
+  :styleDownLine $ \ ()
+    {}
+      :stroke $ ... (Color) (hsl 120 20 30 0.7) (hslString)
+      :strokeWidth 2
+
+  :styleRightLine $ \ ()
+    {}
+      :stroke $ ... (Color) (hsl 120 50 70) (hslString)
+      :strokeWidth 2

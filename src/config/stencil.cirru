@@ -1,6 +1,6 @@
 
 = exports.top $ {}
-  :x -20
+  :x -30
   :y -40
 
 = exports.zero $ {}
@@ -9,8 +9,8 @@
 
 = exports.down $ {}
   :x 0
-  :y 32
+  :y 42
 
 = exports.right $ {}
-  :x 30
-  :y -10
+  :x 34
+  :y -5

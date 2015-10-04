@@ -18,11 +18,15 @@ var
 
   :getInitialState $ \ ()
     {}
-      :coord $ []
+      :coord $ [] 0
       :tree $ Immutable.fromJS data
+
+  :onCoordClick $ \ (coord)
+    @setState $ {} (:coord coord)
 
   :render $ \ ()
     div ({})
       Fractal $ {}
         :tree @state.tree
         :coord @state.coord
+        :onCoordClick @onCoordClick

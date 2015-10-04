@@ -8,7 +8,7 @@ var
   math $ require :../util/math
 
 var
-  ({}~ input line g) React.DOM
+  ({}~ input) React.DOM
   foreignObject $ React.createFactory :foreignObject
 
 = module.exports $ React.createClass $ {}
@@ -18,31 +18,28 @@ var
     :point React.PropTypes.object.isRequired
     :vector React.PropTypes.object.isRequired
     :text React.PropTypes.string.isRequired
+    :currentCoord React.PropTypes.array.isRequired
     :isFocused React.PropTypes.bool.isRequired
+    :onClick React.PropTypes.func.isRequired
 
   :onChange $ \ (event)
     console.log :onChange event.target.value
 
+  :onClick $ \ (event)
+    @props.onClick @props.currentCoord
+
   :render $ \ ()
-    var
-      from $ math.minus @props.point @props.vector
-    g ({})
-      line $ {}
-        :x1 from.x
-        :y1 from.y
-        :x2 @props.point.x
-        :y2 @props.point.y
-        :style (@styleLine)
-      foreignObject
-        {}
-          :y @props.point.y
-          :x @props.point.x
-          :width :200px
-          :height :30px
-        input $ {}
-          :value @props.text
-          :style (@styleInput)
-          :onChange @onChange
+    foreignObject
+      {}
+        :y @props.point.y
+        :x @props.point.x
+        :width :200px
+        :height :30px
+      input $ {}
+        :value @props.text
+        :style (@styleInput)
+        :onChange @onChange
+        :onClick @onClick
 
   :styleInput $ \ ()
     {}
@@ -51,8 +48,3 @@ var
       :outline :none
       :border :none
       :width :60px
-
-  :styleLine $ \ ()
-    {}
-      :stroke $ ... (Color) (hsl 120 20 30 0.7) (hslString)
-      :strokeWidth 2

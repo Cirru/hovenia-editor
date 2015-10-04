@@ -29,6 +29,9 @@ var
       :baseX $ / window.innerWidth 2
       :baseY $ + (/ window.innerHeight 2) 100
 
+  :onCoordClick $ \ (coord)
+    @props.onCoordClick coord
+
   :render $ \ ()
     var
       path $ layout.expandCoord @props.coord
@@ -38,17 +41,22 @@ var
       downFactor $ math.divide stencil.down reverseTop
       rightFactor $ math.divide stencil.right reverseTop
 
+    console.log :path (path.toJS)
+    console.log :originPoint originPoint
+    console.log :originVector originVector
+
     svg ({} (:style $ @styleRoot))
       Node $ {}
         :point $ math.add originPoint $ {}
           :x @props.baseX
           :y @props.baseY
-        :vector originVector
+        :vector $ math.minus stencil.zero originVector
         :tree @props.tree
         :coord @props.coord
         :downFactor downFactor
         :rightFactor rightFactor
         :path (Immutable.List)
+        :onCoordClick @onCoordClick
 
   :styleRoot $ \ ()
     {}
