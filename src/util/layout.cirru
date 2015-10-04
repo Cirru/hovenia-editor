@@ -32,6 +32,7 @@ var toCoordHelper $ \ (result count path)
     reverseRight $ math.inverse stencil.right
     reverseDownFactor $ math.divide stencil.top reverseDown
     reverseRightFactor $ math.divide stencil.top reverseRight
+
   var
     helper $ \ (result nodePath vector)
       cond (is nodePath.size 0) result
@@ -41,10 +42,10 @@ var toCoordHelper $ \ (result count path)
             , vector
           \ (newVector)
             helper
-              math.add result newVector
+              math.add result vector
               nodePath.butLast
               , newVector
-  helper stencil.zero (path.push true) reverseDown
+  helper stencil.zero path stencil.top
 
 = exports.findOriginVector $ \ (path stencil)
   var
@@ -55,11 +56,10 @@ var toCoordHelper $ \ (result count path)
   var
     helper $ \ (nodePath vector)
       cond (is nodePath.size 0) vector
-        bind (nodePath.last) $ \ (cursor)
-          bind
-            math.multiply
-              cond cursor reverseDownFactor reverseRightFactor
-              , vector
-            \ (newVector)
-              helper (nodePath.butLast) newVector
-  math.inverse $ helper path reverseDown
+        bind
+          math.multiply
+            cond (nodePath.last) reverseDownFactor reverseRightFactor
+            , vector
+          \ (newVector)
+            helper (nodePath.butLast) newVector
+  math.inverse $ helper path stencil.top

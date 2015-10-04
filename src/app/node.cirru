@@ -51,8 +51,6 @@ var isValidPath $ \ (path)
       currentCoord $ layout.toCoord @props.path
       currentNode $ @props.tree.getIn currentCoord
 
-    console.log (@props.path.toJS) currentCoord
-
     g ({})
       cond
         and (? downNode) (isValidPath downPath)

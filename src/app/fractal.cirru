@@ -27,7 +27,7 @@ var
   :getDefaultProps $ \ ()
     {}
       :baseX $ / window.innerWidth 2
-      :baseY $ + (/ window.innerHeight 2) 100
+      :baseY $ + (/ window.innerHeight 2) 0
 
   :onCoordClick $ \ (coord)
     @props.onCoordClick coord
@@ -41,16 +41,12 @@ var
       downFactor $ math.divide stencil.down reverseTop
       rightFactor $ math.divide stencil.right reverseTop
 
-    console.log :path (path.toJS)
-    console.log :originPoint originPoint
-    console.log :originVector originVector
-
     svg ({} (:style $ @styleRoot))
       Node $ {}
         :point $ math.add originPoint $ {}
           :x @props.baseX
           :y @props.baseY
-        :vector $ math.minus stencil.zero originVector
+        :vector originVector
         :tree @props.tree
         :coord @props.coord
         :downFactor downFactor
