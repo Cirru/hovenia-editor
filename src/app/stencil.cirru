@@ -54,7 +54,7 @@ var
     @setState $ {} (:pointer :right)
 
   :onKeyDown $ \ (event)
-    var step $ cond event.shiftKey 10 1
+    var step $ cond event.shiftKey 14 1
     switch (keycode event.keyCode)
       :up $ @movePoint $ {} (:x 0) (:y $ - 0 step)
       :down $ @movePoint $ {} (:x 0) (:y step)
@@ -68,8 +68,8 @@ var
       top @props.top
       down @props.down
       right @props.right
-      shiftX $ - @props.base.x 10
-      shiftY $ - @props.base.y 10
+      shiftX $ - @props.base.x 8
+      shiftY $ - @props.base.y 4
     g ({})
       circle $ {}
         :cx $ + zero.x shiftX

@@ -13,7 +13,7 @@ var
   Branch $ React.createFactory $ require :./branch
 
 var
-  ({}~ g line) React.DOM
+  ({}~ g line circle) React.DOM
 
 var isValidPath $ \ (path)
   or
@@ -33,7 +33,12 @@ var isValidPath $ \ (path)
     :path $ . (React.PropTypes.instanceOf Immutable.List) :isRequired
 
   :onCoordClick $ \ (coord)
+    console.log coord
     @props.onCoordClick coord
+
+  :onFoldingClick $ \ ()
+    console.log $ layout.toCoord @props.path
+    @props.onCoordClick $ layout.toCoord @props.path
 
   :render $ \ ()
     var
@@ -50,6 +55,18 @@ var isValidPath $ \ (path)
     var
       currentCoord $ layout.toCoord @props.path
       currentNode $ @props.tree.getIn currentCoord
+
+    var
+      currentPath $ layout.expandCoord @props.coord
+      sizeDiff $ - @props.path.size currentPath.size
+
+    if (> sizeDiff 7) $ do
+      return $ circle $ {}
+        :cx @props.point.x
+        :cy @props.point.y
+        :r 7
+        :style (@styleFolding)
+        :onClick @onFoldingClick
 
     g ({})
       cond
@@ -114,3 +131,8 @@ var isValidPath $ \ (path)
     {}
       :stroke $ ... (Color) (hsl 120 50 70) (hslString)
       :strokeWidth 2
+
+  :styleFolding $ \ ()
+    {}
+      :fill $ ... (Color) (hsl 240 80 40 0.9) (hslString)
+      :cursor :pointer

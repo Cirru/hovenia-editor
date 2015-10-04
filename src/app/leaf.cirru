@@ -35,11 +35,16 @@ var
         :x $ - @props.point.x 10
         :width :200px
         :height :30px
+        :style (@styleRoot)
       input $ {}
         :value @props.text
         :style (@styleInput @props.text)
         :onChange @onChange
         :onClick @onClick
+
+  :styleRoot $ \ ()
+    {}
+      :transitionDuration :400ms
 
   :styleInput $ \ (text)
     {}
