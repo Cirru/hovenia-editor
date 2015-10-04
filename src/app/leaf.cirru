@@ -31,20 +31,21 @@ var
   :render $ \ ()
     foreignObject
       {}
-        :y @props.point.y
-        :x @props.point.x
+        :y $ - @props.point.y 5
+        :x $ - @props.point.x 10
         :width :200px
         :height :30px
       input $ {}
         :value @props.text
-        :style (@styleInput)
+        :style (@styleInput @props.text)
         :onChange @onChange
         :onClick @onClick
 
-  :styleInput $ \ ()
+  :styleInput $ \ (text)
     {}
       :fontSize 14
+      :fontFamily ":Menlo, Consolas, monospace"
       :backgroundColor $ ... (Color) (hsl 120 40 70 0.5) (hslString)
       :outline :none
       :border :none
-      :width :60px
+      :width $ * text.length 10

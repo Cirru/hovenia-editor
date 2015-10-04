@@ -10,6 +10,7 @@ var
 
 var
   Node $ React.createFactory $ require :./node
+  Stencil $ React.createFactory $ require :./stencil
 
 var
   ({}~ svg) React.DOM
@@ -18,21 +19,17 @@ var
   :displayName :app-fractal
 
   :propTypes $ {}
-    :baseX React.PropTypes.number
-    :baseY React.PropTypes.number
     :coord React.PropTypes.array.isRequired
     :tree $ . (React.PropTypes.instanceOf Immutable.List) :isRequired
 
-  :getDefaultProps $ \ ()
-    {}
-      :baseX $ / window.innerWidth 2
-      :baseY $ + (/ window.innerHeight 2) 0
-
   :getInitialState $ \ ()
     {}
-      :stencilTop $ {} (:x -24) (:y -50)
-      :stencilDown $ {} (:x 0) (:y 42)
-      :stencilRight $ {} (:x 30) (:y -5)
+      :stencilBase $ {}
+        :x 500
+        :y 200
+      :stencilTop $ {} (:x -25) (:y -52)
+      :stencilDown $ {} (:x -5) (:y 60)
+      :stencilRight $ {} (:x 54) (:y 10)
 
   :getStencil $ \ ()
     {}
@@ -44,13 +41,8 @@ var
   :onCoordClick $ \ (coord)
     @props.onCoordClick coord
 
-  :onMouseMove $ \ (event)
-    var
-      target event.currentTarget
-      x $ - event.clientX target.offsetLeft (/ target.clientWidth 2)
-      y $ - event.clientY target.offsetTop (/ target.clientHeight 2)
-
-    console.log x y event.shiftKey event.nativeEvent
+  :onStencilChange $ \ (data)
+    @setState data
 
   :render $ \ ()
     var
@@ -65,8 +57,8 @@ var
     svg ({} (:style $ @styleRoot))
       Node $ {}
         :point $ math.add originPoint $ {}
-          :x @props.baseX
-          :y @props.baseY
+          :x @state.stencilBase.x
+          :y @state.stencilBase.y
         :vector originVector
         :tree @props.tree
         :coord @props.coord
@@ -74,6 +66,12 @@ var
         :rightFactor rightFactor
         :path (Immutable.List)
         :onCoordClick @onCoordClick
+      Stencil $ {}
+        :base @state.stencilBase
+        :top @state.stencilTop
+        :down @state.stencilDown
+        :right @state.stencilRight
+        :onChange @onStencilChange
 
   :styleRoot $ \ ()
     {}

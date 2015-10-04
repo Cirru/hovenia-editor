@@ -4,7 +4,7 @@ var
   Immutable $ require :immutable
 
 var
-  data $ require :../../data/demo.json
+  data $ require :../../data/updater.json
 
 var
   Fractal $ React.createFactory $ require :./fractal

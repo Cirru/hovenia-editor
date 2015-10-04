@@ -107,7 +107,7 @@ var isValidPath $ \ (path)
 
   :styleDownLine $ \ ()
     {}
-      :stroke $ ... (Color) (hsl 120 20 30 0.7) (hslString)
+      :stroke $ ... (Color) (hsl 120 20 60 0.1) (hslString)
       :strokeWidth 2
 
   :styleRightLine $ \ ()
