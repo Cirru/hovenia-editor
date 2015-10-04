@@ -33,11 +33,9 @@ var isValidPath $ \ (path)
     :path $ . (React.PropTypes.instanceOf Immutable.List) :isRequired
 
   :onCoordClick $ \ (coord)
-    console.log coord
     @props.onCoordClick coord
 
   :onFoldingClick $ \ ()
-    console.log $ layout.toCoord @props.path
     @props.onCoordClick $ layout.toCoord @props.path
 
   :render $ \ ()

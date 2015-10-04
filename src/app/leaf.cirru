@@ -6,6 +6,7 @@ var
 
 var
   math $ require :../util/math
+  measure $ require :../util/measure
 
 var
   ({}~ input) React.DOM
@@ -50,7 +51,12 @@ var
     {}
       :fontSize 14
       :fontFamily ":Menlo, Consolas, monospace"
-      :backgroundColor $ ... (Color) (hsl 120 40 70 0.5) (hslString)
+      :color :white
+      :backgroundColor $ ... (Color) (hsl 240 80 50 0.5) (hslString)
       :outline :none
       :border :none
-      :width $ * text.length 10
+      :padding ":0px 6px"
+      :borderRadius :6px
+      :width $ +
+        measure.textWidth text ":14px Menlo, Consolas, monospace"
+        , 2
