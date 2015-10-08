@@ -1,6 +1,6 @@
 
 var
-  React $ require :react
+  React $ require :react/addons
   Color $ require :color
   Immutable $ require :immutable
 
@@ -14,6 +14,7 @@ var
 
 = module.exports $ React.createClass $ {}
   :displayName :app-leaf
+  :mixins $ [] React.addons.PureRenderMixin
 
   :propTypes $ {}
     :point React.PropTypes.object.isRequired
@@ -45,7 +46,6 @@ var
 
   :styleRoot $ \ ()
     {}
-      :transitionDuration :400ms
 
   :styleInput $ \ (text)
     {}

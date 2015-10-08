@@ -27,6 +27,9 @@ var
   :plugins $ []
     new webpack.optimize.CommonsChunkPlugin :vendor :vendor.[chunkhash:8].js
     new ExtractTextPlugin :style.[chunkhash:8].css
+    new webpack.DefinePlugin $ {}
+      :process.env $ {}
+        :NODE_ENV $ JSON.stringify :production
     new webpack.optimize.UglifyJsPlugin $ {} (:sourceMap false)
     \ ()
       this.plugin :done $ \ (stats)

@@ -62,7 +62,7 @@ var isValidPath $ \ (path)
       return $ circle $ {}
         :cx @props.point.x
         :cy @props.point.y
-        :r 7
+        :r 8
         :style (@styleFolding)
         :onClick @onFoldingClick
 

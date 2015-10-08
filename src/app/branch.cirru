@@ -1,6 +1,6 @@
 
 var
-  React $ require :react
+  React $ require :react/addons
   Color $ require :color
   Immutable $ require :immutable
 
@@ -12,6 +12,7 @@ var
 
 = module.exports $ React.createClass $ {}
   :displayName :app-branch
+  :mixins $ [] React.addons.PureRenderMixin
 
   :propTypes $ {}
     :point React.PropTypes.object.isRequired
@@ -25,7 +26,7 @@ var
 
   :render $ \ ()
     circle
-      {} (:cx @props.point.x) (:cy @props.point.y) (:r 6)
+      {} (:cx @props.point.x) (:cy @props.point.y) (:r 8)
         :fill $ ... (Color) (hsl 180 40 70) (hslString)
         :onClick @onClick
         :style (@styleRoot)

@@ -11,9 +11,10 @@ var
 var
   Node $ React.createFactory $ require :./node
   Stencil $ React.createFactory $ require :./stencil
+  foreignObject $ React.createFactory :foreignObject
 
 var
-  ({}~ svg) React.DOM
+  ({}~ div svg rect text) React.DOM
 
 = module.exports $ React.createClass $ {}
   :displayName :app-fractal
@@ -24,6 +25,7 @@ var
 
   :getInitialState $ \ ()
     {}
+      :showStencil true
       :stencilBase $ {}
         :x 500
         :y 200
@@ -43,6 +45,10 @@ var
 
   :onStencilChange $ \ (data)
     @setState data
+
+  :onStencilToggle $ \ ()
+    @setState $ {}
+      :showStencil $ not @state.showStencil
 
   :render $ \ ()
     var
@@ -66,12 +72,23 @@ var
         :rightFactor rightFactor
         :path (Immutable.List)
         :onCoordClick @onCoordClick
-      Stencil $ {}
+      cond @state.showStencil $ Stencil $ {}
         :base @state.stencilBase
         :top @state.stencilTop
         :down @state.stencilDown
         :right @state.stencilRight
         :onChange @onStencilChange
+      foreignObject
+        {}
+          :x $ - window.innerWidth 100
+          :y 20
+          :width :100px
+          :height :40px
+        div
+          {} (:style $ @styleButton)
+            :onClick @onStencilToggle
+            :style $ @styleButton @state.showStencil
+          , ":stencil"
 
   :styleRoot $ \ ()
     {}
@@ -79,3 +96,15 @@ var
       :width :100%
       :height :100%
       :background $ ... (Color) (hsl 200 40 80 0.8) (hslString)
+
+  :styleButton $ \ (status)
+    {}
+      :backgroundColor $ cond status
+        ... (Color) (hsl 180 60 50 0.9) (hslString)
+        ... (Color) (hsl 180 60 50 0.6) (hslString)
+      :fontFamily ":Verdana, Helvetica, sans-serif"
+      :fontSize :14px
+      :lineHeight :40px
+      :textAlign :center
+      :cursor :pointer
+      :color :white

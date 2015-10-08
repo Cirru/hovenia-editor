@@ -1,6 +1,6 @@
 
 var
-  React $ require :react
+  React $ require :react/addons
   Color $ require :color
   keycode $ require :keycode
 
@@ -12,6 +12,7 @@ var
 
 = module.exports $ React.createClass $ {}
   :displayName :app-stencil
+  :mixins $ [] React.addons.PureRenderMixin
 
   :propTypes $ {}
     :base React.PropTypes.object.isRequired
@@ -23,44 +24,35 @@ var
   :getInitialState $ \ ()
     {}
       :zero $ {} (:x 0) (:y 0)
-      :pointer :top
 
-  :movePoint $ \ (delta)
-    switch @state.pointer
-      :top
-        @props.onChange $ {}
-          :stencilTop $ math.add @props.top delta
-      :down
-        @props.onChange $ {}
-          :stencilDown $ math.add @props.down delta
-      :right
-        @props.onChange $ {}
-          :stencilRight $ math.add @props.right delta
-      :zero
-        @props.onChange $ {}
-          :stencilBase $ math.add @props.base delta
-    , undefined
+  :onPositionChange $ \ (field event)
+    var
+      touch $ . event.touches 0
+      rootEl (@getDOMNode)
+      positionX $ - touch.pageX rootEl.clientLeft
+      positionY $ - touch.pageY rootEl.clientTop
+      newState ({})
+      point $ {}
+        :x positionX
+        :y positionY
 
-  :onTopClick $ \ ()
-    @setState $ {} (:pointer :top)
+    = (. newState field) $ cond (is field :stencilBase) point
+      math.minus point @props.base
 
-  :onZeroClick $ \ ()
-    @setState $ {} (:pointer :zero)
+    event.preventDefault
+    @props.onChange newState
 
-  :onDownClick $ \ ()
-    @setState $ {} (:pointer :down)
+  :onZeroMove $ \ (event)
+    @onPositionChange :stencilBase event
 
-  :onRightClick $ \ ()
-    @setState $ {} (:pointer :right)
+  :onTopMove $ \ (event)
+    @onPositionChange :stencilTop event
 
-  :onKeyDown $ \ (event)
-    var step $ cond event.shiftKey 14 1
-    switch (keycode event.keyCode)
-      :up $ @movePoint $ {} (:x 0) (:y $ - 0 step)
-      :down $ @movePoint $ {} (:x 0) (:y step)
-      :left $ @movePoint $ {} (:x $ - 0 step) (:y 0)
-      :right $ @movePoint $ {} (:x step) (:y 0)
-    , undefined
+  :onDownMove $ \ (event)
+    @onPositionChange :stencilDown event
+
+  :onRightMove $ \ (event)
+    @onPositionChange :stencilRight event
 
   :render $ \ ()
     var
@@ -68,41 +60,33 @@ var
       top @props.top
       down @props.down
       right @props.right
-      shiftX $ - @props.base.x 8
-      shiftY $ - @props.base.y 4
+      shiftX $ - @props.base.x 0
+      shiftY $ - @props.base.y 0
     g ({})
       circle $ {}
         :cx $ + zero.x shiftX
         :cy $ + zero.y shiftY
-        :r 4
-        :onClick @onZeroClick
+        :r 12
         :style (@styleCircle $ is @state.pointer :zero)
-        :onKeyDown @onKeyDown
-        :tabIndex 1
+        :onTouchMove @onZeroMove
       circle $ {}
         :cx $ + zero.x top.x shiftX
         :cy $ + zero.y top.y shiftY
-        :r 4
-        :onClick @onTopClick
+        :r 12
         :style (@styleCircle $ is @state.pointer :top)
-        :onKeyDown @onKeyDown
-        :tabIndex 1
+        :onTouchMove @onTopMove
       circle $ {}
         :cx $ + zero.x down.x shiftX
         :cy $ + zero.y down.y shiftY
-        :r 4
-        :onClick @onDownClick
+        :r 12
         :style (@styleCircle $ is @state.pointer :down)
-        :onKeyDown @onKeyDown
-        :tabIndex 1
+        :onTouchMove @onDownMove
       circle $ {}
         :cx $ + zero.x right.x shiftX
         :cy $ + zero.y right.y shiftY
-        :r 4
-        :onClick @onRightClick
+        :r 12
         :style (@styleCircle $ is @state.pointer :right)
-        :onKeyDown @onKeyDown
-        :tabIndex 1
+        :onTouchMove @onRightMove
 
   :styleCircle $ \ (isFocus)
     {}
