@@ -1,7 +1,8 @@
 
-/build/
-/lib/
-/node_modules/
-/assets.json
-/index.html
-/data
+/target/
+/dist
+/node_modules
+.cpcache/
+.shadow-cljs/
+
+.nrepl-port

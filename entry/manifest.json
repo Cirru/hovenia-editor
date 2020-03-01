@@ -1,0 +1,15 @@
+{
+  "short_name": "Phlox Workflow",
+  "name": "Phlox Workflow",
+  "icons": [
+    {
+      "src": "http://cdn.tiye.me/logo/mvc-works.png",
+      "sizes": "320x320"
+    }
+  ],
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#eeeeff",
+  "theme_color": "#eeeeff"
+}

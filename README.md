@@ -1,44 +1,12 @@
 
-Workflow based on Webpack & CirruScript
+Tree Layout experiment
 ----
 
-Scaffold for personal projects.
+> WIP... inspired by "Algorithm Right-Heavy-HV-Tree-Draw".
 
-### Bash Alias
+### Workflow
 
-```bash
-# webpack-workflow
-export wf=/Users/chen/repo/mvc-works/webpack-workflow/
-alias workflow="
-cp $wf/gulpfile.* .;
-cp $wf/package.json .;
-cp $wf/webpack.* .;
-cp $wf/template.cirru .;
-cp $wf/.gitignore .;
-cp $wf/.npmignore .;
-cp $wf/README.md .;
-cp -r $wf/style .;
-cp -r src .;
-git init;
-"
-```
-
-### Usage
-
-* Development
-
-```text
-npm i
-gulp html
-webpack-dev-server --hot
-```
-
-* Production
-
-```text
-gulp buld
-gulp rsync
-```
+Workflow https://github.com/mvc-works/phlox-workflow
 
 ### License
 
