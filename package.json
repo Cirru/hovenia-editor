@@ -20,9 +20,10 @@
   "license": "MIT",
   "devDependencies": {
     "http-server": "^0.12.1",
-    "shadow-cljs": "^2.8.92"
+    "shadow-cljs": "^2.8.93"
   },
   "dependencies": {
+    "fontfaceobserver": "^2.1.0",
     "pixi.js": "^5.2.1",
     "shortid": "^2.2.15"
   }

@@ -6,7 +6,7 @@
     [mvc-works/shell-page "0.1.10"]
     [cumulo/util "0.1.10"]
     [respo "0.11.5"]
-    [quamolit/phlox "0.1.9"]
+    [quamolit/phlox "0.1.10"]
     [org.clojure/core.incubator "0.1.4"]
   ]
   :open-file-command [
