@@ -5,8 +5,8 @@
     [mvc-works/hsl "0.1.2"]
     [mvc-works/shell-page "0.1.10"]
     [cumulo/util "0.1.10"]
-    [respo "0.11.5"]
-    [quamolit/phlox "0.1.10"]
+    [respo "0.12.1"]
+    [quamolit/phlox "0.2.0-a1"]
     [org.clojure/core.incubator "0.1.4"]
   ]
   :open-file-command [
