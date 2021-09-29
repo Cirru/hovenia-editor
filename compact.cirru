@@ -72,7 +72,7 @@
                 nodes $ collect-nodes expanded-code
               container ({}) (; comp-pivot)
                 container
-                  {} $ :position ([] 670 440)
+                  {} $ :position ([] 0 0)
                   comp-base
                   create-list :container ({})
                     -> nodes $ map-indexed
