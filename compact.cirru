@@ -48,109 +48,70 @@
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
       :defs $ {}
-        |collect-nodes $ quote
-          defn collect-nodes (expanded-code)
-            let
-                *nodes $ js-array ([])
-                *counter $ js-array 0
-                collect! $ fn (x)
-                  aset *nodes "\"0" $ conj (.-0 *nodes) x
-                get-idx! $ fn (inc?)
-                  let
-                      x $ .-0 *counter
-                    if inc? $ aset *counter "\"0" (inc x)
-                    , x
-              collect-nodes-iter! expanded-code collect! get-idx!
-              .-0 *nodes
         |comp-container $ quote
           defcomp comp-container (store)
             let
                 states $ :states store
                 cursor $ []
                 state $ or (:data states) ({})
-                code-data $ parse-cirru (inline "\"expr-demo.cirru")
-                expanded-code $ expand-tree 0 code-data
-                nodes $ collect-nodes expanded-code
-              container ({}) (; comp-pivot)
-                container
-                  {} $ :position ([] 0 0)
-                  comp-base
-                  create-list :container ({})
-                    -> nodes $ map-indexed
-                      fn (idx node)
-                        [] idx $ container
-                          {}
-                            :position $ [] 0 0
-                            :angle $ -
-                              * 2.6 $ :index node
-                              , 90
-                            :pivot $ [] 0 0
-                          if
-                            = :token $ :kind node
-                            text $ {}
-                              :text $ :item node
-                              :position $ []
-                                * 40 $ :level node
-                                , 0
-                              :style $ {}
-                                :fill $ hslx 0 0 100
-                                :font-size 14
-                            rect $ {}
-                              :position $ []
-                                * 40 $ :level node
-                                , 0
-                              :size $ [] 40 1
-                              :fill $ hslx 0 0 90
-        |comp-base $ quote
-          defcomp comp-base () $ rect
-            {}
-              :position $ [] 0 0
-              :size $ [] 400 400
-              :fill $ hslx 0 0 10
-        |collect-nodes-iter! $ quote
-          defn collect-nodes-iter! (item collect! get-idx!)
-            if
-              = :token $ :kind item
-              collect! $ assoc item :index (get-idx! true)
-              do
-                collect! $ -> (dissoc item :items)
-                  assoc :index $ get-idx! false
-                &doseq
-                  x $ :items item
-                  collect-nodes-iter! x collect! get-idx!
-        |expand-tree $ quote
-          defn expand-tree (level x)
-            if (string? x)
-              {} (:kind :token) (:level level) (:item x) (:size 1)
-              let
-                  children $ -> x
-                    map $ fn (y)
-                      expand-tree (inc level) y
-                {} (:kind :expr) (:level level) (:items children)
-                  :size $ -> children
-                    map $ fn (x) (:size x)
-                    reduce 0 +
-        |comp-pivot $ quote
-          defcomp comp-pivot () $ container
-            {} $ :position ([] 0 0)
-            comp-base
-            container
-              {} $ :angle 24
-              graphics $ {}
-                :ops $ []
-                  g :line-style $ {}
-                    :color $ hslx 0 0 40
-                    :width 1
-                    :alpha 1
-                  g :line-to $ [] 200 0
-              text $ {} (:text "\"DEMO")
-                :style $ {}
-                  :fill $ hslx 0 0 100
-                :position $ [] 200 0
-                :angle 0
+              circle
+                {}
+                  :position $ [] 1 1
+                  :radius 4
+                  :line-style $ {} (:width 2) (:color 0xffffff) (:alpha 1)
+                  :fill 0x000001
+                :tree $ wrap-expr code-data
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
+        |wrap-expr $ quote
+          defn wrap-expr (xs)
+            apply-args
+                []
+                , xs 0 0
+              fn (acc ys x-position idx)
+                if (empty? ys)
+                  {}
+                    :tree $ circle
+                      {}
+                        :position $ [] 1 1
+                        :radius 4
+                        :fill 0xffffff
+                      create-list :container ({}) acc
+                    :width x-position
+                  let
+                      item $ first ys
+                      info $ if (string? item) (wrap-leaf item) (wrap-expr item)
+                      width $ :width info
+                      tree $ :tree info
+                    recur
+                      conj acc $ [] idx
+                        container
+                          {} $ :position
+                            [] (* 1 x-position) 40
+                          , tree
+                      rest ys
+                      + x-position width 0
+                      inc idx
+        |wrap-leaf $ quote
+          defn wrap-leaf (s)
+            let
+                width $ + 0
+                  * 8.8 $ count s
+              {}
+                :tree $ rect
+                  {}
+                    :position $ [] 0 0
+                    :size $ [] width 24
+                    :line-style $ {} (:width 2) (:color 0x000001) (:alpha 1)
+                    :fill $ hslx 190 50 30
+                    :radius 8
+                  text $ {} (:text s)
+                    :position $ [] 0 4
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto Mono")
+                :width width
+        |code-data $ quote
+          def code-data $ parse-cirru (inline "\"updater-demo.cirru")
     |app.main $ {}
       :ns $ quote
         ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
@@ -167,7 +128,7 @@
         |main! $ quote
           defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
-            -> (new FontFaceObserver "\"Josefin Sans") (.!load)
+            -> (new FontFaceObserver "\"Roboto Mono") (.!load)
               .!then $ fn (event) (render-app!)
             add-watch *store :change $ fn (store prev) (render-app!)
             when mobile? (render-control!) (start-control-loop! 8 on-control-event)
