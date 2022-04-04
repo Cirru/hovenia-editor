@@ -1,8 +1,9 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox.calcit/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/
     :version nil
+  :entries $ {}
   :files $ {}
     |app.comp.expr $ {}
       :ns $ quote
@@ -42,10 +43,10 @@
     |app.container $ {}
       :ns $ quote
         ns app.container $ :require
-          [] phlox.core :refer $ [] defcomp >> hslx rect circle text container graphics create-list g
-          [] phlox.comp.drag-point :refer $ [] comp-drag-point
-          [] phlox.comp.slider :refer $ [] comp-slider
-          [] app.math :refer $ [] divide-path multiply-path
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g
+          phlox.comp.drag-point :refer $ comp-drag-point
+          phlox.comp.slider :refer $ comp-slider
+          app.math :refer $ divide-path multiply-path
       :defs $ {}
         |collect-nodes $ quote
           defn collect-nodes (expanded-code)
@@ -152,18 +153,24 @@
             read-file $ str "\"data/" path
     |app.main $ {}
       :ns $ quote
-        ns app.main $ :require ([] "\"pixi.js" :as PIXI) ([] "\"shortid" :as shortid)
-          [] phlox.core :refer $ [] render!
-          [] app.container :refer $ [] comp-container
-          [] app.schema :as schema
-          [] app.config :refer $ [] dev?
-          [] app.updater :refer $ [] updater
+        ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
+          phlox.core :refer $ render! update-viewer! clear-phlox-caches!
+          app.container :refer $ comp-container
+          app.schema :as schema
+          app.config :refer $ dev? mobile?
+          app.updater :refer $ updater
+          "\"fontfaceobserver-es" :default FontFaceObserver
+          "\"./calcit.build-errors" :default build-errors
+          "\"bottom-tip" :default hud!
+          touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
       :defs $ {}
         |main! $ quote
           defn main! () (; js/console.log PIXI)
-            render! (comp-container @*store) dispatch! $ {}
-            add-watch *store :change $ fn ()
-              render! (comp-container @*store) dispatch! $ {}
+            if dev? $ load-console-formatter!
+            -> (new FontFaceObserver "\"Josefin Sans") (.!load)
+              .!then $ fn (event) (render-app!)
+            add-watch *store :change $ fn (store prev) (render-app!)
+            when mobile? (render-control!) (start-control-loop! 8 on-control-event)
             println "\"App Started"
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
@@ -179,8 +186,21 @@
                     op-time $ .now js/Date
                   reset! *store $ updater @*store op op-data op-id op-time
         |reload! $ quote
-          defn reload! () (println "\"Code updated")
-            render! (comp-container @*store) dispatch! $ {} (:swap? true)
+          defn reload! () $ if (nil? build-errors)
+            do (clear-phlox-caches!) (remove-watch *store :change)
+              add-watch *store :change $ fn (store prev) (render-app!)
+              render-app!
+              when mobile? (replace-control-loop! 8 on-control-event) (render-control!)
+              hud! "\"ok~" "\"Ok"
+            hud! "\"error" build-errors
+        |render-app! $ quote
+          defn render-app! () $ render! (comp-container @*store) dispatch! ({})
+        |on-control-event $ quote
+          defn on-control-event (elapsed states delta)
+            let
+                move $ :left-move states
+                scales $ :right-move delta
+              update-viewer! move $ nth scales 1
     |app.math $ {}
       :ns $ quote (ns app.math)
       :defs $ {}
@@ -239,15 +259,12 @@
               [] x y
             [] (- a x) (- b y)
     |app.config $ {}
-      :ns $ quote (ns app.config)
+      :ns $ quote
+        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
       :defs $ {}
-        |cdn? $ quote
-          def cdn? $ cond
-              exists? js/window
-              , false
-            (exists? js/process) (= "\"true" js/process.env.cdn)
-            :else false
         |dev? $ quote
           def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
-          def site $ {} (:dev-ui "\"http://localhost:8100/main-fonts.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main-fonts.css") (:cdn-url "\"http://cdn.tiye.me/phlox-workflow/") (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+        |mobile? $ quote
+          def mobile? $ .!mobile (new mobile-detect js/window.navigator.userAgent)
