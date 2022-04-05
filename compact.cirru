@@ -69,16 +69,10 @@
                 states $ :states store
                 cursor $ []
                 state $ or (:data states) ({})
-              circle
-                {}
-                  :position $ [] 1 1
-                  :radius 4
-                  :line-style $ {} (:width 2) (:color 0xffffff) (:alpha 1)
-                  :fill 0x000001
-                :tree $ wrap-block-expr
-                  w-js-log $ first code-data
+              :tree $ wrap-block-expr
+                w-js-log $ first code-data
         |code-data $ quote
-          def code-data $ parse-cirru (inline "\"page-demo.cirru")
+          def code-data $ parse-cirru (inline "\"with-linear.cirru")
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -99,12 +93,12 @@
               {}
                 :tree $ container ({})
                   rect $ {}
-                    :position $ [] 0 0
+                    :position $ [] 0 (* -0.5 line-height)
                     :size $ [] width height
                     :alpha 0.9
                     :fill $ hslx 190 40 20
                   text $ {} (:text s)
-                    :position $ [] 4 4
+                    :position $ [] 4 -8
                     :style $ {}
                       :fill $ hslx 200 50 80
                       :font-size 14
@@ -125,11 +119,10 @@
                     polyline $ {}
                       :style $ {} (:width 1) (:alpha 1)
                         :color $ hslx 200 100 30
-                      :position $ [] 20 0
+                      :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] 0 y-position)
-                    circle $ {}
-                      :position $ [] 20 10
-                      :radius 5
+                    circle $ {} (:radius 4)
+                      :position $ [] 0 0
                       :fill $ hslx 0 0 90
                     create-list :container ({}) acc
                   :width x-position
@@ -148,16 +141,16 @@
                   recur
                     conj acc $ [] idx
                       container
-                        {} $ :position ([] 40 y-position)
+                        {} $ :position ([] 20 y-position)
                         , tree
                     rest ys
-                    , 10 (+ y-position height 2) (inc idx)
+                    , 20 (+ y-position height 4) (inc idx)
         |wrap-expr-with-linear $ quote
           defn wrap-expr-with-linear (xs)
             loop
                 acc $ []
                 ys xs
-                x-position 8
+                x-position 20
                 y-position 0
                 stacked 0
                 idx 0
@@ -165,18 +158,17 @@
                 {}
                   :tree $ container ({})
                     polyline $ {}
-                      :style $ {} (:width 1)
+                      :style $ {} (:width 1) (:alpha 1)
                         :color $ hslx 200 100 30
-                        :alpha 1
-                      :position $ [] 20 0
-                      :points $ [] ([] 0 20) ([] x-position 20)
-                    circle $ {}
-                      :position $ [] 0 20
-                      :radius 5
+                      :position $ [] 0 0
+                      :points $ [] ([] 0 0) ([] x-position 0)
+                    circle $ {} (:radius 5)
+                      :position $ [] 0 0
                       :fill $ hslx 20 90 50
                     create-list :container ({}) acc
                   :width x-position
-                  :height $ * line-height (inc stacked)
+                  :height $ &max y-position
+                    * line-height $ inc stacked
                 let
                     item $ first ys
                   cond
@@ -202,25 +194,28 @@
                           tree $ :tree info
                         recur
                           conj acc $ [] idx
-                            container ({})
+                            container
+                              {} $ :position
+                                [] (+ 4 x-position) 0
                               polyline $ {}
-                                :style $ {} (:width 1)
+                                :style $ {} (:width 1) (:alpha 0.8)
                                   :color $ hslx 200 100 30
-                                  :alpha 0.8
-                                :position $ [] (+ 4 x-position) 20
+                                :position $ [] 0 0
                                 :points $ [] ([] 0 0)
-                                  [] 0 $ * (inc stacked) (+ 0 line-height)
-                              circle $ {}
-                                :position $ [] (+ 4 x-position) 20
-                                :radius 4
-                                :fill 0xffff99
+                                  [] 0 $ * (inc stacked) (+ 12 line-height)
+                              circle $ {} (:radius 3) (:alpha 1)
+                                :fill $ hslx 200 100 30
+                                :position $ [] 0 0
                               container
                                 {} $ :position
-                                  [] x-position $ * (inc stacked) (+ 0 line-height)
+                                  [] 0 $ * (inc stacked) (+ 12 line-height)
                                 , tree
                           rest ys
                           + x-position 40
-                          , y-position (inc stacked) (inc idx)
+                          &max y-position $ + height
+                            * (inc stacked) (+ 12 line-height)
+                          inc stacked
+                          inc idx
                     (= 1 (count ys))
                       let
                           info $ cond
@@ -239,7 +234,7 @@
                               , tree
                           rest ys
                           + x-position width 4
-                          + y-position height 2
+                          &max (+ y-position height) height
                           inc stacked
                           inc idx
                     true $ {}
@@ -266,7 +261,7 @@
             loop
                 acc $ []
                 ys xs
-                x-position 10
+                x-position 4
                 h 0
                 idx 0
               if (empty? ys)
@@ -275,15 +270,15 @@
                     polyline $ {}
                       :style $ {} (:width 1) (:alpha 1)
                         :color $ hslx 40 100 30
-                      :position $ [] 0 12
+                      :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] x-position 0)
                     circle $ {}
-                      :position $ [] 4 12
+                      :position $ [] 0 0
                       :radius 5
                       :fill $ hslx 260 80 60
                     create-list :container ({}) acc
                   :width x-position
-                  :height $ &max h 28
+                  :height $ &max h line-height
                 let
                     item $ first ys
                     info $ cond
@@ -298,10 +293,11 @@
                   recur
                     conj acc $ [] idx
                       container
-                        {} $ :position ([] x-position 0)
+                        {} $ :position
+                          [] (+ 6 x-position) 0
                         , tree
                     rest ys
-                    + x-position width 2
+                    + x-position width 8
                     &max h height
                     inc idx
         |inline $ quote

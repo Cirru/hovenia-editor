@@ -3,7 +3,7 @@ defn wrap-expr-with-linear (xs)
   loop
       acc $ []
       ys xs
-      x-position 8
+      x-position 20
       y-position 0
       stacked 0
       idx 0
@@ -12,18 +12,18 @@ defn wrap-expr-with-linear (xs)
         :tree $ container ({})
           polyline $ {}
             :style $ {} (:width 1)
-              :color $ hslx 200 100 30
               :alpha 1
-            :position $ [] 20 0
-            :points $ [] ([] 0 20)
-              [] x-position 20
-          circle $ {}
-            :position $ [] 0 20
-            :radius 5
+              :color $ hslx 200 100 30
+            :position $ [] 0 0
+            :points $ [] ([] 0 0)
+              [] x-position 0
+          circle $ {} (:radius 5)
+            :position $ [] 0 0
             :fill $ hslx 20 90 50
           create-list :container ({}) acc
         :width x-position
-        :height $ * line-height (inc stacked)
+        :height $ &max y-position
+          * line-height $ inc stacked
       let
           item $ first ys
         cond
@@ -49,28 +49,33 @@ defn wrap-expr-with-linear (xs)
                 tree $ :tree info
               recur
                 conj acc $ [] idx
-                  container ({})
+                  container
+                    {} $ :position
+                      [] (+ 4 x-position) 0
                     polyline $ {}
                       :style $ {} (:width 1)
-                        :color $ hslx 200 100 30
                         :alpha 0.8
-                      :position $ [] (+ 4 x-position) 20
+                        :color $ hslx 200 100 30
+                      :position $ [] 0 0
                       :points $ [] ([] 0 0)
                         [] 0 $ * (inc stacked)
-                          + 0 line-height
-                    circle $ {}
-                      :position $ [] (+ 4 x-position) 20
-                      :radius 4
-                      :fill 0xffff99
+                          + 12 line-height
+                    circle $ {} (:radius 3)
+                      :alpha 1
+                      :fill $ hslx 200 100 30
+                      :position $ [] 0 0
                     container
                       {} $ :position
-                        [] x-position $ * (inc stacked)
-                          + 0 line-height
+                        [] 0 $ * (inc stacked)
+                          + 12 line-height
                       , tree
                 rest ys
                 + x-position 40
-                , y-position (inc stacked)
-                  inc idx
+                &max y-position $ + height
+                  * (inc stacked)
+                    + 12 line-height
+                inc stacked
+                inc idx
           (= 1 (count ys))
             let
                 info $ cond
@@ -91,11 +96,11 @@ defn wrap-expr-with-linear (xs)
                     , tree
                 rest ys
                 + x-position width 4
-                + y-position height 2
+                &max (+ y-position height) height
                 inc stacked
                 inc idx
           true $ {}
-            :tree $ conj acc
-              [] idx $ comp-error ys
+            :tree $ create-list :container ({})
+              conj acc $ [] idx (comp-error ys)
             :width x-position
             :height $ * line-height (inc stacked)
