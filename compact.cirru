@@ -47,7 +47,22 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
+          app.config :refer $ line-height
       :defs $ {}
+        |is-linear? $ quote
+          defn is-linear? (xs)
+            cond
+                empty? xs
+                , true
+              (= 1 (count xs))
+                let
+                    x0 $ first xs
+                  if (string? x0) true $ recur x0
+              true $ let
+                  x0 $ first xs
+                if (string? x0)
+                  recur $ rest xs
+                  , false
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -60,64 +75,238 @@
                   :radius 4
                   :line-style $ {} (:width 2) (:color 0xffffff) (:alpha 1)
                   :fill 0x000001
-                :tree $ wrap-expr code-data
-        |inline $ quote
-          defmacro inline (path)
-            read-file $ str "\"data/" path
-        |wrap-expr $ quote
-          defn wrap-expr (xs)
-            apply-args
-                []
-                , xs 0 0
-              fn (acc ys x-position idx)
-                if (empty? ys)
-                  {}
-                    :tree $ container ({})
-                      circle $ {}
-                        :position $ [] 0 20
-                        :radius 5
-                        :fill $ hslx 0 0 90
-                      polyline $ {}
-                        :style $ {} (:width 1)
-                          :color $ hslx 200 100 30
-                          :alpha 1
-                        :position $ [] 0 0
-                        :points $ [] ([] 0 0) ([] x-position 0)
-                      create-list :container ({}) acc
-                    :width x-position
-                  let
-                      item $ first ys
-                      info $ if (string? item) (wrap-leaf item) (wrap-expr item)
-                      width $ :width info
-                      tree $ :tree info
-                    recur
-                      conj acc $ [] idx
-                        container
-                          {} $ :position
-                            [] (* 1 x-position) 40
-                          , tree
-                      rest ys
-                      + x-position width 0
-                      inc idx
+                :tree $ wrap-block-expr
+                  w-js-log $ first code-data
+        |code-data $ quote
+          def code-data $ parse-cirru (inline "\"page-demo.cirru")
+        |comp-error $ quote
+          defcomp comp-error (ys)
+            circle
+              {}
+                :position $ [] 0 0
+                :radius 10
+                :fill 0xff0000
+              text $ {}
+                :text $ format-cirru-edn ys
+                :position $ [] 0 0
+                :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
         |wrap-leaf $ quote
           defn wrap-leaf (s)
             let
-                width $ + 0
+                width $ + 8
                   * 8.8 $ count s
+                height line-height
               {}
-                :tree $ rect
-                  {}
+                :tree $ container ({})
+                  rect $ {}
                     :position $ [] 0 0
-                    :size $ [] width 24
-                    :line-style $ {} (:width 2) (:color 0x000001) (:alpha 1)
-                    :fill $ hslx 190 50 30
-                    ; :radius 8
+                    :size $ [] width height
+                    :alpha 0.9
+                    :fill $ hslx 190 40 20
                   text $ {} (:text s)
-                    :position $ [] 0 4
-                    :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto Mono")
+                    :position $ [] 4 4
+                    :style $ {}
+                      :fill $ hslx 200 50 80
+                      :font-size 14
+                      :font-family "|Roboto Mono"
                 :width width
-        |code-data $ quote
-          def code-data $ parse-cirru (inline "\"expr-demo.cirru")
+                :height height
+        |wrap-block-expr $ quote
+          defn wrap-block-expr (xs)
+            loop
+                acc $ []
+                ys xs
+                x-position 0
+                y-position 0
+                idx 0
+              if (empty? ys)
+                {}
+                  :tree $ container ({})
+                    polyline $ {}
+                      :style $ {} (:width 1) (:alpha 1)
+                        :color $ hslx 200 100 30
+                      :position $ [] 20 0
+                      :points $ [] ([] 0 0) ([] 0 y-position)
+                    circle $ {}
+                      :position $ [] 20 10
+                      :radius 5
+                      :fill $ hslx 0 0 90
+                    create-list :container ({}) acc
+                  :width x-position
+                  :height y-position
+                let
+                    item $ first ys
+                    info $ cond
+                        string? item
+                        wrap-leaf item
+                      (is-linear? item) (wrap-linear-expr item)
+                      (with-linear? item) (wrap-expr-with-linear item)
+                      true $ wrap-block-expr item
+                    width $ :width info
+                    height $ :height info
+                    tree $ :tree info
+                  recur
+                    conj acc $ [] idx
+                      container
+                        {} $ :position ([] 40 y-position)
+                        , tree
+                    rest ys
+                    , 10 (+ y-position height 2) (inc idx)
+        |wrap-expr-with-linear $ quote
+          defn wrap-expr-with-linear (xs)
+            loop
+                acc $ []
+                ys xs
+                x-position 8
+                y-position 0
+                stacked 0
+                idx 0
+              if (empty? ys)
+                {}
+                  :tree $ container ({})
+                    polyline $ {}
+                      :style $ {} (:width 1)
+                        :color $ hslx 200 100 30
+                        :alpha 1
+                      :position $ [] 20 0
+                      :points $ [] ([] 0 20) ([] x-position 20)
+                    circle $ {}
+                      :position $ [] 0 20
+                      :radius 5
+                      :fill $ hslx 20 90 50
+                    create-list :container ({}) acc
+                  :width x-position
+                  :height $ * line-height (inc stacked)
+                let
+                    item $ first ys
+                  cond
+                      string? item
+                      let
+                          info $ wrap-leaf item
+                          width $ :width info
+                          height $ :height info
+                          tree $ :tree info
+                        recur
+                          conj acc $ [] idx
+                            container
+                              {} $ :position ([] x-position 10)
+                              , tree
+                          rest ys
+                          + x-position width 4
+                          , y-position stacked $ inc idx
+                    (and (is-linear? item) (not= 1 (count ys)))
+                      let
+                          info $ wrap-linear-expr item
+                          width $ :width info
+                          height $ :height info
+                          tree $ :tree info
+                        recur
+                          conj acc $ [] idx
+                            container ({})
+                              polyline $ {}
+                                :style $ {} (:width 1)
+                                  :color $ hslx 200 100 30
+                                  :alpha 0.8
+                                :position $ [] (+ 4 x-position) 20
+                                :points $ [] ([] 0 0)
+                                  [] 0 $ * (inc stacked) (+ 0 line-height)
+                              circle $ {}
+                                :position $ [] (+ 4 x-position) 20
+                                :radius 4
+                                :fill 0xffff99
+                              container
+                                {} $ :position
+                                  [] x-position $ * (inc stacked) (+ 0 line-height)
+                                , tree
+                          rest ys
+                          + x-position 40
+                          , y-position (inc stacked) (inc idx)
+                    (= 1 (count ys))
+                      let
+                          info $ cond
+                              string? item
+                              wrap-leaf item
+                            (is-linear? item) (wrap-linear-expr item)
+                            (with-linear? item) (wrap-expr-with-linear item)
+                            true $ wrap-block-expr item
+                          width $ :width info
+                          height $ :height info
+                          tree $ :tree info
+                        recur
+                          conj acc $ [] idx
+                            container
+                              {} $ :position ([] x-position 0)
+                              , tree
+                          rest ys
+                          + x-position width 4
+                          + y-position height 2
+                          inc stacked
+                          inc idx
+                    true $ {}
+                      :tree $ create-list :container ({})
+                        conj acc $ [] idx (comp-error ys)
+                      :width x-position
+                      :height $ * line-height (inc stacked)
+        |with-linear? $ quote
+          defn with-linear? (xs)
+            cond
+                empty? xs
+                , true
+              (= 1 (count xs))
+                , true
+              true $ let
+                  x0 $ first xs
+                if (string? x0)
+                  recur $ rest xs
+                  if (is-linear? x0)
+                    recur $ rest xs
+                    , false
+        |wrap-linear-expr $ quote
+          defn wrap-linear-expr (xs)
+            loop
+                acc $ []
+                ys xs
+                x-position 10
+                h 0
+                idx 0
+              if (empty? ys)
+                {}
+                  :tree $ container ({})
+                    polyline $ {}
+                      :style $ {} (:width 1) (:alpha 1)
+                        :color $ hslx 40 100 30
+                      :position $ [] 0 12
+                      :points $ [] ([] 0 0) ([] x-position 0)
+                    circle $ {}
+                      :position $ [] 4 12
+                      :radius 5
+                      :fill $ hslx 260 80 60
+                    create-list :container ({}) acc
+                  :width x-position
+                  :height $ &max h 28
+                let
+                    item $ first ys
+                    info $ cond
+                        string? item
+                        wrap-leaf item
+                      (is-linear? item) (wrap-linear-expr item)
+                      (with-linear? item) (wrap-expr-with-linear item)
+                      true $ wrap-block-expr item
+                    width $ :width info
+                    height $ :height info
+                    tree $ :tree info
+                  recur
+                    conj acc $ [] idx
+                      container
+                        {} $ :position ([] x-position 0)
+                        , tree
+                    rest ys
+                    + x-position width 2
+                    &max h height
+                    inc idx
+        |inline $ quote
+          defmacro inline (path)
+            read-file $ str "\"data/" path
     |app.main $ {}
       :ns $ quote
         ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
@@ -225,3 +414,4 @@
       :defs $ {}
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+        |line-height $ quote (def line-height 24)
