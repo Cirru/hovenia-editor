@@ -43,7 +43,7 @@
     |app.container $ {}
       :ns $ quote
         ns app.container $ :require
-          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
@@ -72,11 +72,17 @@
               fn (acc ys x-position idx)
                 if (empty? ys)
                   {}
-                    :tree $ circle
-                      {}
-                        :position $ [] 1 1
-                        :radius 4
-                        :fill 0xffffff
+                    :tree $ container ({})
+                      circle $ {}
+                        :position $ [] 0 20
+                        :radius 5
+                        :fill $ hslx 0 0 90
+                      polyline $ {}
+                        :style $ {} (:width 1)
+                          :color $ hslx 200 100 30
+                          :alpha 1
+                        :position $ [] 0 0
+                        :points $ [] ([] 0 0) ([] x-position 0)
                       create-list :container ({}) acc
                     :width x-position
                   let
@@ -105,20 +111,20 @@
                     :size $ [] width 24
                     :line-style $ {} (:width 2) (:color 0x000001) (:alpha 1)
                     :fill $ hslx 190 50 30
-                    :radius 8
+                    ; :radius 8
                   text $ {} (:text s)
                     :position $ [] 0 4
                     :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto Mono")
                 :width width
         |code-data $ quote
-          def code-data $ parse-cirru (inline "\"updater-demo.cirru")
+          def code-data $ parse-cirru (inline "\"expr-demo.cirru")
     |app.main $ {}
       :ns $ quote
         ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
-          phlox.core :refer $ render! update-viewer! clear-phlox-caches!
+          phlox.core :refer $ render! clear-phlox-caches! on-control-event
           app.container :refer $ comp-container
           app.schema :as schema
-          app.config :refer $ dev? mobile?
+          phlox.config :refer $ dev? mobile?
           app.updater :refer $ updater
           "\"fontfaceobserver-es" :default FontFaceObserver
           "\"./calcit.build-errors" :default build-errors
@@ -156,12 +162,6 @@
             hud! "\"error" build-errors
         |render-app! $ quote
           defn render-app! () $ render! (comp-container @*store) dispatch! ({})
-        |on-control-event $ quote
-          defn on-control-event (elapsed states delta)
-            let
-                move $ :left-move states
-                scales $ :right-move delta
-              update-viewer! move $ nth scales 1
     |app.math $ {}
       :ns $ quote (ns app.math)
       :defs $ {}
@@ -223,9 +223,5 @@
       :ns $ quote
         ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
       :defs $ {}
-        |dev? $ quote
-          def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
-        |mobile? $ quote
-          def mobile? $ .!mobile (new mobile-detect js/window.navigator.userAgent)
