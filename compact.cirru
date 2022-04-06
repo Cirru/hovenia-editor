@@ -39,7 +39,8 @@
             let
                 key $ :key op-data
                 code $ :key-code op-data
-                meta? $ :meta-key? op-data
+                meta? $ :meta? op-data
+                shift? $ :shift? op-data
               cond
                   = "\"Backspace" key
                   if (empty? focus) ([] tree focus "\"cannot delete root")
@@ -59,7 +60,87 @@
                           update-in tree focus $ fn (leaf)
                             .slice leaf 0 $ dec (count leaf)
                           , focus nil
+                (and (>= code 65) (<= code 90))
+                  let
+                      target $ get-in tree focus
+                    if (string? target)
+                      []
+                        assoc-in tree focus $ str target key
+                        , focus nil
+                      tree focus "\"not text"
+                (= key "\"ArrowUp")
+                  if (empty? focus) ([] tree focus "\"already at top")
+                    [] tree (butlast focus) nil
+                (= key "\"ArrowLeft")
+                  if (empty? focus) ([] tree focus "\"already at root")
+                    if
+                      > (last focus) 0
+                      [] tree
+                        conj (butlast focus)
+                          dec $ last focus
+                        , nil
+                      [] tree focus "\"already at first elelement"
+                (= key "\"ArrowRight")
+                  if (empty? focus) ([] tree focus "\"already at root")
+                    let
+                        parent $ get-in tree (butlast focus)
+                      if
+                        >= (last focus)
+                          dec $ count parent
+                        [] tree focus "\"already at last elelement"
+                        [] tree
+                          conj (butlast focus)
+                            inc $ last focus
+                          , nil
+                (= key "\"ArrowDown")
+                  let
+                      target $ get-in tree focus
+                    if (string? target) ([] tree focus "\"already reached leaf")
+                      if (empty? target) ([] tree focus "\"it's empty")
+                        [] tree (conj focus 0) nil
+                (= key "\"Enter")
+                  if (empty? focus) ([] tree focus "\"at root")
+                    if shift?
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-before xs (last focus) "\""
+                        , focus nil
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-after xs (last focus) "\""
+                        conj (butlast focus)
+                          inc $ last focus
+                        , nil
+                (= "\"Tab" key)
+                  if shift?
+                    if (empty? focus) ([] tree focus "\"not working for root")
+                      let
+                          target $ get-in tree focus
+                        if (string? target) ([] tree focus "\"not working for leaf")
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                let
+                                    i $ last focus
+                                  -> xs
+                                    splice-after i $ get xs i
+                                    dissoc i
+                            , focus nil
+                    []
+                      update-in tree focus $ fn (xs) ([] xs)
+                      conj focus 0
+                      , nil
                 true $ do (js/console.log op-data) ([] tree focus)
+        |splice-after $ quote
+          defn splice-after (xs i ys)
+            loop
+                acc xs
+                data $ reverse ys
+              if (empty? data) acc $ recur
+                &list:assoc-after acc i $ first data
+                rest data
     |app.container $ {}
       :ns $ quote
         ns app.container $ :require
@@ -95,6 +176,9 @@
                 {} $ :on-keyboard
                   {} $ :down
                     fn (e d!)
+                      if
+                        = "\"Tab" $ :key e
+                        .!preventDefault $ :event e
                       d! :cirru-edit $ dissoc e :event
                 text $ {}
                   :text $ :warning store
@@ -130,8 +214,8 @@
                   rect $ {}
                     :position $ [] 0 (* -0.5 height)
                     :size $ [] width height
-                    :alpha 0.8
-                    :fill $ hslx 190 40 20
+                    :alpha 0.9
+                    :fill $ hslx 190 70 14
                     :on $ {}
                       :pointertap $ fn (e d!) (d! :focus coord)
                   if (= coord focus)
@@ -219,7 +303,7 @@
                       :on $ {}
                         :pointertap $ fn (e d!) (d! :focus coord)
                     if (= coord focus) shape-focus
-                    create-list :container ({}) acc
+                    create-list :container ({}) (reverse acc)
                   :width x-position
                   :y-stack y-stack
                 let
@@ -241,6 +325,7 @@
                           , y-stack $ inc idx
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
+                          focused? $ = next-coord focus
                           info $ wrap-linear-expr item next-coord focus
                           width $ :width info
                         recur
@@ -250,7 +335,7 @@
                                 [] (+ 4 x-position) 0
                               polyline $ {}
                                 :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ hslx 200 100 30
+                                  :color $ if focused? (hslx 200 100 80) (hslx 200 100 40)
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
@@ -313,7 +398,7 @@
                               {} $ :position ([] x-position 0)
                               polyline $ {}
                                 :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ hslx 200 100 30
+                                  :color $ hslx 200 100 40
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
