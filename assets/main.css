@@ -12,3 +12,8 @@ body * {
   box-sizing: border-box;
   flex-shrink: 0;
 }
+
+/* fixes strange focus problem */
+.left-group, .right-group {
+  z-index: 1000;
+}

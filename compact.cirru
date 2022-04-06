@@ -39,7 +39,7 @@
             let
                 key $ :key op-data
                 code $ :key-code op-data
-                meta? $ :meta? op-data
+                meta? $ or (:meta? op-data) (:ctrl? op-data)
                 shift? $ :shift? op-data
               cond
                   = "\"Backspace" key
@@ -60,7 +60,7 @@
                           update-in tree focus $ fn (leaf)
                             .slice leaf 0 $ dec (count leaf)
                           , focus nil
-                (and (>= code 65) (<= code 90))
+                (and (>= code 65) (<= code 90) (not meta?))
                   let
                       target $ get-in tree focus
                     if (string? target)
@@ -99,7 +99,10 @@
                       if (empty? target) ([] tree focus "\"it's empty")
                         [] tree (conj focus 0) nil
                 (= key "\"Enter")
-                  if (empty? focus) ([] tree focus "\"at root")
+                  if (empty? focus)
+                    if (empty? tree)
+                      [] ([] "\"") ([] 0) nil
+                      [] tree focus "\"at root"
                     if shift?
                       []
                         update-in tree (butlast focus)
@@ -113,12 +116,39 @@
                         conj (butlast focus)
                           inc $ last focus
                         , nil
+                (= key "\" ")
+                  if (empty? focus)
+                    if (empty? tree)
+                      [] ([] "\"") ([] 0) nil
+                      [] tree focus "\"at root"
+                    if shift?
+                      let
+                          target $ get-in tree focus
+                        []
+                          assoc-in tree focus $ str target key
+                          , focus nil
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-after xs (last focus) "\""
+                        conj (butlast focus)
+                          inc $ last focus
+                        , nil
                 (= "\"Tab" key)
                   if shift?
                     if (empty? focus) ([] tree focus "\"not working for root")
                       let
                           target $ get-in tree focus
-                        if (string? target) ([] tree focus "\"not working for leaf")
+                        if (string? target)
+                          let
+                              parent $ get-in tree (butlast focus)
+                            if
+                              = 1 $ count parent
+                              []
+                                assoc-in tree (butlast focus) (get-in tree focus)
+                                butlast focus
+                                , nil
+                              [] tree focus "\"not working for leaf"
                           []
                             update-in tree (butlast focus)
                               fn (xs)
@@ -132,6 +162,14 @@
                       update-in tree focus $ fn (xs) ([] xs)
                       conj focus 0
                       , nil
+                (and (= 1 (count key)) (not meta?))
+                  let
+                      target $ get-in tree focus
+                    if (string? target)
+                      []
+                        assoc-in tree focus $ str target key
+                        , focus nil
+                      tree focus "\"not text"
                 true $ do (js/console.log op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
@@ -176,7 +214,7 @@
                 {} $ :on-keyboard
                   {} $ :down
                     fn (e d!)
-                      if
+                      do
                         = "\"Tab" $ :key e
                         .!preventDefault $ :event e
                       d! :cirru-edit $ dissoc e :event
@@ -250,7 +288,8 @@
                         :color $ hslx 200 100 30
                       :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] block-indent 0)
-                        [] block-indent $ * line-height (dec y-stack)
+                        [] block-indent $ * line-height
+                          &max 0 $ dec y-stack
                     circle $ {} (:radius 6)
                       :position $ [] 0 0
                       :fill $ hslx 120 50 70
