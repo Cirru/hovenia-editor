@@ -9,8 +9,12 @@
       :ns $ quote (ns app.schema)
       :defs $ {}
         |store $ quote
-          def store $ {} (:tab :drafts) (:x 0)
+          def store $ {}
             :states $ {}
+            :code-tree $ parse-cirru (inline "\"with-linear.cirru")
+        |inline $ quote
+          defmacro inline (path)
+            read-file $ str "\"data/" path
     |app.updater $ {}
       :ns $ quote
         ns app.updater $ :require
@@ -33,7 +37,7 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
-          app.config :refer $ line-height
+          app.config :refer $ leaf-gap block-indent leaf-height line-height
       :defs $ {}
         |is-linear? $ quote
           defn is-linear? (xs)
@@ -56,9 +60,7 @@
                 cursor $ []
                 state $ or (:data states) ({})
               :tree $ wrap-block-expr
-                w-js-log $ first code-data
-        |code-data $ quote
-          def code-data $ parse-cirru (inline "\"with-linear.cirru")
+                first $ :code-tree store
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -73,31 +75,31 @@
         |wrap-leaf $ quote
           defn wrap-leaf (s)
             let
-                width $ + 8
+                width $ + leaf-gap
                   * 8.8 $ count s
-                height line-height
+                height leaf-height
               {}
                 :tree $ container ({})
                   rect $ {}
-                    :position $ [] 0 (* -0.5 line-height)
+                    :position $ [] 0 (* -0.5 height)
                     :size $ [] width height
-                    :alpha 0.9
+                    :alpha 0.8
                     :fill $ hslx 190 40 20
                   text $ {} (:text s)
-                    :position $ [] 4 -8
+                    :position $ [] (* 0.5 leaf-gap) -8
                     :style $ {}
                       :fill $ hslx 200 50 80
                       :font-size 14
                       :font-family "|Roboto Mono"
                 :width width
-                :height height
+                :y-stack 1
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs)
             loop
                 acc $ []
                 ys xs
                 x-position 0
-                y-position 0
+                y-stack 0
                 idx 0
               if (empty? ys)
                 {}
@@ -106,13 +108,14 @@
                       :style $ {} (:width 1) (:alpha 1)
                         :color $ hslx 200 100 30
                       :position $ [] 0 0
-                      :points $ [] ([] 0 0) ([] 0 y-position)
+                      :points $ [] ([] 0 0) ([] block-indent 0)
+                        [] block-indent $ * line-height (dec y-stack)
                     circle $ {} (:radius 4)
                       :position $ [] 0 0
                       :fill $ hslx 0 0 90
                     create-list :container ({}) acc
                   :width x-position
-                  :height y-position
+                  :y-stack y-stack
                 let
                     item $ first ys
                     info $ cond
@@ -122,23 +125,24 @@
                       (with-linear? item) (wrap-expr-with-linear item)
                       true $ wrap-block-expr item
                     width $ :width info
-                    height $ :height info
                     tree $ :tree info
                   recur
                     conj acc $ [] idx
                       container
-                        {} $ :position ([] 20 y-position)
+                        {} $ :position
+                          [] block-indent $ * y-stack line-height
                         , tree
                     rest ys
-                    , 20 (+ y-position height 4) (inc idx)
+                    , 20
+                      + y-stack $ :y-stack info
+                      inc idx
         |wrap-expr-with-linear $ quote
           defn wrap-expr-with-linear (xs)
             loop
                 acc $ []
                 ys xs
-                x-position 20
-                y-position 0
-                stacked 0
+                x-position block-indent
+                y-stack 1
                 idx 0
               if (empty? ys)
                 {}
@@ -153,8 +157,7 @@
                       :fill $ hslx 20 90 50
                     create-list :container ({}) acc
                   :width x-position
-                  :height $ &max y-position
-                    * line-height $ inc stacked
+                  :y-stack y-stack
                 let
                     item $ first ys
                   cond
@@ -162,7 +165,6 @@
                       let
                           info $ wrap-leaf item
                           width $ :width info
-                          height $ :height info
                           tree $ :tree info
                         recur
                           conj acc $ [] idx
@@ -170,14 +172,12 @@
                               {} $ :position ([] x-position 0)
                               , tree
                           rest ys
-                          + x-position width 12
-                          , y-position stacked $ inc idx
+                          + x-position width block-indent
+                          , y-stack $ inc idx
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
                           info $ wrap-linear-expr item
                           width $ :width info
-                          height $ :height info
-                          tree $ :tree info
                         recur
                           conj acc $ [] idx
                             container
@@ -188,21 +188,19 @@
                                   :color $ hslx 200 100 30
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
-                                  [] 0 $ * (inc stacked) (+ 8 line-height)
+                                  [] 0 $ * y-stack line-height
                               circle $ {} (:radius 3) (:alpha 1)
-                                :fill $ hslx 200 100 30
                                 :position $ [] 0 0
+                                :fill $ hslx 200 100 30
                               container
                                 {} $ :position
-                                  [] 0 $ * (inc stacked) (+ 8 line-height)
-                                , tree
+                                  [] 0 $ * y-stack line-height
+                                :tree info
                           rest ys
-                          + x-position 40
-                          &max y-position $ + 8
-                            * (inc stacked) (+ 8 line-height)
-                          inc stacked
+                          + x-position block-indent
+                          inc y-stack
                           inc idx
-                    (and (= 1 (count ys)) (if (> stacked 0) (is-linear? item) true))
+                    (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
                       let
                           info $ cond
                               is-linear? item
@@ -210,17 +208,32 @@
                             (with-linear? item) (wrap-expr-with-linear item)
                             true $ wrap-block-expr item
                           width $ :width info
-                          height $ :height info
-                          tree $ :tree info
+                        recur
+                          conj acc $ [] idx
+                            container
+                              {} $ :position
+                                [] (+ block-indent x-position) 0
+                              :tree info
+                          rest ys
+                          + x-position width block-indent
+                          &max y-stack $ :y-stack info
+                          inc idx
+                    (and (= 1 (count ys)) (&= y-stack 1))
+                      let
+                          info $ cond
+                              is-linear? item
+                              wrap-linear-expr item
+                            (with-linear? item) (wrap-expr-with-linear item)
+                            true $ wrap-block-expr item
+                          width $ :width info
                         recur
                           conj acc $ [] idx
                             container
                               {} $ :position ([] x-position 0)
-                              , tree
+                              :tree info
                           rest ys
-                          + x-position width 4
-                          &max (+ y-position height) height
-                          inc stacked
+                          + x-position width leaf-gap
+                          &max y-stack $ :y-stack info
                           inc idx
                     (= 1 (count ys))
                       let
@@ -229,8 +242,6 @@
                               wrap-expr-with-linear item
                             true $ wrap-block-expr item
                           width $ :width info
-                          height $ :height info
-                          tree $ :tree info
                         recur
                           conj acc $ [] idx
                             container
@@ -240,24 +251,23 @@
                                   :color $ hslx 200 100 30
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
-                                  [] 0 $ * (inc stacked) (+ 8 line-height)
+                                  [] 0 $ * y-stack line-height
                               circle $ {} (:radius 3) (:alpha 1)
                                 :fill $ hslx 200 100 30
                                 :position $ [] 0 0
                               container
                                 {} $ :position
-                                  [] 0 $ * (inc stacked) (+ 8 line-height)
-                                , tree
+                                  [] 0 $ * y-stack line-height
+                                :tree info
                           rest ys
                           + x-position width 4
-                          + y-position height $ * (inc stacked) (+ 8 line-height)
-                          inc stacked
+                          + y-stack $ :y-stack info
                           inc idx
                     true $ {}
                       :tree $ create-list :container ({})
                         conj acc $ [] idx (comp-error ys)
                       :width x-position
-                      :height $ * line-height (inc stacked)
+                      :y-stack y-stack
         |with-linear? $ quote
           defn with-linear? (xs)
             cond
@@ -277,8 +287,8 @@
             loop
                 acc $ []
                 ys xs
-                x-position 4
-                h 0
+                x-position leaf-gap
+                y-stack 1
                 idx 0
               if (empty? ys)
                 {}
@@ -290,11 +300,11 @@
                       :points $ [] ([] 0 0) ([] x-position 0)
                     circle $ {}
                       :position $ [] 0 0
-                      :radius 5
+                      :radius 4
                       :fill $ hslx 260 80 60
                     create-list :container ({}) acc
                   :width x-position
-                  :height $ &max h line-height
+                  :y-stack y-stack
                 let
                     item $ first ys
                     info $ cond
@@ -304,21 +314,17 @@
                       (with-linear? item) (wrap-expr-with-linear item)
                       true $ wrap-block-expr item
                     width $ :width info
-                    height $ :height info
                     tree $ :tree info
                   recur
                     conj acc $ [] idx
                       container
                         {} $ :position
-                          [] (+ 6 x-position) 0
+                          [] (+ leaf-gap x-position) 0
                         , tree
                     rest ys
-                    + x-position width 8
-                    &max h height
+                    + x-position width leaf-gap
+                    &max y-stack $ :y-stack info
                     inc idx
-        |inline $ quote
-          defmacro inline (path)
-            read-file $ str "\"data/" path
     |app.main $ {}
       :ns $ quote
         ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
@@ -426,4 +432,7 @@
       :defs $ {}
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
-        |line-height $ quote (def line-height 24)
+        |leaf-gap $ quote (def leaf-gap 8)
+        |block-indent $ quote (def block-indent 20)
+        |leaf-height $ quote (def leaf-height 24)
+        |line-height $ quote (def line-height 32)
