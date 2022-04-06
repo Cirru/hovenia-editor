@@ -5,20 +5,6 @@
     :version nil
   :entries $ {}
   :files $ {}
-    |app.comp.expr $ {}
-      :ns $ quote
-        ns app.comp.expr $ :require
-          [] phlox.core :refer $ [] defcomp hslx rect circle text container graphics create-list g
-          [] app.math :refer $ [] add-path subtract-path multiply-path divide-path
-      :defs $ {}
-        |comp-skip-node $ quote
-          defcomp comp-skip-node () $ rect
-            {}
-              :line-style $ {}
-                :color $ hslx 0 0 100
-                :alpha 1
-                :width 2
-              :size $ [] 20 20
     |app.schema $ {}
       :ns $ quote (ns app.schema)
       :defs $ {}
@@ -181,10 +167,10 @@
                         recur
                           conj acc $ [] idx
                             container
-                              {} $ :position ([] x-position 10)
+                              {} $ :position ([] x-position 0)
                               , tree
                           rest ys
-                          + x-position width 4
+                          + x-position width 12
                           , y-position stacked $ inc idx
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
@@ -202,26 +188,25 @@
                                   :color $ hslx 200 100 30
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
-                                  [] 0 $ * (inc stacked) (+ 12 line-height)
+                                  [] 0 $ * (inc stacked) (+ 8 line-height)
                               circle $ {} (:radius 3) (:alpha 1)
                                 :fill $ hslx 200 100 30
                                 :position $ [] 0 0
                               container
                                 {} $ :position
-                                  [] 0 $ * (inc stacked) (+ 12 line-height)
+                                  [] 0 $ * (inc stacked) (+ 8 line-height)
                                 , tree
                           rest ys
                           + x-position 40
-                          &max y-position $ + height
-                            * (inc stacked) (+ 12 line-height)
+                          &max y-position $ + 8
+                            * (inc stacked) (+ 8 line-height)
                           inc stacked
                           inc idx
-                    (= 1 (count ys))
+                    (and (= 1 (count ys)) (if (> stacked 0) (is-linear? item) true))
                       let
                           info $ cond
-                              string? item
-                              wrap-leaf item
-                            (is-linear? item) (wrap-linear-expr item)
+                              is-linear? item
+                              wrap-linear-expr item
                             (with-linear? item) (wrap-expr-with-linear item)
                             true $ wrap-block-expr item
                           width $ :width info
@@ -235,6 +220,37 @@
                           rest ys
                           + x-position width 4
                           &max (+ y-position height) height
+                          inc stacked
+                          inc idx
+                    (= 1 (count ys))
+                      let
+                          info $ cond
+                              with-linear? item
+                              wrap-expr-with-linear item
+                            true $ wrap-block-expr item
+                          width $ :width info
+                          height $ :height info
+                          tree $ :tree info
+                        recur
+                          conj acc $ [] idx
+                            container
+                              {} $ :position ([] x-position 0)
+                              polyline $ {}
+                                :style $ {} (:width 1) (:alpha 0.8)
+                                  :color $ hslx 200 100 30
+                                :position $ [] 0 0
+                                :points $ [] ([] 0 0)
+                                  [] 0 $ * (inc stacked) (+ 8 line-height)
+                              circle $ {} (:radius 3) (:alpha 1)
+                                :fill $ hslx 200 100 30
+                                :position $ [] 0 0
+                              container
+                                {} $ :position
+                                  [] 0 $ * (inc stacked) (+ 8 line-height)
+                                , tree
+                          rest ys
+                          + x-position width 4
+                          + y-position height $ * (inc stacked) (+ 8 line-height)
                           inc stacked
                           inc idx
                     true $ {}
