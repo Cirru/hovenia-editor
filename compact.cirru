@@ -11,7 +11,9 @@
         |store $ quote
           def store $ {}
             :states $ {}
-            :code-tree $ parse-cirru (inline "\"with-linear.cirru")
+            :code-tree $ first
+              parse-cirru $ inline "\"with-linear.cirru"
+            :focus $ []
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
@@ -24,12 +26,14 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (println "\"unknown op" op op-data) store
-              :add-x $ update store :x
-                fn (x)
-                  if (> x 10) 0 $ + x 1
-              :tab $ assoc store :tab op-data
+              :cirru-edit $ let[] (tree focus)
+                cirru-edit (:code-tree store) (:focus store) op-data
+                assoc store :code-tree tree :focus focus
+              :focus $ assoc store :focus op-data
               :states $ update-states store op-data
               :hydrate-storage op-data
+        |cirru-edit $ quote
+          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data) ([] tree focus)
     |app.container $ {}
       :ns $ quote
         ns app.container $ :require
@@ -59,8 +63,21 @@
                 states $ :states store
                 cursor $ []
                 state $ or (:data states) ({})
-              :tree $ wrap-block-expr
-                first $ :code-tree store
+                tree $ :code-tree store
+                focus $ :focus store
+              container
+                {} $ :on-keyboard
+                  {} $ :down
+                    fn (e d!)
+                      d! :cirru-edit $ dissoc e :event
+                :tree $ wrap-block-expr tree ([]) focus
+        |shape-focus $ quote
+          def shape-focus $ circle
+            {} (:radius 8)
+              :position $ [] 0 0
+              :line-style $ {} (:width 1)
+                :color $ hslx 60 80 80
+                :alpha 0.8
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -73,7 +90,7 @@
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
         |wrap-leaf $ quote
-          defn wrap-leaf (s)
+          defn wrap-leaf (s coord focus)
             let
                 width $ + leaf-gap
                   * 8.8 $ count s
@@ -85,6 +102,16 @@
                     :size $ [] width height
                     :alpha 0.8
                     :fill $ hslx 190 40 20
+                    :on $ {}
+                      :pointertap $ fn (e d!) (d! :focus coord)
+                  if (= coord focus)
+                    rect $ {}
+                      :position $ [] 0 (* -0.5 height)
+                      :size $ [] width height
+                      :alpha 0.8
+                      :line-style $ {} (:width 1)
+                        :color $ hslx 60 80 80
+                        :alpha 0.8
                   text $ {} (:text s)
                     :position $ [] (* 0.5 leaf-gap) -8
                     :style $ {}
@@ -94,7 +121,7 @@
                 :width width
                 :y-stack 1
         |wrap-block-expr $ quote
-          defn wrap-block-expr (xs)
+          defn wrap-block-expr (xs coord focus)
             loop
                 acc $ []
                 ys xs
@@ -110,20 +137,24 @@
                       :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] block-indent 0)
                         [] block-indent $ * line-height (dec y-stack)
-                    circle $ {} (:radius 4)
+                    circle $ {} (:radius 6)
                       :position $ [] 0 0
-                      :fill $ hslx 0 0 90
+                      :fill $ hslx 120 50 70
+                      :on $ {}
+                        :pointertap $ fn (e d!) (d! :focus coord)
+                    if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
                 let
                     item $ first ys
+                    next-coord $ conj coord idx
                     info $ cond
                         string? item
-                        wrap-leaf item
-                      (is-linear? item) (wrap-linear-expr item)
-                      (with-linear? item) (wrap-expr-with-linear item)
-                      true $ wrap-block-expr item
+                        wrap-leaf item next-coord focus
+                      (is-linear? item) (wrap-linear-expr item next-coord focus)
+                      (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                      true $ wrap-block-expr item next-coord focus
                     width $ :width info
                     tree $ :tree info
                   recur
@@ -137,7 +168,7 @@
                       + y-stack $ :y-stack info
                       inc idx
         |wrap-expr-with-linear $ quote
-          defn wrap-expr-with-linear (xs)
+          defn wrap-expr-with-linear (xs coord focus)
             loop
                 acc $ []
                 ys xs
@@ -155,15 +186,19 @@
                     circle $ {} (:radius 5)
                       :position $ [] 0 0
                       :fill $ hslx 20 90 50
+                      :on $ {}
+                        :pointertap $ fn (e d!) (d! :focus coord)
+                    if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
                 let
                     item $ first ys
+                    next-coord $ conj coord idx
                   cond
                       string? item
                       let
-                          info $ wrap-leaf item
+                          info $ wrap-leaf item next-coord focus
                           width $ :width info
                           tree $ :tree info
                         recur
@@ -176,7 +211,7 @@
                           , y-stack $ inc idx
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
-                          info $ wrap-linear-expr item
+                          info $ wrap-linear-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -204,9 +239,9 @@
                       let
                           info $ cond
                               is-linear? item
-                              wrap-linear-expr item
-                            (with-linear? item) (wrap-expr-with-linear item)
-                            true $ wrap-block-expr item
+                              wrap-linear-expr item next-coord focus
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                            true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -222,9 +257,9 @@
                       let
                           info $ cond
                               is-linear? item
-                              wrap-linear-expr item
-                            (with-linear? item) (wrap-expr-with-linear item)
-                            true $ wrap-block-expr item
+                              wrap-linear-expr item next-coord focus
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                            true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -239,8 +274,8 @@
                       let
                           info $ cond
                               with-linear? item
-                              wrap-expr-with-linear item
-                            true $ wrap-block-expr item
+                              wrap-expr-with-linear item next-coord focus
+                            true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -283,7 +318,7 @@
                     recur $ rest xs
                     , false
         |wrap-linear-expr $ quote
-          defn wrap-linear-expr (xs)
+          defn wrap-linear-expr (xs coord focus)
             loop
                 acc $ []
                 ys xs
@@ -300,19 +335,23 @@
                       :points $ [] ([] 0 0) ([] x-position 0)
                     circle $ {}
                       :position $ [] 0 0
-                      :radius 4
+                      :radius 5
                       :fill $ hslx 260 80 60
+                      :on $ {}
+                        :pointertap $ fn (e d!) (d! :focus coord)
+                    if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
                 let
                     item $ first ys
+                    next-coord $ conj coord idx
                     info $ cond
                         string? item
-                        wrap-leaf item
-                      (is-linear? item) (wrap-linear-expr item)
-                      (with-linear? item) (wrap-expr-with-linear item)
-                      true $ wrap-block-expr item
+                        wrap-leaf item next-coord focus
+                      (is-linear? item) (wrap-linear-expr item next-coord focus)
+                      (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                      true $ wrap-block-expr item next-coord focus
                     width $ :width info
                     tree $ :tree info
                   recur
@@ -357,7 +396,7 @@
                   println "\"dispatch!" op op-data
                 let
                     op-id $ shortid/generate
-                    op-time $ .now js/Date
+                    op-time $ js/Date.now
                   reset! *store $ updater @*store op op-data op-id op-time
         |reload! $ quote
           defn reload! () $ if (nil? build-errors)
