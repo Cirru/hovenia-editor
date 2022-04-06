@@ -14,6 +14,7 @@
             :code-tree $ first
               parse-cirru $ inline "\"with-linear.cirru"
             :focus $ []
+            :warning nil
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
@@ -26,14 +27,39 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (println "\"unknown op" op op-data) store
-              :cirru-edit $ let[] (tree focus)
+              :cirru-edit $ let[] (tree focus warning)
                 cirru-edit (:code-tree store) (:focus store) op-data
-                assoc store :code-tree tree :focus focus
+                if (some? warning) (js/console.warn warning)
+                assoc store :code-tree tree :focus focus :warning warning
               :focus $ assoc store :focus op-data
               :states $ update-states store op-data
               :hydrate-storage op-data
         |cirru-edit $ quote
-          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data) ([] tree focus)
+          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data)
+            let
+                key $ :key op-data
+                code $ :key-code op-data
+                meta? $ :meta-key? op-data
+              cond
+                  = "\"Backspace" key
+                  if (empty? focus) ([] tree focus "\"cannot delete root")
+                    let
+                        target $ get-in tree focus
+                      if
+                        or (list? target) meta? $ = target "\""
+                        let
+                            parent-coord $ butlast focus
+                            next-tree $ dissoc-in tree focus
+                            next-focus $ if
+                              = 0 $ last focus
+                              , parent-coord
+                                conj parent-coord $ dec (last focus)
+                          [] next-tree next-focus nil
+                        []
+                          update-in tree focus $ fn (leaf)
+                            .slice leaf 0 $ dec (count leaf)
+                          , focus nil
+                true $ do (js/console.log op-data) ([] tree focus)
     |app.container $ {}
       :ns $ quote
         ns app.container $ :require
@@ -70,6 +96,10 @@
                   {} $ :down
                     fn (e d!)
                       d! :cirru-edit $ dissoc e :event
+                text $ {}
+                  :text $ :warning store
+                  :position $ [] 0 -40
+                  :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
                 :tree $ wrap-block-expr tree ([]) focus
         |shape-focus $ quote
           def shape-focus $ circle
