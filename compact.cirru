@@ -12,12 +12,22 @@
           def store $ {}
             :states $ {}
             :code-tree $ first
-              parse-cirru $ inline "\"with-linear.cirru"
+              parse-cirru (inline "\"cirru-edit.cirru") (; inline "\"with-linear.cirru") (; inline "\"debug.cirru") (; inline "\"updater.cirru")
             :focus $ []
             :warning nil
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
+        |example-files $ quote
+          def example-files $ {}
+            |cirru-edit $ parse-cirru (inline |cirru-edit.cirru)
+            |debug $ parse-cirru (inline |debug.cirru)
+            |expr-demo $ parse-cirru (inline |expr-demo.cirru)
+            |page-demo $ parse-cirru (inline |page-demo.cirru)
+            |updater-demo $ parse-cirru (inline |updater-demo.cirru)
+            |with-linear $ parse-cirru (inline |with-linear.cirru)
+            |wrap-expr-demo $ parse-cirru (inline |wrap-expr-demo.cirru)
+            |empty $ parse-cirru (inline |empty.cirru)
     |app.updater $ {}
       :ns $ quote
         ns app.updater $ :require
@@ -32,6 +42,7 @@
                 if (some? warning) (js/console.warn warning)
                 assoc store :code-tree tree :focus focus :warning warning
               :focus $ assoc store :focus op-data
+              :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
               :states $ update-states store op-data
               :hydrate-storage op-data
         |cirru-edit $ quote
@@ -67,7 +78,7 @@
                       []
                         assoc-in tree focus $ str target key
                         , focus nil
-                      tree focus "\"not text"
+                      [] tree focus "\"not text"
                 (= key "\"ArrowUp")
                   if (empty? focus) ([] tree focus "\"already at top")
                     [] tree (butlast focus) nil
@@ -124,9 +135,17 @@
                     if shift?
                       let
                           target $ get-in tree focus
-                        []
-                          assoc-in tree focus $ str target key
-                          , focus nil
+                        if (string? target)
+                          []
+                            assoc-in tree focus $ str target key
+                            , focus nil
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-before xs (last focus) "\""
+                            conj (butlast focus)
+                              inc $ last focus
+                            , nil
                       []
                         update-in tree (butlast focus)
                           fn (xs)
@@ -169,7 +188,7 @@
                       []
                         assoc-in tree focus $ str target key
                         , focus nil
-                      tree focus "\"not text"
+                      [] tree focus "\"not text"
                 true $ do (js/console.log op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
@@ -183,10 +202,12 @@
       :ns $ quote
         ns app.container $ :require
           phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+          phlox.comp.button :refer $ comp-button
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
           app.config :refer $ leaf-gap block-indent leaf-height line-height
+          app.schema :refer $ inline example-files
       :defs $ {}
         |is-linear? $ quote
           defn is-linear? (xs)
@@ -202,6 +223,18 @@
                 if (string? x0)
                   recur $ rest xs
                   , false
+        |pick-leaf-color $ quote
+          defn pick-leaf-color (s head?)
+            cond
+                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
+                hslx 300 100 30
+              (= "\"\"" (get s 0))
+                hslx 70 50 40
+              (= "\":" (get s 0))
+                hslx 240 80 74
+              (.!test pattern-number s) (hslx 340 100 30)
+              head? $ hslx 160 70 76
+              true $ hslx 190 50 50
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -214,15 +247,28 @@
                 {} $ :on-keyboard
                   {} $ :down
                     fn (e d!)
-                      do
+                      do $ if
                         = "\"Tab" $ :key e
                         .!preventDefault $ :event e
                       d! :cirru-edit $ dissoc e :event
+                comp-tabs
                 text $ {}
                   :text $ :warning store
                   :position $ [] 0 -40
                   :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
                 :tree $ wrap-block-expr tree ([]) focus
+        |comp-tabs $ quote
+          defn comp-tabs () $ create-list :container
+            {} $ :position ([] -200 0)
+            -> ([] |cirru-edit |debug |expr-demo |page-demo |updater-demo |with-linear |wrap-expr-demo "\"empty")
+              map-indexed $ fn (idx name)
+                [] idx $ comp-button
+                  {} (:text name)
+                    :position $ [] 0 (* idx 40)
+                    :on-pointertap $ fn (e d!)
+                      d! :replace-tree $ or (get example-files name) ([])
+        |pattern-number $ quote
+          def pattern-number $ new js/RegExp "\"-?\\d+(\\.\\d+)?"
         |shape-focus $ quote
           def shape-focus $ circle
             {} (:radius 8)
@@ -242,7 +288,7 @@
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
         |wrap-leaf $ quote
-          defn wrap-leaf (s coord focus)
+          defn wrap-leaf (s coord focus head?)
             let
                 width $ + leaf-gap
                   * 8.8 $ count s
@@ -254,6 +300,8 @@
                     :size $ [] width height
                     :alpha 0.9
                     :fill $ hslx 190 70 14
+                    :line-style $ {} (:width 1) (:alpha 0.18)
+                      :color $ hslx 60 80 100
                     :on $ {}
                       :pointertap $ fn (e d!) (d! :focus coord)
                   if (= coord focus)
@@ -267,7 +315,7 @@
                   text $ {} (:text s)
                     :position $ [] (* 0.5 leaf-gap) -8
                     :style $ {}
-                      :fill $ hslx 200 50 80
+                      :fill $ pick-leaf-color s head?
                       :font-size 14
                       :font-family "|Roboto Mono"
                 :width width
@@ -292,7 +340,7 @@
                           &max 0 $ dec y-stack
                     circle $ {} (:radius 6)
                       :position $ [] 0 0
-                      :fill $ hslx 120 50 70
+                      :fill $ hslx 160 50 70
                       :on $ {}
                         :pointertap $ fn (e d!) (d! :focus coord)
                     if (= coord focus) shape-focus
@@ -304,7 +352,7 @@
                     next-coord $ conj coord idx
                     info $ cond
                         string? item
-                        wrap-leaf item next-coord focus
+                        wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? item) (wrap-linear-expr item next-coord focus)
                       (with-linear? item) (wrap-expr-with-linear item next-coord focus)
                       true $ wrap-block-expr item next-coord focus
@@ -336,9 +384,9 @@
                         :color $ hslx 200 100 30
                       :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] x-position 0)
-                    circle $ {} (:radius 5)
+                    circle $ {} (:radius 6)
                       :position $ [] 0 0
-                      :fill $ hslx 20 90 50
+                      :fill $ hslx 340 90 50
                       :on $ {}
                         :pointertap $ fn (e d!) (d! :focus coord)
                     if (= coord focus) shape-focus
@@ -351,7 +399,7 @@
                   cond
                       string? item
                       let
-                          info $ wrap-leaf item next-coord focus
+                          info $ wrap-leaf item next-coord focus (= idx 0)
                           width $ :width info
                           tree $ :tree info
                         recur
@@ -489,7 +537,7 @@
                       :points $ [] ([] 0 0) ([] x-position 0)
                     circle $ {}
                       :position $ [] 0 0
-                      :radius 5
+                      :radius 6
                       :fill $ hslx 260 80 60
                       :on $ {}
                         :pointertap $ fn (e d!) (d! :focus coord)
@@ -502,7 +550,7 @@
                     next-coord $ conj coord idx
                     info $ cond
                         string? item
-                        wrap-leaf item next-coord focus
+                        wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? item) (wrap-linear-expr item next-coord focus)
                       (with-linear? item) (wrap-expr-with-linear item next-coord focus)
                       true $ wrap-block-expr item next-coord focus
