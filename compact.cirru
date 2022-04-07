@@ -247,9 +247,11 @@
                 {} $ :on-keyboard
                   {} $ :down
                     fn (e d!)
-                      do $ if
+                      if
                         = "\"Tab" $ :key e
                         .!preventDefault $ :event e
+                        .!stopPropagation $ :event e
+                        js/document.body.focus
                       d! :cirru-edit $ dissoc e :event
                 comp-tabs
                 text $ {}
@@ -583,7 +585,7 @@
           defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
             -> (new FontFaceObserver "\"Roboto Mono") (.!load)
-              .!then $ fn (event) (render-app!)
+              .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
             add-watch *store :change $ fn (store prev) (render-app!)
             when mobile? (render-control!) (start-control-loop! 8 on-control-event)
             println "\"App Started"
