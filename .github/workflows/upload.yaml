@@ -8,8 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-20.04
-    # runs-on: ubuntu-latest
+    # runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
 
@@ -31,8 +31,8 @@ jobs:
         && git clone https://github.com/calcit-lang/memof.git
         && git clone https://github.com/Respo/respo.calcit.git
         && git clone https://github.com/Respo/respo-ui.calcit.git
-        && git clone https://github.com/Phlox-GL/phlox.git --branch 0.4.32
-        && git clone https://github.com/Quatrefoil-GL/touch-control.git
+        && git clone https://github.com/Phlox-GL/phlox.git
+        && git clone https://github.com/Quatrefoil-GL/touch-control.git --branch 0.0.9
 
     - name: "compiles to js"
       run: >
