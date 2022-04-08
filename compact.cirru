@@ -208,6 +208,7 @@
           app.math :refer $ divide-path multiply-path
           app.config :refer $ leaf-gap block-indent leaf-height line-height
           app.schema :refer $ inline example-files
+          phlox.complex :as complex
       :defs $ {}
         |is-linear? $ quote
           defn is-linear? (xs)
@@ -235,6 +236,16 @@
               (.!test pattern-number s) (hslx 340 100 30)
               head? $ hslx 160 70 76
               true $ hslx 190 50 50
+        |shape-tabs $ quote
+          def shape-tabs $ create-list :container
+            {} $ :position ([] -200 0)
+            -> ([] |cirru-edit |debug |expr-demo |page-demo |updater-demo |with-linear |wrap-expr-demo "\"empty")
+              map-indexed $ fn (idx name)
+                [] idx $ comp-button
+                  {} (:text name)
+                    :position $ [] 0 (* idx 40)
+                    :on-pointertap $ fn (e d!)
+                      d! :replace-tree $ or (get example-files name) ([])
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -253,24 +264,41 @@
                         .!stopPropagation $ :event e
                         js/document.body.focus
                       d! :cirru-edit $ dissoc e :event
-                comp-tabs
+                , shape-tabs
+                  text $ {}
+                    :text $ :warning store
+                    :position $ [] 0 -40
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
+                  :tree $ wrap-block-expr tree ([]) focus
+                  comp-hint (>> states :hint) focus $ get-in tree focus
+        |comp-hint $ quote
+          defn comp-hint (states focus target)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :p1 ([] 400 -100)
+              container ({})
+                comp-drag-point (>> states :p1)
+                  {} (:hide-text? true)
+                    :position $ :p1 state
+                    :radius 8
+                    :fill $ hslx 60 90 44
+                    :on-change $ fn (position d!)
+                      d! cursor $ assoc state :p1 position
                 text $ {}
-                  :text $ :warning store
-                  :position $ [] 0 -40
-                  :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
-                :tree $ wrap-block-expr tree ([]) focus
-        |comp-tabs $ quote
-          defn comp-tabs () $ create-list :container
-            {} $ :position ([] -200 0)
-            -> ([] |cirru-edit |debug |expr-demo |page-demo |updater-demo |with-linear |wrap-expr-demo "\"empty")
-              map-indexed $ fn (idx name)
-                [] idx $ comp-button
-                  {} (:text name)
-                    :position $ [] 0 (* idx 40)
-                    :on-pointertap $ fn (e d!)
-                      d! :replace-tree $ or (get example-files name) ([])
+                  :text $ .!slice
+                    format-to-lisp $ turn-quoted target
+                    , 0 200
+                  :position $ complex/add (:p1 state) ([] 12 -6)
+                  :style $ {}
+                    :fill $ hslx 200 40 50
+                    :font-size 10
+                    :font-family "|Roboto Mono, manospace"
+        |turn-quoted $ quote
+          defn turn-quoted (target)
+            if (string? target) (turn-symbol target) (map target turn-quoted)
         |pattern-number $ quote
-          def pattern-number $ new js/RegExp "\"-?\\d+(\\.\\d+)?"
+          def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
         |shape-focus $ quote
           def shape-focus $ circle
             {} (:radius 8)
