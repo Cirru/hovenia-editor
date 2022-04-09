@@ -350,6 +350,7 @@
                       :font-family "|Roboto Mono"
                 :width width
                 :y-stack 1
+                :winding-x nil
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
@@ -358,6 +359,8 @@
                 x-position 0
                 y-stack 0
                 idx 0
+                prev-width 0
+                winding-x nil
               if (empty? ys)
                 {}
                   :tree $ container ({})
@@ -377,6 +380,7 @@
                     create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
+                  :winding-x winding-x
                 let
                     item $ first ys
                     next-coord $ conj coord idx
@@ -384,28 +388,45 @@
                         string? item
                         wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? item) (wrap-linear-expr item next-coord focus)
-                      (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                      (with-linear? item) (wrap-expr-with-linear item next-coord focus true)
                       true $ wrap-block-expr item next-coord focus
                     width $ :width info
                     tree $ :tree info
+                    next-y-stack $ if
+                      some? $ :winding-x info
+                      if
+                        >
+                          either (:winding-x info) 0
+                          + block-indent prev-width
+                        , y-stack $ inc y-stack
+                      , y-stack
                   recur
                     conj acc $ [] idx
                       container
                         {} $ :position
-                          [] block-indent $ * y-stack line-height
-                        , tree
+                          [] block-indent $ * next-y-stack line-height
+                        , tree $ ; text
+                          {}
+                            :text $ str
+                              [] prev-width (:winding-x info) (; width)
+                            :position $ [] 0 -8
+                            :rotation -0.4
+                            :style $ {} (:fill |red) (:font-size 8) (:font-family "|Source Code Pro, monospace")
                     rest ys
-                    , 20
-                      + y-stack $ :y-stack info
+                    , width
+                      + next-y-stack $ :y-stack info
                       inc idx
+                      , width $ if (= 0 idx) (:winding-x info) winding-x
         |wrap-expr-with-linear $ quote
-          defn wrap-expr-with-linear (xs coord focus)
+          defn wrap-expr-with-linear (xs coord focus parent-winding-okay?)
             loop
                 acc $ []
                 ys xs
                 x-position block-indent
                 y-stack 1
                 idx 0
+                winding-okay? parent-winding-okay?
+                winding-x nil
               if (empty? ys)
                 {}
                   :tree $ container ({})
@@ -423,6 +444,7 @@
                     create-list :container ({}) (reverse acc)
                   :width x-position
                   :y-stack y-stack
+                  :winding-x winding-x
                 let
                     item $ first ys
                     next-coord $ conj coord idx
@@ -439,7 +461,33 @@
                               , tree
                           rest ys
                           + x-position width block-indent
-                          , y-stack $ inc idx
+                          , y-stack (inc idx) winding-okay? winding-x
+                    (and winding-okay? (is-linear? item) (not= 1 (count ys)))
+                      let
+                          focused? $ = next-coord focus
+                          info $ wrap-linear-expr item next-coord focus
+                          width $ :width info
+                        recur
+                          conj acc $ [] idx
+                            container
+                              {} $ :position
+                                [] (+ 4 x-position) 0
+                              polyline $ {}
+                                :style $ {} (:width 1) (:alpha 0.8)
+                                  :color $ if focused? (hslx 200 100 80) (hslx 200 100 40)
+                                :position $ [] 0 0
+                                :points $ [] ([] 0 0)
+                                  [] 0 $ * -1 line-height
+                              circle $ {} (:radius 3) (:alpha 1)
+                                :position $ [] 0 0
+                                :fill $ hslx 200 100 30
+                              container
+                                {} $ :position
+                                  [] 0 $ * -1 line-height
+                                :tree info
+                          rest ys
+                          + x-position block-indent
+                          , y-stack (inc idx) false x-position
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
@@ -467,12 +515,13 @@
                           + x-position block-indent
                           inc y-stack
                           inc idx
+                          , false winding-x
                     (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
                       let
                           info $ cond
                               is-linear? item
                               wrap-linear-expr item next-coord focus
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay?)
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -485,12 +534,13 @@
                           + x-position width block-indent
                           &max y-stack $ :y-stack info
                           inc idx
+                          , winding-okay? winding-x
                     (and (= 1 (count ys)) (&= y-stack 1))
                       let
                           info $ cond
                               is-linear? item
                               wrap-linear-expr item next-coord focus
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay?)
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -502,11 +552,15 @@
                           + x-position width leaf-gap
                           &max y-stack $ :y-stack info
                           inc idx
+                          , winding-okay? $ either winding-x
+                            if-let
+                              x $ :winding-x info
+                              + x-position x
                     (= 1 (count ys))
                       let
                           info $ cond
                               with-linear? item
-                              wrap-expr-with-linear item next-coord focus
+                              wrap-expr-with-linear item next-coord focus winding-okay?
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -530,6 +584,7 @@
                           + x-position width 4
                           + y-stack $ :y-stack info
                           inc idx
+                          , winding-okay? winding-x
                     true $ {}
                       :tree $ create-list :container ({})
                         conj acc $ [] idx (comp-error ys)
@@ -582,7 +637,7 @@
                         string? item
                         wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? item) (wrap-linear-expr item next-coord focus)
-                      (with-linear? item) (wrap-expr-with-linear item next-coord focus)
+                      (with-linear? item) (wrap-expr-with-linear item next-coord focus false)
                       true $ wrap-block-expr item next-coord focus
                     width $ :width info
                     tree $ :tree info
