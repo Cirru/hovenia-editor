@@ -361,6 +361,7 @@
                 idx 0
                 prev-width 0
                 winding-x nil
+                prev-leaf? false
               if (empty? ys)
                 {}
                   :tree $ container ({})
@@ -381,42 +382,65 @@
                   :width x-position
                   :y-stack y-stack
                   :winding-x winding-x
-                let
-                    item $ first ys
-                    next-coord $ conj coord idx
-                    info $ cond
-                        string? item
-                        wrap-leaf item next-coord focus $ = idx 0
-                      (is-linear? item) (wrap-linear-expr item next-coord focus)
-                      (with-linear? item) (wrap-expr-with-linear item next-coord focus true)
-                      true $ wrap-block-expr item next-coord focus
-                    width $ :width info
-                    tree $ :tree info
-                    next-y-stack $ if
-                      some? $ :winding-x info
-                      if
-                        >
-                          either (:winding-x info) 0
-                          + block-indent prev-width
-                        , y-stack $ inc y-stack
-                      , y-stack
-                  recur
-                    conj acc $ [] idx
-                      container
-                        {} $ :position
-                          [] block-indent $ * next-y-stack line-height
-                        , tree $ ; text
-                          {}
-                            :text $ str
-                              [] prev-width (:winding-x info) (; width)
-                            :position $ [] 0 -8
-                            :rotation -0.4
-                            :style $ {} (:fill |red) (:font-size 8) (:font-family "|Source Code Pro, monospace")
-                    rest ys
-                    , width
-                      + next-y-stack $ :y-stack info
-                      inc idx
-                      , width $ if (= 0 idx) (:winding-x info) winding-x
+                if
+                  and prev-leaf? $ string? (first ys)
+                  let
+                      item $ first ys
+                      next-coord $ conj coord idx
+                      info $ wrap-leaf item next-coord focus (= idx 0)
+                      width $ :width info
+                      tree $ :tree info
+                      offset $ + x-position leaf-gap
+                    recur
+                      conj acc $ [] idx
+                        container
+                          {} $ :position
+                            [] (+ block-indent offset)
+                              * (dec y-stack) line-height
+                          , tree
+                      rest ys
+                      + width offset
+                      , y-stack (inc idx) (+ width offset)
+                        if (= 0 idx) (:winding-x info) winding-x
+                        , true
+                  let
+                      item $ first ys
+                      next-coord $ conj coord idx
+                      info $ cond
+                          string? item
+                          wrap-leaf item next-coord focus $ = idx 0
+                        (is-linear? item) (wrap-linear-expr item next-coord focus)
+                        (with-linear? item) (wrap-expr-with-linear item next-coord focus true)
+                        true $ wrap-block-expr item next-coord focus
+                      width $ :width info
+                      tree $ :tree info
+                      next-y-stack $ if
+                        some? $ :winding-x info
+                        if
+                          >
+                            either (:winding-x info) 0
+                            + block-indent prev-width
+                          , y-stack $ inc y-stack
+                        , y-stack
+                    recur
+                      conj acc $ [] idx
+                        container
+                          {} $ :position
+                            [] block-indent $ * next-y-stack line-height
+                          , tree $ ; text
+                            {}
+                              :text $ str
+                                [] prev-width (:winding-x info) (do width)
+                              :position $ [] 0 -8
+                              :rotation -0.4
+                              :style $ {} (:fill |red) (:font-size 8) (:font-family "|Source Code Pro, monospace")
+                      rest ys
+                      , width
+                        + next-y-stack $ :y-stack info
+                        inc idx
+                        , width
+                          if (= 0 idx) (:winding-x info) winding-x
+                          string? item
         |wrap-expr-with-linear $ quote
           defn wrap-expr-with-linear (xs coord focus parent-winding-okay?)
             loop
@@ -637,20 +661,27 @@
                         string? item
                         wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? item) (wrap-linear-expr item next-coord focus)
-                      (with-linear? item) (wrap-expr-with-linear item next-coord focus false)
-                      true $ wrap-block-expr item next-coord focus
+                      true $ comp-error item
                     width $ :width info
                     tree $ :tree info
                   recur
                     conj acc $ [] idx
                       container
                         {} $ :position
-                          [] (+ leaf-gap x-position) 0
+                          [] (+ x-position leaf-gap) 0
                         , tree
                     rest ys
-                    + x-position width leaf-gap
+                    + x-position width $ if
+                      head-in-list $ rest ys
+                      , block-indent leaf-gap
                     &max y-stack $ :y-stack info
                     inc idx
+        |head-in-list $ quote
+          defn head-in-list (xs)
+            if
+              some? $ first xs
+              list? $ first xs
+              , false
     |app.main $ {}
       :ns $ quote
         ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
