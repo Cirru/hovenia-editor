@@ -16,6 +16,7 @@
             :states $ {}
             :code-tree $ first
               parse-cirru (inline "\"cirru-edit.cirru") (; inline "\"with-linear.cirru") (; inline "\"debug.cirru") (; inline "\"updater.cirru")
+            :files $ {}
             :focus $ []
             :warning nil
         |inline $ quote
@@ -40,6 +41,7 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (println "\"unknown op" op op-data) store
+              :load-files $ assoc store :files op-data
               :cirru-edit $ let[] (tree focus warning)
                 cirru-edit (:code-tree store) (:focus store) op-data
                 if (some? warning) (js/console.warn warning)
@@ -254,9 +256,11 @@
             let
                 states $ :states store
                 cursor $ []
-                state $ or (:data states) ({})
+                state $ or (:data states)
+                  {} $ :selected-ns nil
                 tree $ :code-tree store
                 focus $ :focus store
+                files $ :files store
               container
                 {} $ :on-keyboard
                   {} $ :down
@@ -267,13 +271,41 @@
                         .!stopPropagation $ :event e
                         js/document.body.focus
                       d! :cirru-edit $ dissoc e :event
-                , shape-tabs
-                  text $ {}
-                    :text $ :warning store
-                    :position $ [] 0 -40
-                    :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
-                  :tree $ wrap-block-expr tree ([]) focus
-                  comp-hint (>> states :hint) focus $ get-in tree focus
+                comp-ns-entries (keys files) (:selected-ns state)
+                  fn (ns d!)
+                    d! cursor $ assoc state :selected-ns ns
+                if-let
+                  file $ get files (:selected-ns state)
+                  comp-file (:selected-ns state) file nil
+                text $ {}
+                  :text $ :warning store
+                  :position $ [] 0 -40
+                  :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
+                :tree $ wrap-block-expr tree ([]) focus
+                ; comp-hint (>> states :hint) focus $ get-in tree focus
+        |comp-file $ quote
+          defn comp-file (ns file selected)
+            container
+              {} $ :position ([] -200 0)
+              comp-button $ {} (:text ns)
+                :position $ [] 0 -60
+                :font-family "\"Roboto Mono, monospace"
+                :on-pointertap $ fn (e d!)
+                  d! :replace-tree $ nth (:ns file) 1
+              create-list :container
+                {} $ :position ([] 0 0)
+                -> (:defs file) (.to-list)
+                  map-indexed $ fn (idx pair)
+                    [] idx $ comp-button
+                      {}
+                        :text $ first pair
+                        :position $ [] 0 (* idx 40)
+                        :font-family "\"Roboto Mono, monospace"
+                        :fill $ if
+                          = selected $ first pair
+                          hslx 0 0 30
+                        :on-pointertap $ fn (e d!)
+                          d! :replace-tree $ nth (nth pair 1) 1
         |comp-hint $ quote
           defn comp-hint (states focus target)
             let
@@ -320,6 +352,18 @@
                 :text $ format-cirru-edn ys
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
+        |comp-ns-entries $ quote
+          defn comp-ns-entries (ns-entries selected on-select)
+            create-list :container
+              {} $ :position ([] -400 0)
+              -> ns-entries (.to-list)
+                map-indexed $ fn (idx name)
+                  [] idx $ comp-button
+                    {} (:text name)
+                      :position $ [] 0 (* idx 40)
+                      :font-family "\"Roboto Mono, monospace"
+                      :fill $ if (= name selected) (hslx 0 0 30)
+                      :on-pointertap $ fn (e d!) (on-select name d!)
         |wrap-leaf $ quote
           defn wrap-leaf (s coord focus head?)
             let
@@ -706,6 +750,7 @@
             add-watch *store :change $ fn (store prev) (render-app!)
             render-control!
             start-control-loop! 8 on-control-event
+            load-files! dispatch!
             println "\"App Started"
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
@@ -715,7 +760,7 @@
               do
                 when
                   and dev? $ not= op :states
-                  println "\"dispatch!" op op-data
+                  println "\"dispatch!" op
                 let
                     op-id $ shortid/generate
                     op-time $ js/Date.now
@@ -727,9 +772,18 @@
               render-app!
               replace-control-loop! 8 on-control-event
               hud! "\"ok~" "\"Ok"
+              load-files! dispatch!
             hud! "\"error" build-errors
         |render-app! $ quote
           defn render-app! () $ render! (comp-container @*store) dispatch! ({})
+        |load-files! $ quote
+          defn load-files! (d!)
+            -> (str "\"http://" js/location.hostname "\":6101/compact-data") (js/fetch)
+              .then $ fn (res) (.!text res)
+              .then $ fn (text)
+                let
+                    files $ :files (parse-cirru-edn text)
+                  if (some? files) (d! :load-files files) (js/console.log "\"unknown data:" files)
     |app.math $ {}
       :ns $ quote (ns app.math)
       :defs $ {}
@@ -816,13 +870,13 @@
               "\"/compact-data" $ let
                   content $ read-file "\"compact.cirru"
                 {} (:code 200)
-                  :header $ {} (:content-type "\"data/cirru-edn")
+                  :headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*")
                   :body content
               "\"/compact-inc" $ case-default (:method req)
                 do
                   println "\"Unknown method" $ :method req
                   {} (:code 400)
-                    :header $ {} (:content-type "\"data/cirru-edn")
+                    :header $ {} (:content-type "\"data/cirru-edn") ("\"Access-Control-Allow-Origin" "\"*")
                     :body $ format-cirru-edn
                       {} (:ok? false)
                         :message $ str "\"Unknown method " (:method req)
@@ -834,7 +888,7 @@
                   println "\"wrote to" "\".compact-inc.cirru"
                   ; println "\"data" $ :body req
                   {} (:code 200)
-                    :header $ {} (:content-type "\"data/cirru-edn")
+                    :header $ {} (:Content-Type "\"data/cirru-edn")
                     :body $ format-cirru-edn
                       {} (:ok? true) (:data "\"wrote")
         |start-server! $ quote
