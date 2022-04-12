@@ -4,6 +4,9 @@
     :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/
     :version nil
   :entries $ {}
+    :server $ {} (:reload-fn |app.server/reload!)
+      :modules $ [] |calcit-http/
+      :init-fn |app.server/main!
   :files $ {}
     |app.schema $ {}
       :ns $ quote (ns app.schema)
@@ -794,3 +797,77 @@
         |block-indent $ quote (def block-indent 20)
         |leaf-height $ quote (def leaf-height 24)
         |line-height $ quote (def line-height 32)
+    |app.server $ {}
+      :ns $ quote
+        ns app.server $ :require
+          http.core :refer $ serve-http!
+      :defs $ {}
+        |main! $ quote
+          defn main! () (println "\"TODO start web server") (start-server!)
+        |reload! $ quote
+          defn reload! () $ println "\"reload..."
+        |on-request $ quote
+          defn on-request (req)
+            case-default (:url req)
+              do
+                println "\"unknown url" $ :url req
+                {} (:code 404)
+                  :body $ str "\"unkown url " (:url req)
+              "\"/compact-data" $ let
+                  content $ read-file "\"compact.cirru"
+                {} (:code 200)
+                  :header $ {} (:content-type "\"data/cirru-edn")
+                  :body content
+              "\"/compact-inc" $ case-default (:method req)
+                do
+                  println "\"Unknown method" $ :method req
+                  {} (:code 400)
+                    :header $ {} (:content-type "\"data/cirru-edn")
+                    :body $ format-cirru-edn
+                      {} (:ok? false)
+                        :message $ str "\"Unknown method " (:method req)
+                :PUT $ let
+                    body $ :body req
+                    changes $ parse-cirru-edn body
+                    new-compact-data $ patch-compact-data (read-file "\"compact.cirru") changes
+                  write-file "\"TODO.compact-inc.cirru" body
+                  println "\"wrote to" "\".compact-inc.cirru"
+                  ; println "\"data" $ :body req
+                  {} (:code 200)
+                    :header $ {} (:content-type "\"data/cirru-edn")
+                    :body $ format-cirru-edn
+                      {} (:ok? true) (:data "\"wrote")
+        |start-server! $ quote
+          defn start-server! () $ reset! *app-server
+            serve-http!
+              {} (:port 6101) (:host "\"0.0.0.0")
+              fn (req) (on-request req)
+        |*app-server $ quote (defatom *app-server nil)
+        |patch-compact-data $ quote
+          defn patch-compact-data (compact-data changes)
+            let
+                removed $ :removed compact-data
+                added $ :added compact-data
+                changed $ :changed compact-data
+              , update compact-data :files $ fn (files)
+                let
+                    c1 $ -> files (unselect-keys removed) (merge added)
+                  loop
+                      files-data c1
+                      changes $ .to-list changed
+                    if (empty? changes) files-data $ let
+                        pair $ first changes 
+                        target-ns $ nth pair 0
+                        target $ nth pair 1
+                        removed-defs $ :removed-defs target
+                        added-defs $ :added-defs target
+                        changed-defs $ :changed-defs target
+                        ns-change $ :ns target
+                        next $ update files-data target-ns
+                          fn (file)
+                            -> file
+                              update :ns $ fn (ns)
+                                if (some? ns-change) ns-change ns
+                              update :defs $ fn (defs)
+                                -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
+                      recur next $ rest changes
