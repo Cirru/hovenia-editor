@@ -16,9 +16,11 @@
             :states $ {}
             :code-tree $ first
               parse-cirru (inline "\"cirru-edit.cirru") (; inline "\"with-linear.cirru") (; inline "\"debug.cirru") (; inline "\"updater.cirru")
+            :saved-files $ {}
             :files $ {}
             :focus $ []
             :warning nil
+            :def-path $ []
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
@@ -41,11 +43,19 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (println "\"unknown op" op op-data) store
-              :load-files $ assoc store :files op-data
-              :cirru-edit $ let[] (tree focus warning)
-                cirru-edit (:code-tree store) (:focus store) op-data
-                if (some? warning) (js/console.warn warning)
-                assoc store :code-tree tree :focus focus :warning warning
+              :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
+              :cirru-edit $ let
+                  def-path $ prepend (:def-path store) :files
+                  def-target $ -> store (get-in def-path)
+                if (some? def-target)
+                  let[] (tree focus warning)
+                    cirru-edit (nth def-target 1) (:focus store) op-data
+                    if (some? warning) (js/console.warn warning)
+                    -> store
+                      assoc-in def-path $ :: 'quote tree
+                      assoc :focus focus :warning warning
+                  assoc store :warning $ str "\"target not found at:" def-path
+              :def-path $ assoc store :def-path op-data
               :focus $ assoc store :focus op-data
               :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
               :states $ update-states store op-data
@@ -211,7 +221,7 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
-          app.config :refer $ leaf-gap block-indent leaf-height line-height
+          app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
           app.schema :refer $ inline example-files
           phlox.complex :as complex
       :defs $ {}
@@ -257,7 +267,7 @@
                 states $ :states store
                 cursor $ []
                 state $ or (:data states)
-                  {} $ :selected-ns nil
+                  {} (:selected-ns nil) (:def-target nil)
                 tree $ :code-tree store
                 focus $ :focus store
                 files $ :files store
@@ -276,22 +286,47 @@
                     d! cursor $ assoc state :selected-ns ns
                 if-let
                   file $ get files (:selected-ns state)
-                  comp-file (:selected-ns state) file nil
-                text $ {}
-                  :text $ :warning store
-                  :position $ [] 0 -40
-                  :style $ {} (:fill |red) (:font-size 14) (:font-family "|Roboto, sans-serif")
-                :tree $ wrap-block-expr tree ([]) focus
+                  comp-file (:selected-ns state) file (:def-target state)
+                    fn (path d!)
+                      d! cursor $ assoc state :def-target path
+                      d! :def-path $ prepend path (:selected-ns state)
+                if-let
+                  warning $ :warning store
+                  text $ {} (:text warning)
+                    :position $ [] 0 -40
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family code-font)
+                comp-button $ {} (:text "\"Save")
+                  :position $ [] -60 -160
+                  :font-family code-font
+                  :on-pointertap $ fn (e d!)
+                    on-save (:files store) (:saved-files store) d!
+                :tree $ let
+                    item $ -> files
+                      get $ :selected-ns state
+                      get-in $ or (:def-target state) ([])
+                      get 1
+                  cond
+                      string? item
+                      wrap-leaf item ([]) focus false
+                    (is-linear? item)
+                      wrap-linear-expr item ([]) focus
+                    (with-linear? item)
+                      wrap-expr-with-linear item ([]) focus true
+                    true $ wrap-block-expr item ([]) focus
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
         |comp-file $ quote
-          defn comp-file (ns file selected)
+          defn comp-file (ns file selected on-select)
             container
               {} $ :position ([] -200 0)
               comp-button $ {} (:text ns)
                 :position $ [] 0 -60
                 :font-family "\"Roboto Mono, monospace"
+                :fill $ if
+                  = (get selected 0) :ns
+                  hslx 0 0 30
                 :on-pointertap $ fn (e d!)
-                  d! :replace-tree $ nth (:ns file) 1
+                  ; d! :replace-tree $ nth (:ns file) 1
+                  on-select ([] :ns) d!
               create-list :container
                 {} $ :position ([] 0 0)
                 -> (:defs file) (.to-list)
@@ -302,10 +337,13 @@
                         :position $ [] 0 (* idx 40)
                         :font-family "\"Roboto Mono, monospace"
                         :fill $ if
-                          = selected $ first pair
+                          = (get selected 1) (first pair)
                           hslx 0 0 30
                         :on-pointertap $ fn (e d!)
-                          d! :replace-tree $ nth (nth pair 1) 1
+                          ; d! :replace-tree $ nth (nth pair 1) 1
+                          on-select
+                            [] :defs $ first pair
+                            , d!
         |comp-hint $ quote
           defn comp-hint (states focus target)
             let
@@ -352,6 +390,53 @@
                 :text $ format-cirru-edn ys
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
+        |on-save $ quote
+          defn on-save (files saved-files d!)
+            let
+                removed-entries $ difference (keys saved-files) (keys files)
+                common-ns $ intersection (keys files) (keys saved-files)
+                new-entries $ ->
+                  difference (keys files) (keys saved-files)
+                  .to-list
+                  map $ fn (ns)
+                    [] ns $ get files ns
+                  pairs-map
+                changed-entries $ -> common-ns
+                  map $ fn (ns)
+                    [] ns $ let
+                        file $ get files ns
+                        saved-file $ get saved-files ns
+                      if (= file saved-file) nil $ let
+                          defs $ :defs file
+                          saved-defs $ :defs saved-file
+                          common-defs $ intersection (keys saved-defs) (keys defs)
+                          new-defs $ difference (keys defs) (keys saved-defs)
+                        {}
+                          :ns $ if
+                            = (:ns file) (:ns saved-file)
+                            , nil (:ns file)
+                          :added-defs $ -> new-defs
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                          :removed-defs $ difference (keys saved-defs) (keys defs)
+                          :changed-defs $ -> common-defs
+                            filter $ fn (def-name)
+                              not= (get defs def-name) (get saved-defs def-name)
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                  filter $ fn (pair)
+                    some? $ nth pair 1
+                  pairs-map
+                content $ format-cirru-edn
+                  {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
+              ; js/console.log changed-entries
+              ; println $ format-cirru-edn changed-entries
+              ->
+                js/fetch (str api-host "\"/compact-inc")
+                  js-object (:method "\"PUT") (:body content)
+                .then $ fn (res) (js/console.log "\"response" res)
         |comp-ns-entries $ quote
           defn comp-ns-entries (ns-entries selected on-select)
             create-list :container
@@ -741,6 +826,7 @@
           "\"./calcit.build-errors" :default build-errors
           "\"bottom-tip" :default hud!
           touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
+          app.config :refer $ api-host
       :defs $ {}
         |main! $ quote
           defn main! () (; js/console.log PIXI)
@@ -778,7 +864,7 @@
           defn render-app! () $ render! (comp-container @*store) dispatch! ({})
         |load-files! $ quote
           defn load-files! (d!)
-            -> (str "\"http://" js/location.hostname "\":6101/compact-data") (js/fetch)
+            -> (str api-host "\"/compact-data") (js/fetch)
               .then $ fn (res) (.!text res)
               .then $ fn (text)
                 let
@@ -851,10 +937,16 @@
         |block-indent $ quote (def block-indent 20)
         |leaf-height $ quote (def leaf-height 24)
         |line-height $ quote (def line-height 32)
+        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
+        |api-host $ quote
+          def api-host $ str "\"http://" js/location.hostname "\":6101"
+        |cors-headers $ quote
+          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
     |app.server $ {}
       :ns $ quote
         ns app.server $ :require
           http.core :refer $ serve-http!
+          app.config :refer $ cors-headers
       :defs $ {}
         |main! $ quote
           defn main! () (println "\"TODO start web server") (start-server!)
@@ -869,28 +961,28 @@
                   :body $ str "\"unkown url " (:url req)
               "\"/compact-data" $ let
                   content $ read-file "\"compact.cirru"
-                {} (:code 200)
-                  :headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*")
-                  :body content
+                {} (:code 200) (:headers cors-headers) (:body content)
               "\"/compact-inc" $ case-default (:method req)
                 do
                   println "\"Unknown method" $ :method req
-                  {} (:code 400)
-                    :header $ {} (:content-type "\"data/cirru-edn") ("\"Access-Control-Allow-Origin" "\"*")
+                  {} (:code 400) (:headers cors-headers)
                     :body $ format-cirru-edn
                       {} (:ok? false)
                         :message $ str "\"Unknown method " (:method req)
                 :PUT $ let
                     body $ :body req
                     changes $ parse-cirru-edn body
-                    new-compact-data $ patch-compact-data (read-file "\"compact.cirru") changes
-                  write-file "\"TODO.compact-inc.cirru" body
+                    new-compact-data $ patch-compact-data
+                      parse-cirru-edn $ read-file "\"compact.cirru"
+                      , changes
+                  write-file "\"compact-2.cirru" $ format-cirru-edn new-compact-data
+                  write-file "\".compact-inc.cirru" body
                   println "\"wrote to" "\".compact-inc.cirru"
                   ; println "\"data" $ :body req
-                  {} (:code 200)
-                    :header $ {} (:Content-Type "\"data/cirru-edn")
+                  {} (:code 200) (:headers cors-headers)
                     :body $ format-cirru-edn
                       {} (:ok? true) (:data "\"wrote")
+                :OPTIONS $ {} (:code 200) (:headers cors-headers) (:body "\"OK")
         |start-server! $ quote
           defn start-server! () $ reset! *app-server
             serve-http!
@@ -898,19 +990,21 @@
               fn (req) (on-request req)
         |*app-server $ quote (defatom *app-server nil)
         |patch-compact-data $ quote
-          defn patch-compact-data (compact-data changes)
+          defn patch-compact-data (compact-data inc-changes)
             let
-                removed $ :removed compact-data
-                added $ :added compact-data
-                changed $ :changed compact-data
-              , update compact-data :files $ fn (files)
+                removed $ or (:removed inc-changes) (#{})
+                added $ or (:added inc-changes) ({})
+                changed $ or (:changed inc-changes) ({})
+              println "\"inc changes:" changed
+              update compact-data :files $ fn (files)
                 let
                     c1 $ -> files (unselect-keys removed) (merge added)
                   loop
                       files-data c1
                       changes $ .to-list changed
+                    println "\"changes" changes
                     if (empty? changes) files-data $ let
-                        pair $ first changes 
+                        pair $ first changes
                         target-ns $ nth pair 0
                         target $ nth pair 1
                         removed-defs $ :removed-defs target
@@ -922,6 +1016,6 @@
                             -> file
                               update :ns $ fn (ns)
                                 if (some? ns-change) ns-change ns
-                              update :defs $ fn (defs)
+                              update :defs $ fn (defs) (println "\"defs" added-defs changed-defs)
                                 -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
                       recur next $ rest changes
