@@ -5,3 +5,5 @@
 js-out/
 node_modules/
 dist/
+
+sandbox/
