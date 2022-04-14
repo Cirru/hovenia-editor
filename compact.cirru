@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/
     :version nil
   :entries $ {}
     :server $ {} (:reload-fn |app.server/reload!)
@@ -58,6 +58,33 @@
               :def-path $ assoc store :def-path op-data
               :focus $ assoc store :focus op-data
               :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
+              :warn $ assoc store :warning op-data
+              :add-ns $ let
+                  ns $ or op-data "\"TODO_NS"
+                assoc-in store ([] :files ns)
+                  {}
+                    :ns $ :: 'quote ([] "\"ns" ns)
+                    :defs $ {}
+              :rm-ns $ if (some? op-data)
+                dissoc-in store $ [] :files op-data
+                , store
+              :add-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) defs $ assoc defs def-name
+                          :: 'quote $ [] "\"defn" def-name ([])
+                    , files
+              :rm-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) (dissoc defs def-name) defs
+                    , files
               :states $ update-states store op-data
               :hydrate-storage op-data
         |cirru-edit $ quote
@@ -224,6 +251,7 @@
           app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
           app.schema :refer $ inline example-files
           phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
       :defs $ {}
         |is-linear? $ quote
           defn is-linear? (xs)
@@ -280,7 +308,10 @@
                         .!preventDefault $ :event e
                         .!stopPropagation $ :event e
                         js/document.body.focus
-                      d! :cirru-edit $ dissoc e :event
+                      if
+                        not $ and (:meta? e)
+                          = "\"Tab" $ :key e
+                        d! :cirru-edit $ dissoc e :event
                 comp-ns-entries (keys files) (:selected-ns state)
                   fn (ns d!)
                     d! cursor $ assoc state :selected-ns ns
@@ -295,11 +326,22 @@
                   text $ {} (:text warning)
                     :position $ [] 0 -40
                     :style $ {} (:fill |red) (:font-size 14) (:font-family code-font)
-                comp-button $ {} (:text "\"Save")
+                comp-button $ {} (:text "\"Save") (:font-family code-font)
                   :position $ [] -60 -160
-                  :font-family code-font
                   :on-pointertap $ fn (e d!)
                     on-save (:files store) (:saved-files store) d!
+                comp-button $ {} (:text "\"Command") (:font-family code-font)
+                  :position $ [] 0 -160
+                  :on-pointertap $ fn (e d!)
+                    prompt-at!
+                      w-log $ [] (-> e .-data .-global .-x) (-> e .-data .-global .-y)
+                      {} $ :style
+                        {} $ :font-family code-font
+                      fn (content)
+                        let
+                            code $ first (parse-cirru content)
+                          if (list? code) (run-command code d!)
+                            d! :warn $ str "\"invalid command:" code
                 :tree $ let
                     item $ -> files
                       get $ :selected-ns state
@@ -317,7 +359,7 @@
         |comp-file $ quote
           defn comp-file (ns file selected on-select)
             container
-              {} $ :position ([] -200 0)
+              {} $ :position ([] -160 0)
               comp-button $ {} (:text ns)
                 :position $ [] 0 -60
                 :font-family "\"Roboto Mono, monospace"
@@ -440,7 +482,7 @@
         |comp-ns-entries $ quote
           defn comp-ns-entries (ns-entries selected on-select)
             create-list :container
-              {} $ :position ([] -400 0)
+              {} $ :position ([] -320 0)
               -> ns-entries (.to-list)
                 map-indexed $ fn (idx name)
                   [] idx $ comp-button
@@ -483,6 +525,16 @@
                 :width width
                 :y-stack 1
                 :winding-x nil
+        |run-command $ quote
+          defn run-command (code d!)
+            case-default (first code)
+              d! :warn $ str "\"invalid command: " code
+              "\"add-ns" $ d! :add-ns (nth code 1)
+              "\"rm-ns" $ d! :rm-ns (nth code 1)
+              "\"add-def" $ d! :add-def
+                [] (nth code 1) (nth code 2)
+              "\"rm-def" $ d! :rm-def
+                [] (nth code 1) (nth code 2)
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
@@ -616,7 +668,9 @@
                               {} $ :position ([] x-position 0)
                               , tree
                           rest ys
-                          + x-position width block-indent
+                          + x-position width $ if
+                            string? $ get ys 1
+                            , leaf-gap block-indent
                           , y-stack (inc idx) winding-okay? winding-x
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
                       let
