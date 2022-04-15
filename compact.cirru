@@ -14,8 +14,6 @@
         |store $ quote
           def store $ {}
             :states $ {}
-            :code-tree $ first
-              parse-cirru (inline "\"cirru-edit.cirru") (; inline "\"with-linear.cirru") (; inline "\"debug.cirru") (; inline "\"updater.cirru")
             :saved-files $ {}
             :files $ {}
             :focus $ []
@@ -24,16 +22,6 @@
         |inline $ quote
           defmacro inline (path)
             read-file $ str "\"data/" path
-        |example-files $ quote
-          def example-files $ {}
-            |cirru-edit $ parse-cirru (inline |cirru-edit.cirru)
-            |debug $ parse-cirru (inline |debug.cirru)
-            |expr-demo $ parse-cirru (inline |expr-demo.cirru)
-            |page-demo $ parse-cirru (inline |page-demo.cirru)
-            |updater-demo $ parse-cirru (inline |updater-demo.cirru)
-            |with-linear $ parse-cirru (inline |with-linear.cirru)
-            |wrap-expr-demo $ parse-cirru (inline |wrap-expr-demo.cirru)
-            |empty $ parse-cirru (inline |empty.cirru)
     |app.updater $ {}
       :ns $ quote
         ns app.updater $ :require
@@ -258,7 +246,6 @@
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
           app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
-          app.schema :refer $ inline example-files
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
       :defs $ {}
@@ -288,16 +275,6 @@
               (.!test pattern-number s) (hslx 340 100 30)
               head? $ hslx 160 70 76
               true $ hslx 190 50 50
-        |shape-tabs $ quote
-          def shape-tabs $ create-list :container
-            {} $ :position ([] -200 0)
-            -> ([] |cirru-edit |debug |expr-demo |page-demo |updater-demo |with-linear |wrap-expr-demo "\"empty")
-              map-indexed $ fn (idx name)
-                [] idx $ comp-button
-                  {} (:text name)
-                    :position $ [] 0 (* idx 40)
-                    :on-pointertap $ fn (e d!)
-                      d! :replace-tree $ or (get example-files name) ([])
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -333,7 +310,7 @@
                 if-let
                   warning $ :warning store
                   text $ {} (:text warning)
-                    :position $ [] 0 -40
+                    :position $ [] 0 -80
                     :style $ {} (:fill |red) (:font-size 14) (:font-family code-font)
                 comp-button $ {} (:text "\"Save") (:font-family code-font)
                   :position $ [] -60 -160
@@ -495,7 +472,7 @@
         |comp-ns-entries $ quote
           defn comp-ns-entries (ns-entries selected on-select)
             create-list :container
-              {} $ :position ([] -320 0)
+              {} $ :position ([] -360 0)
               -> ns-entries (.to-list)
                 map-indexed $ fn (idx name)
                   [] idx $ comp-button
@@ -712,7 +689,8 @@
                               , tree
                           rest ys
                           + x-position width $ if
-                            string? $ get ys 1
+                            and (contains? ys 1)
+                              string? $ get ys 1
                             , leaf-gap block-indent
                           , y-stack (inc idx) winding-okay? winding-x
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
