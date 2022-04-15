@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/
     :version nil
   :entries $ {}
     :server $ {} (:reload-fn |app.server/reload!)
@@ -42,12 +42,12 @@
         |updater $ quote
           defn updater (store op op-data op-id op-time)
             case-default op
-              do (println "\"unknown op" op op-data) store
+              do (eprintln "\"unknown op" op op-data) store
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
               :cirru-edit $ let
                   def-path $ prepend (:def-path store) :files
                   def-target $ -> store (get-in def-path)
-                if (some? def-target)
+                if (tuple? def-target)
                   let[] (tree focus warning)
                     cirru-edit (nth def-target 1) (:focus store) op-data
                     if (some? warning) (js/console.warn warning)
@@ -55,9 +55,45 @@
                       assoc-in def-path $ :: 'quote tree
                       assoc :focus focus :warning warning
                   assoc store :warning $ str "\"target not found at:" def-path
+              :cirru-edit-node $ let-sugar
+                    [] focus code
+                    , op-data
+                  def-path $ prepend (:def-path store) :files
+                  def-target $ -> store (get-in def-path)
+                if (tuple? def-target)
+                  assoc-in store def-path $ :: 'quote
+                    assoc-in (nth def-target 1) focus code
+                  assoc store :warning $ str "\"target not found at:" def-path
               :def-path $ assoc store :def-path op-data
               :focus $ assoc store :focus op-data
               :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
+              :warn $ assoc store :warning op-data
+              :add-ns $ let
+                  ns $ or op-data "\"TODO_NS"
+                assoc-in store ([] :files ns)
+                  {}
+                    :ns $ :: 'quote ([] "\"ns" ns)
+                    :defs $ {}
+              :rm-ns $ if (some? op-data)
+                dissoc-in store $ [] :files op-data
+                , store
+              :add-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) defs $ assoc defs def-name
+                          :: 'quote $ [] "\"defn" def-name ([])
+                    , files
+              :rm-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) (dissoc defs def-name) defs
+                    , files
               :states $ update-states store op-data
               :hydrate-storage op-data
         |cirru-edit $ quote
@@ -204,7 +240,7 @@
                         assoc-in tree focus $ str target key
                         , focus nil
                       [] tree focus "\"not text"
-                true $ do (js/console.log op-data) ([] tree focus)
+                true $ do (js/console.log "\"unknown event:" op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
             loop
@@ -224,6 +260,7 @@
           app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
           app.schema :refer $ inline example-files
           phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
       :defs $ {}
         |is-linear? $ quote
           defn is-linear? (xs)
@@ -280,7 +317,10 @@
                         .!preventDefault $ :event e
                         .!stopPropagation $ :event e
                         js/document.body.focus
-                      d! :cirru-edit $ dissoc e :event
+                      if
+                        not $ and (:meta? e)
+                          = "\"Tab" $ :key e
+                        d! :cirru-edit $ dissoc e :event
                 comp-ns-entries (keys files) (:selected-ns state)
                   fn (ns d!)
                     d! cursor $ assoc state :selected-ns ns
@@ -295,18 +335,33 @@
                   text $ {} (:text warning)
                     :position $ [] 0 -40
                     :style $ {} (:fill |red) (:font-size 14) (:font-family code-font)
-                comp-button $ {} (:text "\"Save")
+                comp-button $ {} (:text "\"Save") (:font-family code-font)
                   :position $ [] -60 -160
-                  :font-family code-font
                   :on-pointertap $ fn (e d!)
                     on-save (:files store) (:saved-files store) d!
+                comp-button $ {} (:text "\"Command") (:font-family code-font)
+                  :position $ [] 0 -160
+                  :on-pointertap $ fn (e d!)
+                    prompt-at!
+                      &let
+                        pos $ -> e .-data .-global
+                        [] (.-x pos) (.-y pos)
+                      {} $ :style
+                        {} $ :font-family code-font
+                      fn (content)
+                        let
+                            code $ first (parse-cirru content)
+                          if (list? code) (run-command code d!)
+                            d! :warn $ str "\"invalid command:" code
                 :tree $ let
                     item $ -> files
                       get $ :selected-ns state
                       get-in $ or (:def-target state) ([])
                       get 1
                   cond
-                      string? item
+                      nil? item
+                      , nil
+                    (string? item)
                       wrap-leaf item ([]) focus false
                     (is-linear? item)
                       wrap-linear-expr item ([]) focus
@@ -317,7 +372,7 @@
         |comp-file $ quote
           defn comp-file (ns file selected on-select)
             container
-              {} $ :position ([] -200 0)
+              {} $ :position ([] -160 0)
               comp-button $ {} (:text ns)
                 :position $ [] 0 -60
                 :font-family "\"Roboto Mono, monospace"
@@ -440,7 +495,7 @@
         |comp-ns-entries $ quote
           defn comp-ns-entries (ns-entries selected on-select)
             create-list :container
-              {} $ :position ([] -400 0)
+              {} $ :position ([] -320 0)
               -> ns-entries (.to-list)
                 map-indexed $ fn (idx name)
                   [] idx $ comp-button
@@ -465,7 +520,20 @@
                     :line-style $ {} (:width 1) (:alpha 0.18)
                       :color $ hslx 60 80 100
                     :on $ {}
-                      :pointertap $ fn (e d!) (d! :focus coord)
+                      :pointertap $ fn (e d!)
+                        let
+                            event $ -> e .-data .-originalEvent
+                          if
+                            or (.-metaKey event) (.-ctrlKey event)
+                            prompt-at!
+                              &let
+                                pos $ -> e .-data .-global
+                                [] (.-x pos) (.-y pos)
+                              {} (:initial s)
+                                :style $ {} (:font-family code-font)
+                              fn (content)
+                                d! :cirru-edit-node $ [] coord content
+                            d! :focus coord
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
@@ -483,6 +551,33 @@
                 :width width
                 :y-stack 1
                 :winding-x nil
+        |run-command $ quote
+          defn run-command (code d!)
+            case-default (first code)
+              d! :warn $ str "\"invalid command: " code
+              "\"add-ns" $ d! :add-ns (nth code 1)
+              "\"rm-ns" $ d! :rm-ns (nth code 1)
+              "\"add-def" $ d! :add-def
+                [] (nth code 1) (nth code 2)
+              "\"rm-def" $ d! :rm-def
+                [] (nth code 1) (nth code 2)
+        |on-expr-click $ quote
+          defn on-expr-click (e code coord d!)
+            let
+                event $ -> e .-data .-originalEvent
+              if
+                or (.-metaKey event) (.-ctrlKey event)
+                prompt-at!
+                  &let
+                    pos $ -> e .-data .-global
+                    [] (.-x pos) (.-y pos)
+                  {} (:textarea? true)
+                    :initial $ format-cirru ([] code)
+                    :style $ {} (:font-family code-font)
+                  fn (content)
+                    d! :cirru-edit-node $ [] coord
+                      first $ parse-cirru content
+                d! :focus coord
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
@@ -508,7 +603,7 @@
                       :position $ [] 0 0
                       :fill $ hslx 160 50 70
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
@@ -595,7 +690,7 @@
                       :position $ [] 0 0
                       :fill $ hslx 340 90 50
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) (reverse acc)
                   :width x-position
@@ -616,7 +711,9 @@
                               {} $ :position ([] x-position 0)
                               , tree
                           rest ys
-                          + x-position width block-indent
+                          + x-position width $ if
+                            string? $ get ys 1
+                            , leaf-gap block-indent
                           , y-stack (inc idx) winding-okay? winding-x
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
                       let
@@ -781,7 +878,7 @@
                       :radius 6
                       :fill $ hslx 260 80 60
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
@@ -949,14 +1046,14 @@
           app.config :refer $ cors-headers
       :defs $ {}
         |main! $ quote
-          defn main! () (println "\"TODO start web server") (start-server!)
+          defn main! () (println "\"start web server") (start-server!)
         |reload! $ quote
           defn reload! () $ println "\"reload..."
         |on-request $ quote
           defn on-request (req)
             case-default (:url req)
               do
-                println "\"unknown url" $ :url req
+                eprintln "\"unknown url" $ :url req
                 {} (:code 404)
                   :body $ str "\"unkown url " (:url req)
               "\"/compact-data" $ let
@@ -975,9 +1072,9 @@
                     new-compact-data $ patch-compact-data
                       parse-cirru-edn $ read-file "\"compact.cirru"
                       , changes
-                  write-file "\"compact-2.cirru" $ format-cirru-edn new-compact-data
+                  write-file "\"compact.cirru" $ format-cirru-edn new-compact-data
                   write-file "\".compact-inc.cirru" body
-                  println "\"wrote to" "\".compact-inc.cirru"
+                  println "\"wrote to" "\".compact-inc.cirru" "\" and " "\"compact.cirru"
                   ; println "\"data" $ :body req
                   {} (:code 200) (:headers cors-headers)
                     :body $ format-cirru-edn
@@ -995,14 +1092,13 @@
                 removed $ or (:removed inc-changes) (#{})
                 added $ or (:added inc-changes) ({})
                 changed $ or (:changed inc-changes) ({})
-              println "\"inc changes:" changed
+              ; println "\"inc changes:" changed
               update compact-data :files $ fn (files)
                 let
                     c1 $ -> files (unselect-keys removed) (merge added)
                   loop
                       files-data c1
                       changes $ .to-list changed
-                    println "\"changes" changes
                     if (empty? changes) files-data $ let
                         pair $ first changes
                         target-ns $ nth pair 0
@@ -1016,6 +1112,6 @@
                             -> file
                               update :ns $ fn (ns)
                                 if (some? ns-change) ns-change ns
-                              update :defs $ fn (defs) (println "\"defs" added-defs changed-defs)
+                              update :defs $ fn (defs)
                                 -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
                       recur next $ rest changes
