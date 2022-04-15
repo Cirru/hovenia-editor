@@ -359,7 +359,9 @@
                       get-in $ or (:def-target state) ([])
                       get 1
                   cond
-                      string? item
+                      nil? item
+                      , nil
+                    (string? item)
                       wrap-leaf item ([]) focus false
                     (is-linear? item)
                       wrap-linear-expr item ([]) focus
@@ -519,16 +521,19 @@
                       :color $ hslx 60 80 100
                     :on $ {}
                       :pointertap $ fn (e d!)
-                        if (-> e .-data .-originalEvent .-metaKey)
-                          prompt-at!
-                            &let
-                              pos $ -> e .-data .-global
-                              [] (.-x pos) (.-y pos)
-                            {} (:initial s)
-                              :style $ {} (:font-family code-font)
-                            fn (content)
-                              d! :cirru-edit-node $ [] coord content
-                          d! :focus coord
+                        let
+                            event $ -> e .-data .-originalEvent
+                          if
+                            or (.-metaKey event) (.-ctrlKey event)
+                            prompt-at!
+                              &let
+                                pos $ -> e .-data .-global
+                                [] (.-x pos) (.-y pos)
+                              {} (:initial s)
+                                :style $ {} (:font-family code-font)
+                              fn (content)
+                                d! :cirru-edit-node $ [] coord content
+                            d! :focus coord
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
@@ -558,18 +563,21 @@
                 [] (nth code 1) (nth code 2)
         |on-expr-click $ quote
           defn on-expr-click (e code coord d!)
-            if (-> e .-data .-originalEvent .-metaKey)
-              prompt-at!
-                &let
-                  pos $ -> e .-data .-global
-                  [] (.-x pos) (.-y pos)
-                {} (:textarea? true)
-                  :initial $ format-cirru ([] code)
-                  :style $ {} (:font-family code-font)
-                fn (content)
-                  d! :cirru-edit-node $ [] coord
-                    first $ parse-cirru content
-              d! :focus coord
+            let
+                event $ -> e .-data .-originalEvent
+              if
+                or (.-metaKey event) (.-ctrlKey event)
+                prompt-at!
+                  &let
+                    pos $ -> e .-data .-global
+                    [] (.-x pos) (.-y pos)
+                  {} (:textarea? true)
+                    :initial $ format-cirru ([] code)
+                    :style $ {} (:font-family code-font)
+                  fn (content)
+                    d! :cirru-edit-node $ [] coord
+                      first $ parse-cirru content
+                d! :focus coord
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
