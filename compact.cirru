@@ -42,18 +42,27 @@
         |updater $ quote
           defn updater (store op op-data op-id op-time)
             case-default op
-              do (println "\"unknown op" op op-data) store
+              do (eprintln "\"unknown op" op op-data) store
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
               :cirru-edit $ let
                   def-path $ prepend (:def-path store) :files
                   def-target $ -> store (get-in def-path)
-                if (some? def-target)
+                if (tuple? def-target)
                   let[] (tree focus warning)
                     cirru-edit (nth def-target 1) (:focus store) op-data
                     if (some? warning) (js/console.warn warning)
                     -> store
                       assoc-in def-path $ :: 'quote tree
                       assoc :focus focus :warning warning
+                  assoc store :warning $ str "\"target not found at:" def-path
+              :cirru-edit-node $ let-sugar
+                    [] focus code
+                    , op-data
+                  def-path $ prepend (:def-path store) :files
+                  def-target $ -> store (get-in def-path)
+                if (tuple? def-target)
+                  assoc-in store def-path $ :: 'quote
+                    assoc-in (nth def-target 1) focus code
                   assoc store :warning $ str "\"target not found at:" def-path
               :def-path $ assoc store :def-path op-data
               :focus $ assoc store :focus op-data
@@ -231,7 +240,7 @@
                         assoc-in tree focus $ str target key
                         , focus nil
                       [] tree focus "\"not text"
-                true $ do (js/console.log op-data) ([] tree focus)
+                true $ do (js/console.log "\"unknown event:" op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
             loop
@@ -334,7 +343,9 @@
                   :position $ [] 0 -160
                   :on-pointertap $ fn (e d!)
                     prompt-at!
-                      w-log $ [] (-> e .-data .-global .-x) (-> e .-data .-global .-y)
+                      &let
+                        pos $ -> e .-data .-global
+                        [] (.-x pos) (.-y pos)
                       {} $ :style
                         {} $ :font-family code-font
                       fn (content)
@@ -507,7 +518,17 @@
                     :line-style $ {} (:width 1) (:alpha 0.18)
                       :color $ hslx 60 80 100
                     :on $ {}
-                      :pointertap $ fn (e d!) (d! :focus coord)
+                      :pointertap $ fn (e d!)
+                        if (-> e .-data .-originalEvent .-metaKey)
+                          prompt-at!
+                            &let
+                              pos $ -> e .-data .-global
+                              [] (.-x pos) (.-y pos)
+                            {} (:initial s)
+                              :style $ {} (:font-family code-font)
+                            fn (content)
+                              d! :cirru-edit-node $ [] coord content
+                          d! :focus coord
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
@@ -535,6 +556,20 @@
                 [] (nth code 1) (nth code 2)
               "\"rm-def" $ d! :rm-def
                 [] (nth code 1) (nth code 2)
+        |on-expr-click $ quote
+          defn on-expr-click (e code coord d!)
+            if (-> e .-data .-originalEvent .-metaKey)
+              prompt-at!
+                &let
+                  pos $ -> e .-data .-global
+                  [] (.-x pos) (.-y pos)
+                {} (:textarea? true)
+                  :initial $ format-cirru ([] code)
+                  :style $ {} (:font-family code-font)
+                fn (content)
+                  d! :cirru-edit-node $ [] coord
+                    first $ parse-cirru content
+              d! :focus coord
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
@@ -560,7 +595,7 @@
                       :position $ [] 0 0
                       :fill $ hslx 160 50 70
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
@@ -647,7 +682,7 @@
                       :position $ [] 0 0
                       :fill $ hslx 340 90 50
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) (reverse acc)
                   :width x-position
@@ -835,7 +870,7 @@
                       :radius 6
                       :fill $ hslx 260 80 60
                       :on $ {}
-                        :pointertap $ fn (e d!) (d! :focus coord)
+                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                     if (= coord focus) shape-focus
                     create-list :container ({}) acc
                   :width x-position
@@ -1003,14 +1038,14 @@
           app.config :refer $ cors-headers
       :defs $ {}
         |main! $ quote
-          defn main! () (println "\"TODO start web server") (start-server!)
+          defn main! () (println "\"start web server") (start-server!)
         |reload! $ quote
           defn reload! () $ println "\"reload..."
         |on-request $ quote
           defn on-request (req)
             case-default (:url req)
               do
-                println "\"unknown url" $ :url req
+                eprintln "\"unknown url" $ :url req
                 {} (:code 404)
                   :body $ str "\"unkown url " (:url req)
               "\"/compact-data" $ let
@@ -1029,9 +1064,9 @@
                     new-compact-data $ patch-compact-data
                       parse-cirru-edn $ read-file "\"compact.cirru"
                       , changes
-                  write-file "\"compact-2.cirru" $ format-cirru-edn new-compact-data
+                  write-file "\"compact.cirru" $ format-cirru-edn new-compact-data
                   write-file "\".compact-inc.cirru" body
-                  println "\"wrote to" "\".compact-inc.cirru"
+                  println "\"wrote to" "\".compact-inc.cirru" "\" and " "\"compact.cirru"
                   ; println "\"data" $ :body req
                   {} (:code 200) (:headers cors-headers)
                     :body $ format-cirru-edn
@@ -1049,14 +1084,13 @@
                 removed $ or (:removed inc-changes) (#{})
                 added $ or (:added inc-changes) ({})
                 changed $ or (:changed inc-changes) ({})
-              println "\"inc changes:" changed
+              ; println "\"inc changes:" changed
               update compact-data :files $ fn (files)
                 let
                     c1 $ -> files (unselect-keys removed) (merge added)
                   loop
                       files-data c1
                       changes $ .to-list changed
-                    println "\"changes" changes
                     if (empty? changes) files-data $ let
                         pair $ first changes
                         target-ns $ nth pair 0
@@ -1070,6 +1104,6 @@
                             -> file
                               update :ns $ fn (ns)
                                 if (some? ns-change) ns-change ns
-                              update :defs $ fn (defs) (println "\"defs" added-defs changed-defs)
+                              update :defs $ fn (defs)
                                 -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
                       recur next $ rest changes
