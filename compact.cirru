@@ -1,280 +1,76 @@
 
 {} (:package |app)
-  :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!)
+  :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!) (:version nil)
     :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/
-    :version nil
   :entries $ {}
-    :server $ {} (:reload-fn |app.server/reload!)
+    :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
-      :init-fn |app.server/main!
   :files $ {}
-    |app.schema $ {}
-      :ns $ quote (ns app.schema)
+    |app.comp.nav $ {}
       :defs $ {}
-        |store $ quote
-          def store $ {}
-            :states $ {}
-            :saved-files $ {}
-            :files $ {}
-            :focus $ []
-            :warning nil
-            :def-path $ []
-        |inline $ quote
-          defmacro inline (path)
-            read-file $ str "\"data/" path
-    |app.updater $ {}
-      :ns $ quote
-        ns app.updater $ :require
-          phlox.cursor :refer $ update-states
-      :defs $ {}
-        |updater $ quote
-          defn updater (store op op-data op-id op-time)
-            case-default op
-              do (eprintln "\"unknown op" op op-data) store
-              :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
-              :cirru-edit $ let
-                  def-path $ prepend (:def-path store) :files
-                  def-target $ -> store (get-in def-path)
-                if (tuple? def-target)
-                  let[] (tree focus warning)
-                    cirru-edit (nth def-target 1) (:focus store) op-data
-                    if (some? warning) (js/console.warn warning)
-                    -> store
-                      assoc-in def-path $ :: 'quote tree
-                      assoc :focus focus :warning warning
-                  assoc store :warning $ str "\"target not found at:" def-path
-              :cirru-edit-node $ let-sugar
-                    [] focus code
-                    , op-data
-                  def-path $ prepend (:def-path store) :files
-                  def-target $ -> store (get-in def-path)
-                if (tuple? def-target)
-                  assoc-in store def-path $ :: 'quote
-                    assoc-in (nth def-target 1) focus code
-                  assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ assoc store :def-path op-data
-              :focus $ assoc store :focus op-data
-              :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
-              :warn $ assoc store :warning op-data
-              :add-ns $ let
-                  ns $ or op-data "\"TODO_NS"
-                assoc-in store ([] :files ns)
-                  {}
-                    :ns $ :: 'quote ([] "\"ns" ns)
-                    :defs $ {}
-              :rm-ns $ if (some? op-data)
-                dissoc-in store $ [] :files op-data
-                , store
-              :add-def $ let[] (ns def-name)
-                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
-                update store :files $ fn (files)
-                  if (contains? files ns)
-                    update-in files ([] ns :defs)
-                      fn (defs)
-                        if (contains? defs def-name) defs $ assoc defs def-name
-                          :: 'quote $ [] "\"defn" def-name ([])
-                    , files
-              :rm-def $ let[] (ns def-name)
-                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
-                update store :files $ fn (files)
-                  if (contains? files ns)
-                    update-in files ([] ns :defs)
-                      fn (defs)
-                        if (contains? defs def-name) (dissoc defs def-name) defs
-                    , files
-              :states $ update-states store op-data
-              :hydrate-storage op-data
-        |cirru-edit $ quote
-          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data)
+        |comp-menu $ quote
+          defcomp comp-menu (on-close)
+            div
+              {} $ :style
+                {} (:position :absolute) (:top 0) (:left 0) (:width 400) (:height "\"80vh")
+                  :background-color $ hsl 0 0 20 0.8
+              div
+                {} $ :style ui/row-parted
+                <> "\"MENU"
+                a $ {} (:inner-text "\"close") (:style ui/link)
+                  :on-click $ fn (e d!) (on-close d!)
+        |comp-navbar $ quote
+          defcomp comp-navbar (store states)
             let
-                key $ :key op-data
-                code $ :key-code op-data
-                meta? $ or (:meta? op-data) (:ctrl? op-data)
-                shift? $ :shift? op-data
-              cond
-                  = "\"Backspace" key
-                  if (empty? focus) ([] tree focus "\"cannot delete root")
-                    let
-                        target $ get-in tree focus
-                      if
-                        or (list? target) meta? $ = target "\""
-                        let
-                            parent-coord $ butlast focus
-                            next-tree $ dissoc-in tree focus
-                            next-focus $ if
-                              = 0 $ last focus
-                              , parent-coord
-                                conj parent-coord $ dec (last focus)
-                          [] next-tree next-focus nil
-                        []
-                          update-in tree focus $ fn (leaf)
-                            .slice leaf 0 $ dec (count leaf)
-                          , focus nil
-                (and (>= code 65) (<= code 90) (not meta?))
-                  let
-                      target $ get-in tree focus
-                    if (string? target)
-                      []
-                        assoc-in tree focus $ str target key
-                        , focus nil
-                      [] tree focus "\"not text"
-                (= key "\"ArrowUp")
-                  if (empty? focus) ([] tree focus "\"already at top")
-                    [] tree (butlast focus) nil
-                (= key "\"ArrowLeft")
-                  if (empty? focus) ([] tree focus "\"already at root")
-                    if
-                      > (last focus) 0
-                      [] tree
-                        conj (butlast focus)
-                          dec $ last focus
-                        , nil
-                      [] tree focus "\"already at first elelement"
-                (= key "\"ArrowRight")
-                  if (empty? focus) ([] tree focus "\"already at root")
-                    let
-                        parent $ get-in tree (butlast focus)
-                      if
-                        >= (last focus)
-                          dec $ count parent
-                        [] tree focus "\"already at last elelement"
-                        [] tree
-                          conj (butlast focus)
-                            inc $ last focus
-                          , nil
-                (= key "\"ArrowDown")
-                  let
-                      target $ get-in tree focus
-                    if (string? target) ([] tree focus "\"already reached leaf")
-                      if (empty? target) ([] tree focus "\"it's empty")
-                        [] tree (conj focus 0) nil
-                (= key "\"Enter")
-                  if (empty? focus)
-                    if (empty? tree)
-                      [] ([] "\"") ([] 0) nil
-                      [] tree focus "\"at root"
-                    if shift?
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-before xs (last focus) "\""
-                        , focus nil
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-after xs (last focus) "\""
-                        conj (butlast focus)
-                          inc $ last focus
-                        , nil
-                (= key "\" ")
-                  if (empty? focus)
-                    if (empty? tree)
-                      [] ([] "\"") ([] 0) nil
-                      [] tree focus "\"at root"
-                    if shift?
-                      let
-                          target $ get-in tree focus
-                        if (string? target)
-                          []
-                            assoc-in tree focus $ str target key
-                            , focus nil
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                &list:assoc-before xs (last focus) "\""
-                            conj (butlast focus)
-                              inc $ last focus
-                            , nil
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-after xs (last focus) "\""
-                        conj (butlast focus)
-                          inc $ last focus
-                        , nil
-                (= "\"Tab" key)
-                  if shift?
-                    if (empty? focus) ([] tree focus "\"not working for root")
-                      let
-                          target $ get-in tree focus
-                        if (string? target)
-                          let
-                              parent $ get-in tree (butlast focus)
-                            if
-                              = 1 $ count parent
-                              []
-                                assoc-in tree (butlast focus) (get-in tree focus)
-                                butlast focus
-                                , nil
-                              [] tree focus "\"not working for leaf"
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                let
-                                    i $ last focus
-                                  -> xs
-                                    splice-after i $ get xs i
-                                    dissoc i
-                            , focus nil
-                    []
-                      update-in tree focus $ fn (xs) ([] xs)
-                      conj focus 0
-                      , nil
-                (and (= 1 (count key)) (not meta?))
-                  let
-                      target $ get-in tree focus
-                    if (string? target)
-                      []
-                        assoc-in tree focus $ str target key
-                        , focus nil
-                      [] tree focus "\"not text"
-                true $ do (js/console.log "\"unknown event:" op-data) ([] tree focus)
-        |splice-after $ quote
-          defn splice-after (xs i ys)
-            loop
-                acc xs
-                data $ reverse ys
-              if (empty? data) acc $ recur
-                &list:assoc-after acc i $ first data
-                rest data
-    |app.container $ {}
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :menu? false
+              div ({})
+                div
+                  {} $ :style (merge ui/row-parted style-navbar)
+                  span $ {} (:inner-text "\"TODO")
+                    :on-click $ fn (e d!)
+                      d! cursor $ assoc state :menu? true
+                  div ({})
+                    button $ {} (:inner-text "\"Save") (:style widget/button)
+                    =< 8 nil
+                    button $ {} (:inner-text "\"Command") (:style widget/button)
+                if (:menu? state)
+                  comp-menu $ fn (d!)
+                    d! cursor $ assoc state :menu? false
+                div
+                  {} $ :style style-error
+                  <> $ :warning store
+        |style-error $ quote
+          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
+            :color $ hsl 0 90 70
+            :background-color $ hsl 0 0 0 0.7
+        |style-navbar $ quote
+          def style-navbar $ {} (:padding "\"4px 8px") (:position :absolute) (:top 0) (:left 0) (:width "\"100%")
       :ns $ quote
-        ns app.container $ :require
-          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
-          phlox.comp.button :refer $ comp-button
-          phlox.comp.drag-point :refer $ comp-drag-point
-          phlox.comp.slider :refer $ comp-slider
-          app.math :refer $ divide-path multiply-path
-          app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
-          phlox.complex :as complex
-          pointed-prompt.core :refer $ prompt-at!
+        ns app.comp.nav $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev?
+          app.widget :as widget
+    |app.config $ {}
       :defs $ {}
-        |is-linear? $ quote
-          defn is-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                let
-                    x0 $ first xs
-                  if (string? x0) true $ recur x0
-              true $ let
-                  x0 $ first xs
-                if (string? x0)
-                  recur $ rest xs
-                  , false
-        |pick-leaf-color $ quote
-          defn pick-leaf-color (s head?)
-            cond
-                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
-                hslx 300 100 30
-              (= "\"\"" (get s 0))
-                hslx 70 50 40
-              (= "\":" (get s 0))
-                hslx 240 80 74
-              (.!test pattern-number s) (hslx 340 100 30)
-              head? $ hslx 160 70 76
-              true $ hslx 190 50 50
+        |api-host $ quote
+          def api-host $ str "\"http://" js/location.hostname "\":6101"
+        |block-indent $ quote (def block-indent 20)
+        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
+        |cors-headers $ quote
+          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
+        |leaf-gap $ quote (def leaf-gap 8)
+        |leaf-height $ quote (def leaf-height 24)
+        |line-height $ quote (def line-height 32)
+        |site $ quote
+          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+      :ns $ quote
+        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
+    |app.container $ {}
+      :defs $ {}
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -346,6 +142,17 @@
                       wrap-expr-with-linear item ([]) focus true
                     true $ wrap-block-expr item ([]) focus
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
+        |comp-error $ quote
+          defcomp comp-error (ys)
+            circle
+              {}
+                :position $ [] 0 0
+                :radius 10
+                :fill 0xff0000
+              text $ {}
+                :text $ format-cirru-edn ys
+                :position $ [] 0 0
+                :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
         |comp-file $ quote
           defn comp-file (ns file selected on-select)
             container
@@ -399,29 +206,55 @@
                     :fill $ hslx 200 40 50
                     :font-size 10
                     :font-family "|Roboto Mono, manospace"
-        |turn-quoted $ quote
-          defn turn-quoted (target)
-            if (string? target) (turn-symbol target) (map target turn-quoted)
-        |pattern-number $ quote
-          def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
-        |shape-focus $ quote
-          def shape-focus $ circle
-            {} (:radius 8)
-              :position $ [] 0 0
-              :line-style $ {} (:width 1)
-                :color $ hslx 60 80 80
-                :alpha 0.8
-        |comp-error $ quote
-          defcomp comp-error (ys)
-            circle
-              {}
-                :position $ [] 0 0
-                :radius 10
-                :fill 0xff0000
-              text $ {}
-                :text $ format-cirru-edn ys
-                :position $ [] 0 0
-                :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
+        |comp-ns-entries $ quote
+          defn comp-ns-entries (ns-entries selected on-select)
+            create-list :container
+              {} $ :position ([] -360 0)
+              -> ns-entries (.to-list)
+                map-indexed $ fn (idx name)
+                  [] idx $ comp-button
+                    {} (:text name)
+                      :position $ [] 0 (* idx 40)
+                      :font-family "\"Roboto Mono, monospace"
+                      :fill $ if (= name selected) (hslx 0 0 30)
+                      :on-pointertap $ fn (e d!) (on-select name d!)
+        |head-in-list $ quote
+          defn head-in-list (xs)
+            if
+              some? $ first xs
+              list? $ first xs
+              , false
+        |is-linear? $ quote
+          defn is-linear? (xs)
+            cond
+                empty? xs
+                , true
+              (= 1 (count xs))
+                let
+                    x0 $ first xs
+                  if (string? x0) true $ recur x0
+              true $ let
+                  x0 $ first xs
+                if (string? x0)
+                  recur $ rest xs
+                  , false
+        |on-expr-click $ quote
+          defn on-expr-click (e code coord d!)
+            let
+                event $ -> e .-data .-originalEvent
+              if
+                or (.-metaKey event) (.-ctrlKey event)
+                prompt-at!
+                  &let
+                    pos $ -> e .-data .-global
+                    [] (.-x pos) (.-y pos)
+                  {} (:textarea? true)
+                    :initial $ format-cirru ([] code)
+                    :style $ {} (:font-family code-font)
+                  fn (content)
+                    d! :cirru-edit-node $ [] coord
+                      first $ parse-cirru content
+                d! :focus coord
         |on-save $ quote
           defn on-save (files saved-files d!)
             let
@@ -469,65 +302,20 @@
                 js/fetch (str api-host "\"/compact-inc")
                   js-object (:method "\"PUT") (:body content)
                 .then $ fn (res) (js/console.log "\"response" res)
-        |comp-ns-entries $ quote
-          defn comp-ns-entries (ns-entries selected on-select)
-            create-list :container
-              {} $ :position ([] -360 0)
-              -> ns-entries (.to-list)
-                map-indexed $ fn (idx name)
-                  [] idx $ comp-button
-                    {} (:text name)
-                      :position $ [] 0 (* idx 40)
-                      :font-family "\"Roboto Mono, monospace"
-                      :fill $ if (= name selected) (hslx 0 0 30)
-                      :on-pointertap $ fn (e d!) (on-select name d!)
-        |wrap-leaf $ quote
-          defn wrap-leaf (s coord focus head?)
-            let
-                width $ + leaf-gap
-                  * 8.8 $ count s
-                height leaf-height
-              {}
-                :tree $ container ({})
-                  rect $ {}
-                    :position $ [] 0 (* -0.5 height)
-                    :size $ [] width height
-                    :alpha 0.9
-                    :fill $ hslx 190 70 14
-                    :line-style $ {} (:width 1) (:alpha 0.18)
-                      :color $ hslx 60 80 100
-                    :on $ {}
-                      :pointertap $ fn (e d!)
-                        let
-                            event $ -> e .-data .-originalEvent
-                          if
-                            or (.-metaKey event) (.-ctrlKey event)
-                            prompt-at!
-                              &let
-                                pos $ -> e .-data .-global
-                                [] (.-x pos) (.-y pos)
-                              {} (:initial s)
-                                :style $ {} (:font-family code-font)
-                              fn (content)
-                                d! :cirru-edit-node $ [] coord content
-                            d! :focus coord
-                  if (= coord focus)
-                    rect $ {}
-                      :position $ [] 0 (* -0.5 height)
-                      :size $ [] width height
-                      :alpha 0.8
-                      :line-style $ {} (:width 1)
-                        :color $ hslx 60 80 80
-                        :alpha 0.8
-                  text $ {} (:text s)
-                    :position $ [] (* 0.5 leaf-gap) -8
-                    :style $ {}
-                      :fill $ pick-leaf-color s head?
-                      :font-size 14
-                      :font-family "|Roboto Mono"
-                :width width
-                :y-stack 1
-                :winding-x nil
+        |pattern-number $ quote
+          def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
+        |pick-leaf-color $ quote
+          defn pick-leaf-color (s head?)
+            cond
+                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
+                hslx 300 100 30
+              (= "\"\"" (get s 0))
+                hslx 70 50 40
+              (= "\":" (get s 0))
+                hslx 240 80 74
+              (.!test pattern-number s) (hslx 340 100 30)
+              head? $ hslx 160 70 76
+              true $ hslx 190 50 50
         |run-command $ quote
           defn run-command (code d!)
             case-default (first code)
@@ -538,23 +326,30 @@
                 [] (nth code 1) (nth code 2)
               "\"rm-def" $ d! :rm-def
                 [] (nth code 1) (nth code 2)
-        |on-expr-click $ quote
-          defn on-expr-click (e code coord d!)
-            let
-                event $ -> e .-data .-originalEvent
-              if
-                or (.-metaKey event) (.-ctrlKey event)
-                prompt-at!
-                  &let
-                    pos $ -> e .-data .-global
-                    [] (.-x pos) (.-y pos)
-                  {} (:textarea? true)
-                    :initial $ format-cirru ([] code)
-                    :style $ {} (:font-family code-font)
-                  fn (content)
-                    d! :cirru-edit-node $ [] coord
-                      first $ parse-cirru content
-                d! :focus coord
+        |shape-focus $ quote
+          def shape-focus $ circle
+            {} (:radius 8)
+              :position $ [] 0 0
+              :line-style $ {} (:width 1)
+                :color $ hslx 60 80 80
+                :alpha 0.8
+        |turn-quoted $ quote
+          defn turn-quoted (target)
+            if (string? target) (turn-symbol target) (map target turn-quoted)
+        |with-linear? $ quote
+          defn with-linear? (xs)
+            cond
+                empty? xs
+                , true
+              (= 1 (count xs))
+                , true
+              true $ let
+                  x0 $ first xs
+                if (string? x0)
+                  recur $ rest xs
+                  if (is-linear? x0)
+                    recur $ rest xs
+                    , false
         |wrap-block-expr $ quote
           defn wrap-block-expr (xs coord focus)
             loop
@@ -821,20 +616,53 @@
                         conj acc $ [] idx (comp-error ys)
                       :width x-position
                       :y-stack y-stack
-        |with-linear? $ quote
-          defn with-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                , true
-              true $ let
-                  x0 $ first xs
-                if (string? x0)
-                  recur $ rest xs
-                  if (is-linear? x0)
-                    recur $ rest xs
-                    , false
+        |wrap-leaf $ quote
+          defn wrap-leaf (s coord focus head?)
+            let
+                width $ + leaf-gap
+                  * 8.8 $ count s
+                height leaf-height
+              {}
+                :tree $ container ({})
+                  rect $ {}
+                    :position $ [] 0 (* -0.5 height)
+                    :size $ [] width height
+                    :alpha 0.9
+                    :fill $ hslx 190 70 14
+                    :line-style $ {} (:width 1) (:alpha 0.18)
+                      :color $ hslx 60 80 100
+                    :on $ {}
+                      :pointertap $ fn (e d!)
+                        let
+                            event $ -> e .-data .-originalEvent
+                          if
+                            or (.-metaKey event) (.-ctrlKey event)
+                            prompt-at!
+                              &let
+                                pos $ -> e .-data .-global
+                                [] (.-x pos) (.-y pos)
+                              {} (:initial s)
+                                :style $ {} (:font-family code-font)
+                              fn (content)
+                                d! :cirru-edit-node $ [] coord content
+                            d! :focus coord
+                  if (= coord focus)
+                    rect $ {}
+                      :position $ [] 0 (* -0.5 height)
+                      :size $ [] width height
+                      :alpha 0.8
+                      :line-style $ {} (:width 1)
+                        :color $ hslx 60 80 80
+                        :alpha 0.8
+                  text $ {} (:text s)
+                    :position $ [] (* 0.5 leaf-gap) -8
+                    :style $ {}
+                      :fill $ pick-leaf-color s head?
+                      :font-size 14
+                      :font-family "|Roboto Mono"
+                :width width
+                :y-stack 1
+                :winding-x nil
         |wrap-linear-expr $ quote
           defn wrap-linear-expr (xs coord focus)
             loop
@@ -883,36 +711,18 @@
                       , block-indent leaf-gap
                     &max y-stack $ :y-stack info
                     inc idx
-        |head-in-list $ quote
-          defn head-in-list (xs)
-            if
-              some? $ first xs
-              list? $ first xs
-              , false
-    |app.main $ {}
       :ns $ quote
-        ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
-          phlox.core :refer $ render! clear-phlox-caches! on-control-event
-          app.container :refer $ comp-container
-          app.schema :as schema
-          phlox.config :refer $ dev? mobile?
-          app.updater :refer $ updater
-          "\"fontfaceobserver-es" :default FontFaceObserver
-          "\"./calcit.build-errors" :default build-errors
-          "\"bottom-tip" :default hud!
-          touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
-          app.config :refer $ api-host
+        ns app.container $ :require
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+          phlox.comp.button :refer $ comp-button
+          phlox.comp.drag-point :refer $ comp-drag-point
+          phlox.comp.slider :refer $ comp-slider
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+    |app.main $ {}
       :defs $ {}
-        |main! $ quote
-          defn main! () (; js/console.log PIXI)
-            if dev? $ load-console-formatter!
-            -> (new FontFaceObserver "\"Roboto Mono") (.!load)
-              .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
-            add-watch *store :change $ fn (store prev) (render-app!)
-            render-control!
-            start-control-loop! 8 on-control-event
-            load-files! dispatch!
-            println "\"App Started"
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
           defn dispatch! (op op-data)
@@ -926,17 +736,6 @@
                     op-id $ shortid/generate
                     op-time $ js/Date.now
                   reset! *store $ updater @*store op op-data op-id op-time
-        |reload! $ quote
-          defn reload! () $ if (nil? build-errors)
-            do (clear-phlox-caches!) (remove-watch *store :change)
-              add-watch *store :change $ fn (store prev) (render-app!)
-              render-app!
-              replace-control-loop! 8 on-control-event
-              hud! "\"ok~" "\"Ok"
-              load-files! dispatch!
-            hud! "\"error" build-errors
-        |render-app! $ quote
-          defn render-app! () $ render! (comp-container @*store) dispatch! ({})
         |load-files! $ quote
           defn load-files! (d!)
             -> (str api-host "\"/compact-data") (js/fetch)
@@ -945,9 +744,56 @@
                 let
                     files $ :files (parse-cirru-edn text)
                   if (some? files) (d! :load-files files) (js/console.log "\"unknown data:" files)
+        |main! $ quote
+          defn main! () (; js/console.log PIXI)
+            if dev? $ load-console-formatter!
+            -> (new FontFaceObserver "\"Roboto Mono") (.!load)
+              .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
+            add-watch *store :change $ fn (store prev) (render-app!)
+            render-control!
+            start-control-loop! 8 on-control-event
+            load-files! dispatch!
+            println "\"App Started"
+        |mount-target $ quote
+          def mount-target $ js/document.querySelector "\".app"
+        |reload! $ quote
+          defn reload! () $ if (nil? build-errors)
+            do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
+              add-watch *store :change $ fn (store prev) (render-app!)
+              render-app!
+              replace-control-loop! 8 on-control-event
+              hud! "\"ok~" "\"Ok"
+              load-files! dispatch!
+            hud! "\"error" build-errors
+        |render-app! $ quote
+          defn render-app! ()
+            render! (comp-container @*store) dispatch! $ {}
+            respo/render! mount-target
+              comp-navbar @*store $ >> (:states @*store) :dom
+              , dispatch!
+      :ns $ quote
+        ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
+          phlox.core :refer $ render! clear-phlox-caches! on-control-event
+          app.container :refer $ comp-container
+          app.schema :as schema
+          phlox.config :refer $ dev? mobile?
+          app.updater :refer $ updater
+          "\"fontfaceobserver-es" :default FontFaceObserver
+          "\"./calcit.build-errors" :default build-errors
+          "\"bottom-tip" :default hud!
+          touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
+          app.config :refer $ api-host
+          app.comp.nav :refer $ comp-navbar
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input
+          respo.core :as respo
+          respo.comp.space :refer $ =<
     |app.math $ {}
-      :ns $ quote (ns app.math)
       :defs $ {}
+        |add-path $ quote
+          defn add-path
+              [] a b
+              [] x y
+            [] (+ a x) (+ b y)
         |divide-path $ quote
           defn divide-path
               [] x y
@@ -958,29 +804,6 @@
               []
                 * inverted $ + (* x a) (* y b)
                 * inverted $ - (* y a) (* x b)
-        |add-path $ quote
-          defn add-path
-              [] a b
-              [] x y
-            [] (+ a x) (+ b y)
-        |rough-size $ quote
-          defn rough-size
-              [] x y
-            + (js/Math.abs x) (js/Math.abs y)
-        |rand-color $ quote
-          defn rand-color () $ rand-int 0xffffff
-        |rand-point $ quote
-          defn$ rand-point
-              n
-              rand-point n n
-            (n m)
-              []
-                -
-                  js/Math.round $ * 0.2 n
-                  rand-int n
-                -
-                  js/Math.round $ * 0.2 m
-                  rand-int m
         |divide-x $ quote
           defn divide-x (point x)
             []
@@ -997,36 +820,51 @@
             []
               - (* a x) (* b y)
               + (* a y) (* b x)
+        |rand-color $ quote
+          defn rand-color () $ rand-int 0xffffff
+        |rand-point $ quote
+          defn$ rand-point
+              n
+              rand-point n n
+            (n m)
+              []
+                -
+                  js/Math.round $ * 0.2 n
+                  rand-int n
+                -
+                  js/Math.round $ * 0.2 m
+                  rand-int m
+        |rough-size $ quote
+          defn rough-size
+              [] x y
+            + (js/Math.abs x) (js/Math.abs y)
         |subtract-path $ quote
           defn subtract-path
               [] a b
               [] x y
             [] (- a x) (- b y)
-    |app.config $ {}
-      :ns $ quote
-        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
+      :ns $ quote (ns app.math)
+    |app.schema $ {}
       :defs $ {}
-        |site $ quote
-          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
-        |leaf-gap $ quote (def leaf-gap 8)
-        |block-indent $ quote (def block-indent 20)
-        |leaf-height $ quote (def leaf-height 24)
-        |line-height $ quote (def line-height 32)
-        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
-        |api-host $ quote
-          def api-host $ str "\"http://" js/location.hostname "\":6101"
-        |cors-headers $ quote
-          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
+        |inline $ quote
+          defmacro inline (path)
+            read-file $ str "\"data/" path
+        |store $ quote
+          def store $ {}
+            :states $ {}
+            :dom-states $ {}
+              :cursor $ [] :dom
+            :saved-files $ {}
+            :files $ {}
+            :focus $ []
+            :warning nil
+            :def-path $ []
+      :ns $ quote (ns app.schema)
     |app.server $ {}
-      :ns $ quote
-        ns app.server $ :require
-          http.core :refer $ serve-http!
-          app.config :refer $ cors-headers
       :defs $ {}
+        |*app-server $ quote (defatom *app-server nil)
         |main! $ quote
           defn main! () (println "\"start web server") (start-server!)
-        |reload! $ quote
-          defn reload! () $ println "\"reload..."
         |on-request $ quote
           defn on-request (req)
             case-default (:url req)
@@ -1058,12 +896,6 @@
                     :body $ format-cirru-edn
                       {} (:ok? true) (:data "\"wrote")
                 :OPTIONS $ {} (:code 200) (:headers cors-headers) (:body "\"OK")
-        |start-server! $ quote
-          defn start-server! () $ reset! *app-server
-            serve-http!
-              {} (:port 6101) (:host "\"0.0.0.0")
-              fn (req) (on-request req)
-        |*app-server $ quote (defatom *app-server nil)
         |patch-compact-data $ quote
           defn patch-compact-data (compact-data inc-changes)
             let
@@ -1093,3 +925,236 @@
                               update :defs $ fn (defs)
                                 -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
                       recur next $ rest changes
+        |reload! $ quote
+          defn reload! () $ println "\"reload..."
+        |start-server! $ quote
+          defn start-server! () $ reset! *app-server
+            serve-http!
+              {} (:port 6101) (:host "\"0.0.0.0")
+              fn (req) (on-request req)
+      :ns $ quote
+        ns app.server $ :require
+          http.core :refer $ serve-http!
+          app.config :refer $ cors-headers
+    |app.updater $ {}
+      :defs $ {}
+        |cirru-edit $ quote
+          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data)
+            let
+                key $ :key op-data
+                code $ :key-code op-data
+                meta? $ or (:meta? op-data) (:ctrl? op-data)
+                shift? $ :shift? op-data
+              cond
+                  = "\"Backspace" key
+                  if (empty? focus) ([] tree focus "\"cannot delete root")
+                    let
+                        target $ get-in tree focus
+                      if
+                        or (list? target) meta? $ = target "\""
+                        let
+                            parent-coord $ butlast focus
+                            next-tree $ dissoc-in tree focus
+                            next-focus $ if
+                              = 0 $ last focus
+                              , parent-coord
+                                conj parent-coord $ dec (last focus)
+                          [] next-tree next-focus nil
+                        []
+                          update-in tree focus $ fn (leaf)
+                            .slice leaf 0 $ dec (count leaf)
+                          , focus nil
+                (and (>= code 65) (<= code 90) (not meta?))
+                  let
+                      target $ get-in tree focus
+                    if (string? target)
+                      []
+                        assoc-in tree focus $ str target key
+                        , focus nil
+                      [] tree focus "\"not text"
+                (= key "\"ArrowUp")
+                  if (empty? focus) ([] tree focus "\"already at top")
+                    [] tree (butlast focus) nil
+                (= key "\"ArrowLeft")
+                  if (empty? focus) ([] tree focus "\"already at root")
+                    if
+                      > (last focus) 0
+                      [] tree
+                        conj (butlast focus)
+                          dec $ last focus
+                        , nil
+                      [] tree focus "\"already at first elelement"
+                (= key "\"ArrowRight")
+                  if (empty? focus) ([] tree focus "\"already at root")
+                    let
+                        parent $ get-in tree (butlast focus)
+                      if
+                        >= (last focus)
+                          dec $ count parent
+                        [] tree focus "\"already at last elelement"
+                        [] tree
+                          conj (butlast focus)
+                            inc $ last focus
+                          , nil
+                (= key "\"ArrowDown")
+                  let
+                      target $ get-in tree focus
+                    if (string? target) ([] tree focus "\"already reached leaf")
+                      if (empty? target) ([] tree focus "\"it's empty")
+                        [] tree (conj focus 0) nil
+                (= key "\"Enter")
+                  if (empty? focus)
+                    if (empty? tree)
+                      [] ([] "\"") ([] 0) nil
+                      [] tree focus "\"at root"
+                    if shift?
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-before xs (last focus) "\""
+                        , focus nil
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-after xs (last focus) "\""
+                        conj (butlast focus)
+                          inc $ last focus
+                        , nil
+                (= key "\" ")
+                  if (empty? focus)
+                    if (empty? tree)
+                      [] ([] "\"") ([] 0) nil
+                      [] tree focus "\"at root"
+                    if shift?
+                      let
+                          target $ get-in tree focus
+                        if (string? target)
+                          []
+                            assoc-in tree focus $ str target key
+                            , focus nil
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-before xs (last focus) "\""
+                            conj (butlast focus)
+                              inc $ last focus
+                            , nil
+                      []
+                        update-in tree (butlast focus)
+                          fn (xs)
+                            &list:assoc-after xs (last focus) "\""
+                        conj (butlast focus)
+                          inc $ last focus
+                        , nil
+                (= "\"Tab" key)
+                  if shift?
+                    if (empty? focus) ([] tree focus "\"not working for root")
+                      let
+                          target $ get-in tree focus
+                        if (string? target)
+                          let
+                              parent $ get-in tree (butlast focus)
+                            if
+                              = 1 $ count parent
+                              []
+                                assoc-in tree (butlast focus) (get-in tree focus)
+                                butlast focus
+                                , nil
+                              [] tree focus "\"not working for leaf"
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                let
+                                    i $ last focus
+                                  -> xs
+                                    splice-after i $ get xs i
+                                    dissoc i
+                            , focus nil
+                    []
+                      update-in tree focus $ fn (xs) ([] xs)
+                      conj focus 0
+                      , nil
+                (and (= 1 (count key)) (not meta?))
+                  let
+                      target $ get-in tree focus
+                    if (string? target)
+                      []
+                        assoc-in tree focus $ str target key
+                        , focus nil
+                      [] tree focus "\"not text"
+                true $ do (js/console.log "\"unknown event:" op-data) ([] tree focus)
+        |splice-after $ quote
+          defn splice-after (xs i ys)
+            loop
+                acc xs
+                data $ reverse ys
+              if (empty? data) acc $ recur
+                &list:assoc-after acc i $ first data
+                rest data
+        |updater $ quote
+          defn updater (store op op-data op-id op-time)
+            case-default op
+              do (eprintln "\"unknown op" op op-data) store
+              :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
+              :cirru-edit $ let
+                  def-path $ prepend (:def-path store) :files
+                  def-target $ -> store (get-in def-path)
+                if (tuple? def-target)
+                  let[] (tree focus warning)
+                    cirru-edit (nth def-target 1) (:focus store) op-data
+                    if (some? warning) (js/console.warn warning)
+                    -> store
+                      assoc-in def-path $ :: 'quote tree
+                      assoc :focus focus :warning warning
+                  assoc store :warning $ str "\"target not found at:" def-path
+              :cirru-edit-node $ let-sugar
+                    [] focus code
+                    , op-data
+                  def-path $ prepend (:def-path store) :files
+                  def-target $ -> store (get-in def-path)
+                if (tuple? def-target)
+                  assoc-in store def-path $ :: 'quote
+                    assoc-in (nth def-target 1) focus code
+                  assoc store :warning $ str "\"target not found at:" def-path
+              :def-path $ assoc store :def-path op-data
+              :focus $ assoc store :focus op-data
+              :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
+              :warn $ assoc store :warning op-data
+              :add-ns $ let
+                  ns $ or op-data "\"TODO_NS"
+                assoc-in store ([] :files ns)
+                  {}
+                    :ns $ :: 'quote ([] "\"ns" ns)
+                    :defs $ {}
+              :rm-ns $ if (some? op-data)
+                dissoc-in store $ [] :files op-data
+                , store
+              :add-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) defs $ assoc defs def-name
+                          :: 'quote $ [] "\"defn" def-name ([])
+                    , files
+              :rm-def $ let[] (ns def-name)
+                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                update store :files $ fn (files)
+                  if (contains? files ns)
+                    update-in files ([] ns :defs)
+                      fn (defs)
+                        if (contains? defs def-name) (dissoc defs def-name) defs
+                    , files
+              :states $ update-states store op-data
+              :hydrate-storage op-data
+      :ns $ quote
+        ns app.updater $ :require
+          phlox.cursor :refer $ update-states
+    |app.widget $ {}
+      :defs $ {}
+        |button $ quote
+          def button $ merge ui/button
+            {} $ :background :black
+      :ns $ quote
+        ns app.widget $ :require (respo-ui.core :as ui)
