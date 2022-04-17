@@ -224,11 +224,11 @@
       :defs $ {}
         |api-host $ quote
           def api-host $ str "\"http://" js/location.hostname "\":6101"
-        |block-indent $ quote (def block-indent 20)
         |code-font $ quote (def code-font "\"Roboto Mono, monospace")
         |cors-headers $ quote
           def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
-        |leaf-gap $ quote (def leaf-gap 8)
+        |dot-radius $ quote (def dot-radius 4)
+        |leaf-gap $ quote (def leaf-gap 16)
         |leaf-height $ quote (def leaf-height 24)
         |line-height $ quote (def line-height 32)
         |site $ quote
@@ -237,6 +237,8 @@
         ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
     |app.container $ {}
       :defs $ {}
+        |all-block? $ quote
+          defn all-block? (item) (every? item list?)
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -364,11 +366,18 @@
               true $ hslx 190 50 50
         |shape-focus $ quote
           def shape-focus $ circle
-            {} (:radius 8)
+            {}
+              :radius $ + dot-radius 2
               :position $ [] 0 0
               :line-style $ {} (:width 1)
                 :color $ hslx 60 80 80
                 :alpha 0.8
+        |style-active-line $ quote
+          def style-active-line $ {} (:width 2) (:alpha 1)
+            :color $ hslx 200 100 60
+        |style-shadow-line $ quote
+          def style-shadow-line $ {} (:width 0.5) (:alpha 0.8)
+            :color $ hslx 200 100 60
         |turn-quoted $ quote
           defn turn-quoted (target)
             if (string? target) (turn-symbol target) (map target turn-quoted)
@@ -399,21 +408,22 @@
                 prev-leaf? false
               if (empty? ys)
                 {}
-                  :tree $ container ({})
-                    polyline $ {}
-                      :style $ {} (:width 1) (:alpha 1)
-                        :color $ hslx 200 100 30
-                      :position $ [] 0 0
-                      :points $ [] ([] 0 0) ([] block-indent 0)
-                        [] block-indent $ * line-height
-                          &max 0 $ dec y-stack
-                    circle $ {} (:radius 6)
-                      :position $ [] 0 0
-                      :fill $ hslx 160 50 70
-                      :on $ {}
-                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
-                    if (= coord focus) shape-focus
-                    create-list :container ({}) acc
+                  :tree $ let
+                      focused? $ = coord focus
+                    container ({})
+                      polyline $ {}
+                        :style $ if focused? style-active-line style-shadow-line
+                        :position $ [] 0 0
+                        :points $ [] ([] 0 0) ([] leaf-gap 0)
+                          [] leaf-gap $ * line-height
+                            &max 0 $ dec y-stack
+                      circle $ {} (:radius dot-radius)
+                        :position $ [] 0 0
+                        :fill $ hslx 120 50 80
+                        :on $ {}
+                          :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                      if focused? shape-focus
+                      create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
                   :winding-x winding-x
@@ -430,7 +440,7 @@
                       conj acc $ [] idx
                         container
                           {} $ :position
-                            [] (+ block-indent offset)
+                            [] (+ leaf-gap offset)
                               * (dec y-stack) line-height
                           , tree
                       rest ys
@@ -445,7 +455,8 @@
                           string? item
                           wrap-leaf item next-coord focus $ = idx 0
                         (is-linear? item) (wrap-linear-expr item next-coord focus false)
-                        (with-linear? item) (wrap-expr-with-linear item next-coord focus true false)
+                        (and (with-linear? item) (not (all-block? item)))
+                          wrap-expr-with-linear item next-coord focus true false
                         true $ wrap-block-expr item next-coord focus
                       width $ :width info
                       tree $ :tree info
@@ -454,14 +465,14 @@
                         if
                           >
                             either (:winding-x info) 0
-                            + block-indent prev-width
+                            + leaf-gap prev-width
                           , y-stack $ inc y-stack
                         , y-stack
                     recur
                       conj acc $ [] idx
                         container
                           {} $ :position
-                            [] block-indent $ * next-y-stack line-height
+                            [] leaf-gap $ * next-y-stack line-height
                           , tree $ ; text
                             {}
                               :text $ str
@@ -481,29 +492,30 @@
             loop
                 acc $ []
                 ys xs
-                x-position block-indent
+                x-position leaf-gap
                 y-stack 1
                 idx 0
                 winding-okay? parent-winding-okay?
                 winding-x nil
               if (empty? ys)
                 {}
-                  :tree $ container ({})
-                    polyline $ {}
-                      :style $ {} (:width 1) (:alpha 1)
-                        :color $ hslx 200 100 30
-                      :position $ [] 0 0
-                      :points $ [] ([] 0 0) ([] x-position 0)
-                    circle $ {}
-                      :radius $ if smaller? 0 6
-                      :position $ [] 0 0
-                      :fill $ hslx 340 90 50
-                      :on $ {}
-                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
-                    if
-                      and (not smaller?) (= coord focus)
-                      , shape-focus
-                    create-list :container ({}) (reverse acc)
+                  :tree $ let
+                      focused? $ = coord focus
+                    container ({})
+                      polyline $ {}
+                        :style $ if focused? style-active-line style-shadow-line
+                        :position $ [] 0 0
+                        :points $ [] ([] 0 0) ([] x-position 0)
+                      if (not smaller?)
+                        circle $ {} (:radius dot-radius)
+                          :position $ [] 0 0
+                          :fill $ hslx 10 60 50
+                          :on $ {}
+                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                      if
+                        and focused? $ not smaller?
+                        , shape-focus
+                      create-list :container ({}) (reverse acc)
                   :width x-position
                   :y-stack y-stack
                   :winding-x winding-x
@@ -522,10 +534,7 @@
                               {} $ :position ([] x-position 0)
                               , tree
                           rest ys
-                          + x-position width $ if
-                            and (contains? ys 1)
-                              string? $ get ys 1
-                            , leaf-gap block-indent
+                          + x-position width leaf-gap
                           , y-stack (inc idx) winding-okay? winding-x
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
                       let
@@ -535,26 +544,24 @@
                         recur
                           conj acc $ [] idx
                             container
-                              {} $ :position
-                                [] (+ 4 x-position) 0
+                              {} $ :position ([] x-position 0)
                               polyline $ {}
-                                :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ if focused? (hslx 200 100 80) (hslx 200 100 40)
+                                :style $ if focused? style-active-line style-shadow-line
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * -1 line-height
-                              circle $ {} (:radius 6) (:alpha 1)
+                              circle $ {} (:radius dot-radius) (:alpha 1)
                                 :position $ [] 0 0
                                 :fill $ hslx 200 100 40
                                 :on $ {}
                                   :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
-                              if (= next-coord focus) shape-focus
+                              if focused? shape-focus
                               container
                                 {} $ :position
                                   [] 0 $ * -1 line-height
                                 :tree info
                           rest ys
-                          + x-position block-indent
+                          + x-position leaf-gap
                           , y-stack (inc idx) false x-position
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
@@ -564,17 +571,15 @@
                         recur
                           conj acc $ [] idx
                             container
-                              {} $ :position
-                                [] (+ 4 x-position) 0
+                              {} $ :position ([] x-position 0)
                               polyline $ {}
-                                :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ if focused? (hslx 200 100 80) (hslx 200 100 40)
+                                :style $ if focused? style-active-line style-shadow-line
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
-                              circle $ {} (:radius 6) (:alpha 1)
+                              circle $ {} (:radius dot-radius) (:alpha 1)
                                 :position $ [] 0 0
-                                :fill $ hslx 200 100 40
+                                :fill $ hslx 160 100 30
                                 :on $ {}
                                   :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                               if (= next-coord focus) shape-focus
@@ -583,7 +588,7 @@
                                   [] 0 $ * y-stack line-height
                                 :tree info
                           rest ys
-                          + x-position block-indent
+                          + x-position leaf-gap
                           inc y-stack
                           inc idx
                           , false winding-x
@@ -592,17 +597,17 @@
                           info $ cond
                               is-linear? item
                               wrap-linear-expr item next-coord focus false
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay? false)
+                            (and (with-linear? item) (not (all-block? item)))
+                              wrap-expr-with-linear item next-coord focus winding-okay? false
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
                             container
-                              {} $ :position
-                                [] (+ block-indent x-position) 0
+                              {} $ :position ([] x-position 0)
                               :tree info
                           rest ys
-                          + x-position width block-indent
+                          + x-position width leaf-gap
                           &max y-stack $ :y-stack info
                           inc idx
                           , winding-okay? winding-x
@@ -611,7 +616,8 @@
                           info $ cond
                               is-linear? item
                               wrap-linear-expr item next-coord focus false
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay? false)
+                            (and (with-linear? item) (not (all-block? item)))
+                              wrap-expr-with-linear item next-coord focus winding-okay? false
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -630,32 +636,34 @@
                     (= 1 (count ys))
                       let
                           info $ cond
-                              with-linear? item
+                              and (with-linear? item)
+                                not $ all-block? item
                               wrap-expr-with-linear item next-coord focus winding-okay? true
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
                           conj acc $ [] idx
-                            container
-                              {} $ :position ([] x-position 0)
-                              polyline $ {}
-                                :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ if (= next-coord focus) (hslx 200 100 80) (hslx 200 100 40)
-                                :position $ [] 0 0
-                                :points $ [] ([] 0 0)
-                                  [] 0 $ * y-stack line-height
-                              circle $ {} (:radius 6) (:alpha 1)
-                                :fill $ hslx 200 100 40
-                                :position $ [] 0 0
-                                :on $ {}
-                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
-                              if (= next-coord focus) shape-focus
+                            let
+                                focused? $ = next-coord focus
                               container
-                                {} $ :position
-                                  [] 0 $ * y-stack line-height
-                                :tree info
+                                {} $ :position ([] x-position 0)
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                circle $ {} (:radius dot-radius) (:alpha 1)
+                                  :fill $ hslx 300 100 30
+                                  :position $ [] 0 0
+                                  :on $ {}
+                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                                if focused? shape-focus
+                                container
+                                  {} $ :position
+                                    [] 0 $ * y-stack line-height
+                                  :tree info
                           rest ys
-                          + x-position width 4
+                          + x-position width leaf-gap
                           + y-stack $ :y-stack info
                           inc idx
                           , winding-okay? winding-x
@@ -667,14 +675,14 @@
         |wrap-leaf $ quote
           defn wrap-leaf (s coord focus head?)
             let
-                width $ + leaf-gap
-                  * 8.8 $ count s
+                width $ * 8.5 (count s)
                 height leaf-height
               {}
-                :tree $ container ({})
+                :tree $ container
+                  {} $ :position ([] -4 0)
                   rect $ {}
                     :position $ [] 0 (* -0.5 height)
-                    :size $ [] width height
+                    :size $ [] (+ width 8) height
                     :alpha 0.9
                     :fill $ hslx 190 70 14
                     :line-style $ {} (:width 1) (:alpha 0.18)
@@ -697,13 +705,13 @@
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
-                      :size $ [] width height
+                      :size $ [] (+ width 8) height
                       :alpha 0.8
                       :line-style $ {} (:width 1)
                         :color $ hslx 60 80 80
                         :alpha 0.8
                   text $ {} (:text s)
-                    :position $ [] (* 0.5 leaf-gap) -8
+                    :position $ [] 4 -8
                     :style $ {}
                       :fill $ pick-leaf-color s head?
                       :font-size 14
@@ -721,22 +729,23 @@
                 idx 0
               if (empty? ys)
                 {}
-                  :tree $ container ({})
-                    polyline $ {}
-                      :style $ {} (:width 1) (:alpha 1)
-                        :color $ hslx 40 100 30
-                      :position $ [] 0 0
-                      :points $ [] ([] 0 0) ([] x-position 0)
-                    circle $ {}
-                      :position $ [] 0 0
-                      :radius $ if smaller? 0 6
-                      :fill $ hslx 260 80 60
-                      :on $ {}
-                        :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
-                    if
-                      and (not smaller?) (= coord focus)
-                      , shape-focus
-                    create-list :container ({}) acc
+                  :tree $ let
+                      focused? $ = coord focus
+                    container ({})
+                      polyline $ {}
+                        :style $ if focused? style-active-line style-shadow-line
+                        :position $ [] 0 0
+                        :points $ [] ([] 0 0) ([] x-position 0)
+                      if (not smaller?)
+                        circle $ {} (:radius dot-radius)
+                          :position $ [] 0 0
+                          :fill $ hslx 260 80 60
+                          :on $ {}
+                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                      if
+                        and focused? $ not smaller?
+                        , shape-focus
+                      create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
                 let
@@ -752,13 +761,10 @@
                   recur
                     conj acc $ [] idx
                       container
-                        {} $ :position
-                          [] (+ x-position leaf-gap) 0
+                        {} $ :position ([] x-position 0)
                         , tree
                     rest ys
-                    + x-position width $ if
-                      head-in-list $ rest ys
-                      , block-indent leaf-gap
+                    + x-position width leaf-gap
                     &max y-stack $ :y-stack info
                     inc idx
       :ns $ quote
@@ -768,7 +774,7 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
-          app.config :refer $ leaf-gap block-indent leaf-height line-height code-font api-host
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
     |app.main $ {}
