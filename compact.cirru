@@ -118,7 +118,7 @@
                       d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
-                  <> $ :warning store
+                  <> $ or (:warning store) "\""
                 .render command-plugin
         |comp-search-entry $ quote
           defcomp comp-search-entry (cursor state files on-close)
@@ -272,9 +272,9 @@
                     (string? item)
                       wrap-leaf item ([]) focus false
                     (is-linear? item)
-                      wrap-linear-expr item ([]) focus
+                      wrap-linear-expr item ([]) focus false
                     (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true
+                      wrap-expr-with-linear item ([]) focus true false
                     true $ wrap-block-expr item ([]) focus
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
         |comp-error $ quote
@@ -444,8 +444,8 @@
                       info $ cond
                           string? item
                           wrap-leaf item next-coord focus $ = idx 0
-                        (is-linear? item) (wrap-linear-expr item next-coord focus)
-                        (with-linear? item) (wrap-expr-with-linear item next-coord focus true)
+                        (is-linear? item) (wrap-linear-expr item next-coord focus false)
+                        (with-linear? item) (wrap-expr-with-linear item next-coord focus true false)
                         true $ wrap-block-expr item next-coord focus
                       width $ :width info
                       tree $ :tree info
@@ -477,7 +477,7 @@
                           if (= 0 idx) (:winding-x info) winding-x
                           string? item
         |wrap-expr-with-linear $ quote
-          defn wrap-expr-with-linear (xs coord focus parent-winding-okay?)
+          defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller?)
             loop
                 acc $ []
                 ys xs
@@ -494,12 +494,15 @@
                         :color $ hslx 200 100 30
                       :position $ [] 0 0
                       :points $ [] ([] 0 0) ([] x-position 0)
-                    circle $ {} (:radius 6)
+                    circle $ {}
+                      :radius $ if smaller? 0 6
                       :position $ [] 0 0
                       :fill $ hslx 340 90 50
                       :on $ {}
                         :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
-                    if (= coord focus) shape-focus
+                    if
+                      and (not smaller?) (= coord focus)
+                      , shape-focus
                     create-list :container ({}) (reverse acc)
                   :width x-position
                   :y-stack y-stack
@@ -527,7 +530,7 @@
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
-                          info $ wrap-linear-expr item next-coord focus
+                          info $ wrap-linear-expr item next-coord focus true
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -540,9 +543,12 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * -1 line-height
-                              circle $ {} (:radius 3) (:alpha 1)
+                              circle $ {} (:radius 6) (:alpha 1)
                                 :position $ [] 0 0
-                                :fill $ hslx 200 100 30
+                                :fill $ hslx 200 100 40
+                                :on $ {}
+                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              if (= next-coord focus) shape-focus
                               container
                                 {} $ :position
                                   [] 0 $ * -1 line-height
@@ -553,7 +559,7 @@
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
-                          info $ wrap-linear-expr item next-coord focus
+                          info $ wrap-linear-expr item next-coord focus true
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -566,9 +572,12 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
-                              circle $ {} (:radius 3) (:alpha 1)
+                              circle $ {} (:radius 6) (:alpha 1)
                                 :position $ [] 0 0
-                                :fill $ hslx 200 100 30
+                                :fill $ hslx 200 100 40
+                                :on $ {}
+                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              if (= next-coord focus) shape-focus
                               container
                                 {} $ :position
                                   [] 0 $ * y-stack line-height
@@ -582,8 +591,8 @@
                       let
                           info $ cond
                               is-linear? item
-                              wrap-linear-expr item next-coord focus
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay?)
+                              wrap-linear-expr item next-coord focus false
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay? false)
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -601,8 +610,8 @@
                       let
                           info $ cond
                               is-linear? item
-                              wrap-linear-expr item next-coord focus
-                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay?)
+                              wrap-linear-expr item next-coord focus false
+                            (with-linear? item) (wrap-expr-with-linear item next-coord focus winding-okay? false)
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -622,7 +631,7 @@
                       let
                           info $ cond
                               with-linear? item
-                              wrap-expr-with-linear item next-coord focus winding-okay?
+                              wrap-expr-with-linear item next-coord focus winding-okay? true
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -631,13 +640,16 @@
                               {} $ :position ([] x-position 0)
                               polyline $ {}
                                 :style $ {} (:width 1) (:alpha 0.8)
-                                  :color $ hslx 200 100 40
+                                  :color $ if (= next-coord focus) (hslx 200 100 80) (hslx 200 100 40)
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
-                              circle $ {} (:radius 3) (:alpha 1)
-                                :fill $ hslx 200 100 30
+                              circle $ {} (:radius 6) (:alpha 1)
+                                :fill $ hslx 200 100 40
                                 :position $ [] 0 0
+                                :on $ {}
+                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              if (= next-coord focus) shape-focus
                               container
                                 {} $ :position
                                   [] 0 $ * y-stack line-height
@@ -700,7 +712,7 @@
                 :y-stack 1
                 :winding-x nil
         |wrap-linear-expr $ quote
-          defn wrap-linear-expr (xs coord focus)
+          defn wrap-linear-expr (xs coord focus smaller?)
             loop
                 acc $ []
                 ys xs
@@ -717,11 +729,13 @@
                       :points $ [] ([] 0 0) ([] x-position 0)
                     circle $ {}
                       :position $ [] 0 0
-                      :radius 6
+                      :radius $ if smaller? 0 6
                       :fill $ hslx 260 80 60
                       :on $ {}
                         :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
-                    if (= coord focus) shape-focus
+                    if
+                      and (not smaller?) (= coord focus)
+                      , shape-focus
                     create-list :container ({}) acc
                   :width x-position
                   :y-stack y-stack
@@ -731,7 +745,7 @@
                     info $ cond
                         string? item
                         wrap-leaf item next-coord focus $ = idx 0
-                      (is-linear? item) (wrap-linear-expr item next-coord focus)
+                      (is-linear? item) (wrap-linear-expr item next-coord focus false)
                       true $ comp-error item
                     width $ :width info
                     tree $ :tree info
