@@ -26,6 +26,7 @@
                         :on-click $ fn (e d!)
                           d! cursor $ assoc state :ns ns
                       <> ns
+              =< 8 nil
               if-let
                 ns $ :ns state
                 if-let
@@ -59,7 +60,7 @@
               [] (effect-focus "\"#query-box")
                 div
                   {} $ :style
-                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 600) (:height "\"88vh") (:z-index 100) (:backdrop-filter "\"blur(2px)") (:border-radius "\"6px") (:padding 8)
+                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") (:z-index 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0")
                       :border $ str "\"1px solid " (hsl 0 0 30)
                       :background-color $ hsl 0 0 20 0.4
                   div
@@ -95,7 +96,7 @@
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
                     :inner-text $ if
                       empty? $ :def-path store
-                      , "\"empty"
+                      , "\"..."
                         str $ .join-str (:def-path store) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
@@ -357,9 +358,12 @@
             cond
                 or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
                 hslx 300 100 30
+              (= "\"" s) (hslx 190 50 50)
               (= "\"\"" (get s 0))
                 hslx 70 50 40
-              (= "\":" (get s 0))
+              (= "\"|" (nth s 0))
+                hslx 70 50 40
+              (= "\":" (nth s 0))
                 hslx 240 80 74
               (.!test pattern-number s) (hslx 340 100 30)
               head? $ hslx 160 70 76
