@@ -8,61 +8,77 @@
   :files $ {}
     |app.comp.nav $ {}
       :defs $ {}
+        |comp-files-entry $ quote
+          defcomp comp-files-entry (cursor state files on-close)
+            div
+              {} $ :style (merge ui/expand ui/row)
+              list->
+                {} $ :style ui/expand
+                -> (keys files) .to-list sort $ map
+                  fn (ns)
+                    [] ns $ div
+                      {} (:class-name "\"hover-entry")
+                        :style $ merge
+                          {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                          if
+                            = ns $ :ns state
+                            {} $ :background-color (hsl 0 0 100 0.3)
+                        :on-click $ fn (e d!)
+                          d! cursor $ assoc state :ns ns
+                      <> ns
+              if-let
+                ns $ :ns state
+                if-let
+                  file $ get files ns
+                  div
+                    {} $ :style ui/expand
+                    div
+                      {}
+                        :style $ {} (:cursor :pointer)
+                        :on-click $ fn (e d!)
+                          d! :def-path $ [] ns :ns
+                      <> ns $ {} (:font-family ui/font-code)
+                    =< nil 8
+                    list-> ({})
+                      -> files (get ns) (get :defs) keys .to-list sort $ map
+                        fn (def-name)
+                          [] def-name $ div
+                            {} (:class-name "\"hover-entry")
+                              :style $ merge
+                                {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                              :on-click $ fn (e d!)
+                                d! :def-path $ [] ns :defs def-name
+                                on-close d!
+                            <> def-name
         |comp-menu $ quote
           defcomp comp-menu (states files def-path on-close)
             let
                 cursor $ :cursor states
                 state $ or (:data states)
-                  {} $ :ns nil
-              div
-                {} $ :style
-                  merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 600) (:height "\"80vh") (:z-index 100) (:backdrop-filter "\"blur(2px)") (:border-radius "\"6px") (:padding 8)
-                    :border $ str "\"1px solid " (hsl 0 0 30)
-                    :background-color $ hsl 0 0 20 0.4
+                  {} (:ns nil) (:query "\"" )
+              [] (effect-focus "\"#query-box")
                 div
-                  {} $ :style ui/row-parted
-                  <> "\"MENU"
-                  a $ {} (:inner-text "\"close") (:style ui/link)
-                    :on-click $ fn (e d!) (on-close d!)
-                div
-                  {} $ :style (merge ui/expand ui/row)
-                  list->
-                    {} $ :style ui/expand
-                    -> (keys files) .to-list sort $ map
-                      fn (ns)
-                        [] ns $ div
-                          {} (:class-name "\"hover-entry")
-                            :style $ merge
-                              {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
-                              if
-                                = ns $ :ns state
-                                {} $ :background-color (hsl 0 0 100 0.3)
-                            :on-click $ fn (e d!)
-                              d! cursor $ assoc state :ns ns
-                          <> ns
-                  if-let
-                    ns $ :ns state
-                    if-let
-                      file $ get files ns
-                      div
-                        {} $ :style ui/expand
-                        div
-                          {}
-                            :style $ {} (:cursor :pointer)
-                            :on-click $ fn (e d!)
-                              d! :def-path $ [] ns :ns
-                          <> ns $ {} (:font-family ui/font-code)
-                        =< nil 8
-                        list-> ({})
-                          -> files (get ns) (get :defs) keys .to-list sort $ map
-                            fn (def-name)
-                              [] def-name $ div
-                                {} (:class-name "\"hover-entry")
-                                  :style $ merge
-                                    {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
-                                  :on-click $ fn (e d!)
-                                    d! :def-path $ [] ns :defs def-name
-                                <> def-name
+                  {} $ :style
+                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 600) (:height "\"88vh") (:z-index 100) (:backdrop-filter "\"blur(2px)") (:border-radius "\"6px") (:padding 8)
+                      :border $ str "\"1px solid " (hsl 0 0 30)
+                      :background-color $ hsl 0 0 20 0.4
+                  div
+                    {} $ :style ui/row-parted
+                    input $ {} (:id "\"query-box")
+                      :style $ merge ui/input
+                        {} (:background-color :transparent)
+                          :color $ hsl 0 0 70
+                      :value $ :query state
+                      :on-input $ fn (e d!)
+                        d! cursor $ assoc state :query (:value e)
+                      :autofocus true
+                    a $ {} (:inner-text "\"close") (:style ui/link)
+                      :on-click $ fn (e d!) (on-close d!)
+                  =< nil 8
+                  if
+                    blank? $ :query state
+                    comp-files-entry cursor state files on-close
+                    comp-search-entry cursor state files on-close
         |comp-navbar $ quote
           defcomp comp-navbar (store states)
             let
@@ -77,10 +93,13 @@
                   {} $ :style (merge ui/row-parted style-navbar)
                   span $ {} (:class-name "\"hover-entry")
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
-                    :inner-text $ str
-                      .join-str (:def-path store) "\" "
+                    :inner-text $ if
+                      empty? $ :def-path store
+                      , "\"empty"
+                        str $ .join-str (:def-path store) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
+                      .!preventDefault $ :event e
                   div ({})
                     a $ {} (:inner-text "\"Save") (:style ui/link)
                       :on-click $ fn (e d!)
@@ -101,6 +120,35 @@
                   {} $ :style style-error
                   <> $ :warning store
                 .render command-plugin
+        |comp-search-entry $ quote
+          defcomp comp-search-entry (cursor state files on-close)
+            let
+                queries $ .split (:query state) "\" "
+                entries $ -> files .to-list
+                  mapcat $ fn (entry)
+                    let[] (ns file) entry $ flipped prepend ([] ns :ns)
+                      -> (:defs file) keys .to-list $ .map
+                        fn (def-name) ([] ns :defs def-name)
+              list->
+                {} $ :style (merge ui/expand)
+                -> entries
+                  filter $ fn (entry)
+                    every? queries $ fn (x)
+                      .includes? (str entry) x
+                  map $ fn (entry)
+                    [] (str entry)
+                      div
+                        {} (:class-name "\"hover-entry")
+                          :style $ {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
+                          :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
+                            d! cursor $ assoc state :query "\""
+                        <> $ if
+                          = 2 $ count entry
+                          str (first entry) "\" :ns"
+                          str (first entry) "\"/" $ last entry
+        |effect-focus $ quote
+          defeffect effect-focus (query) (action el at?)
+            .!select $ js/document.querySelector query
         |on-save $ quote
           defn on-save (files saved-files d!)
             let
@@ -209,8 +257,10 @@
                         .!stopPropagation $ :event e
                         js/document.body.focus
                       if
-                        not $ and (:meta? e)
-                          = "\"Tab" $ :key e
+                        and
+                          not $ and (:meta? e)
+                            = "\"Tab" $ :key e
+                          identical? js/document.body $ .-target (:event e)
                         d! :cirru-edit $ dissoc e :event
                 :tree $ let
                     item $ -> files
