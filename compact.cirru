@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!) (:version nil)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/
   :entries $ {}
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
@@ -9,252 +9,98 @@
     |app.comp.nav $ {}
       :defs $ {}
         |comp-menu $ quote
-          defcomp comp-menu (on-close)
-            div
-              {} $ :style
-                {} (:position :absolute) (:top 0) (:left 0) (:width 400) (:height "\"80vh")
-                  :background-color $ hsl 0 0 20 0.8
+          defcomp comp-menu (states files def-path on-close)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :ns nil
               div
-                {} $ :style ui/row-parted
-                <> "\"MENU"
-                a $ {} (:inner-text "\"close") (:style ui/link)
-                  :on-click $ fn (e d!) (on-close d!)
+                {} $ :style
+                  merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 600) (:height "\"80vh") (:z-index 100) (:backdrop-filter "\"blur(2px)") (:border-radius "\"6px") (:padding 8)
+                    :border $ str "\"1px solid " (hsl 0 0 30)
+                    :background-color $ hsl 0 0 20 0.4
+                div
+                  {} $ :style ui/row-parted
+                  <> "\"MENU"
+                  a $ {} (:inner-text "\"close") (:style ui/link)
+                    :on-click $ fn (e d!) (on-close d!)
+                div
+                  {} $ :style (merge ui/expand ui/row)
+                  list->
+                    {} $ :style ui/expand
+                    -> (keys files) .to-list sort $ map
+                      fn (ns)
+                        [] ns $ div
+                          {} (:class-name "\"hover-entry")
+                            :style $ merge
+                              {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                              if
+                                = ns $ :ns state
+                                {} $ :background-color (hsl 0 0 100 0.3)
+                            :on-click $ fn (e d!)
+                              d! cursor $ assoc state :ns ns
+                          <> ns
+                  if-let
+                    ns $ :ns state
+                    if-let
+                      file $ get files ns
+                      div
+                        {} $ :style ui/expand
+                        div
+                          {}
+                            :style $ {} (:cursor :pointer)
+                            :on-click $ fn (e d!)
+                              d! :def-path $ [] ns :ns
+                          <> ns $ {} (:font-family ui/font-code)
+                        =< nil 8
+                        list-> ({})
+                          -> files (get ns) (get :defs) keys .to-list sort $ map
+                            fn (def-name)
+                              [] def-name $ div
+                                {} (:class-name "\"hover-entry")
+                                  :style $ merge
+                                    {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                                  :on-click $ fn (e d!)
+                                    d! :def-path $ [] ns :defs def-name
+                                <> def-name
         |comp-navbar $ quote
           defcomp comp-navbar (store states)
             let
                 cursor $ :cursor states
                 state $ or (:data states)
                   {} $ :menu? false
+                command-plugin $ use-prompt (>> states :command)
+                  {} (:text "\"command")
+                    :input-style $ {} (:font-family ui/font-code)
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
-                  span $ {} (:inner-text "\"TODO")
+                  span $ {} (:class-name "\"hover-entry")
+                    :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
+                    :inner-text $ str
+                      .join-str (:def-path store) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
                   div ({})
-                    button $ {} (:inner-text "\"Save") (:style widget/button)
+                    a $ {} (:inner-text "\"Save") (:style ui/link)
+                      :on-click $ fn (e d!)
+                        on-save (:files store) (:saved-files store) d!
                     =< 8 nil
-                    button $ {} (:inner-text "\"Command") (:style widget/button)
+                    a $ {} (:inner-text "\"Command") (:style ui/link)
+                      :on-click $ fn (e d!)
+                        .show command-plugin d! $ fn (content)
+                          let
+                              code $ first (parse-cirru content)
+                            if (list? code) (run-command code d!)
+                              d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
-                  comp-menu $ fn (d!)
-                    d! cursor $ assoc state :menu? false
+                  comp-menu (>> states :menu) (:files store) (:def-path store)
+                    fn (d!)
+                      d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
                   <> $ :warning store
-        |style-error $ quote
-          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
-            :color $ hsl 0 90 70
-            :background-color $ hsl 0 0 0 0.7
-        |style-navbar $ quote
-          def style-navbar $ {} (:padding "\"4px 8px") (:position :absolute) (:top 0) (:left 0) (:width "\"100%")
-      :ns $ quote
-        ns app.comp.nav $ :require (respo-ui.core :as ui)
-          respo-ui.core :refer $ hsl
-          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a
-          respo.comp.space :refer $ =<
-          app.config :refer $ dev?
-          app.widget :as widget
-    |app.config $ {}
-      :defs $ {}
-        |api-host $ quote
-          def api-host $ str "\"http://" js/location.hostname "\":6101"
-        |block-indent $ quote (def block-indent 20)
-        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
-        |cors-headers $ quote
-          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
-        |leaf-gap $ quote (def leaf-gap 8)
-        |leaf-height $ quote (def leaf-height 24)
-        |line-height $ quote (def line-height 32)
-        |site $ quote
-          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
-      :ns $ quote
-        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
-    |app.container $ {}
-      :defs $ {}
-        |comp-container $ quote
-          defcomp comp-container (store)
-            let
-                states $ :states store
-                cursor $ []
-                state $ or (:data states)
-                  {} (:selected-ns nil) (:def-target nil)
-                tree $ :code-tree store
-                focus $ :focus store
-                files $ :files store
-              container
-                {} $ :on-keyboard
-                  {} $ :down
-                    fn (e d!)
-                      if
-                        = "\"Tab" $ :key e
-                        .!preventDefault $ :event e
-                        .!stopPropagation $ :event e
-                        js/document.body.focus
-                      if
-                        not $ and (:meta? e)
-                          = "\"Tab" $ :key e
-                        d! :cirru-edit $ dissoc e :event
-                comp-ns-entries (keys files) (:selected-ns state)
-                  fn (ns d!)
-                    d! cursor $ assoc state :selected-ns ns
-                if-let
-                  file $ get files (:selected-ns state)
-                  comp-file (:selected-ns state) file (:def-target state)
-                    fn (path d!)
-                      d! cursor $ assoc state :def-target path
-                      d! :def-path $ prepend path (:selected-ns state)
-                if-let
-                  warning $ :warning store
-                  text $ {} (:text warning)
-                    :position $ [] 0 -80
-                    :style $ {} (:fill |red) (:font-size 14) (:font-family code-font)
-                comp-button $ {} (:text "\"Save") (:font-family code-font)
-                  :position $ [] -60 -160
-                  :on-pointertap $ fn (e d!)
-                    on-save (:files store) (:saved-files store) d!
-                comp-button $ {} (:text "\"Command") (:font-family code-font)
-                  :position $ [] 0 -160
-                  :on-pointertap $ fn (e d!)
-                    prompt-at!
-                      &let
-                        pos $ -> e .-data .-global
-                        [] (.-x pos) (.-y pos)
-                      {} $ :style
-                        {} $ :font-family code-font
-                      fn (content)
-                        let
-                            code $ first (parse-cirru content)
-                          if (list? code) (run-command code d!)
-                            d! :warn $ str "\"invalid command:" code
-                :tree $ let
-                    item $ -> files
-                      get $ :selected-ns state
-                      get-in $ or (:def-target state) ([])
-                      get 1
-                  cond
-                      nil? item
-                      , nil
-                    (string? item)
-                      wrap-leaf item ([]) focus false
-                    (is-linear? item)
-                      wrap-linear-expr item ([]) focus
-                    (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true
-                    true $ wrap-block-expr item ([]) focus
-                ; comp-hint (>> states :hint) focus $ get-in tree focus
-        |comp-error $ quote
-          defcomp comp-error (ys)
-            circle
-              {}
-                :position $ [] 0 0
-                :radius 10
-                :fill 0xff0000
-              text $ {}
-                :text $ format-cirru-edn ys
-                :position $ [] 0 0
-                :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
-        |comp-file $ quote
-          defn comp-file (ns file selected on-select)
-            container
-              {} $ :position ([] -160 0)
-              comp-button $ {} (:text ns)
-                :position $ [] 0 -60
-                :font-family "\"Roboto Mono, monospace"
-                :fill $ if
-                  = (get selected 0) :ns
-                  hslx 0 0 30
-                :on-pointertap $ fn (e d!)
-                  ; d! :replace-tree $ nth (:ns file) 1
-                  on-select ([] :ns) d!
-              create-list :container
-                {} $ :position ([] 0 0)
-                -> (:defs file) (.to-list)
-                  map-indexed $ fn (idx pair)
-                    [] idx $ comp-button
-                      {}
-                        :text $ first pair
-                        :position $ [] 0 (* idx 40)
-                        :font-family "\"Roboto Mono, monospace"
-                        :fill $ if
-                          = (get selected 1) (first pair)
-                          hslx 0 0 30
-                        :on-pointertap $ fn (e d!)
-                          ; d! :replace-tree $ nth (nth pair 1) 1
-                          on-select
-                            [] :defs $ first pair
-                            , d!
-        |comp-hint $ quote
-          defn comp-hint (states focus target)
-            let
-                cursor $ :cursor states
-                state $ or (:data states)
-                  {} $ :p1 ([] 400 -100)
-              container ({})
-                comp-drag-point (>> states :p1)
-                  {} (:hide-text? true)
-                    :position $ :p1 state
-                    :radius 8
-                    :fill $ hslx 60 90 44
-                    :on-change $ fn (position d!)
-                      d! cursor $ assoc state :p1 position
-                text $ {}
-                  :text $ .!slice
-                    format-to-lisp $ turn-quoted target
-                    , 0 200
-                  :position $ complex/add (:p1 state) ([] 12 -6)
-                  :style $ {}
-                    :fill $ hslx 200 40 50
-                    :font-size 10
-                    :font-family "|Roboto Mono, manospace"
-        |comp-ns-entries $ quote
-          defn comp-ns-entries (ns-entries selected on-select)
-            create-list :container
-              {} $ :position ([] -360 0)
-              -> ns-entries (.to-list)
-                map-indexed $ fn (idx name)
-                  [] idx $ comp-button
-                    {} (:text name)
-                      :position $ [] 0 (* idx 40)
-                      :font-family "\"Roboto Mono, monospace"
-                      :fill $ if (= name selected) (hslx 0 0 30)
-                      :on-pointertap $ fn (e d!) (on-select name d!)
-        |head-in-list $ quote
-          defn head-in-list (xs)
-            if
-              some? $ first xs
-              list? $ first xs
-              , false
-        |is-linear? $ quote
-          defn is-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                let
-                    x0 $ first xs
-                  if (string? x0) true $ recur x0
-              true $ let
-                  x0 $ first xs
-                if (string? x0)
-                  recur $ rest xs
-                  , false
-        |on-expr-click $ quote
-          defn on-expr-click (e code coord d!)
-            let
-                event $ -> e .-data .-originalEvent
-              if
-                or (.-metaKey event) (.-ctrlKey event)
-                prompt-at!
-                  &let
-                    pos $ -> e .-data .-global
-                    [] (.-x pos) (.-y pos)
-                  {} (:textarea? true)
-                    :initial $ format-cirru ([] code)
-                    :style $ {} (:font-family code-font)
-                  fn (content)
-                    d! :cirru-edit-node $ [] coord
-                      first $ parse-cirru content
-                d! :focus coord
+                .render command-plugin
         |on-save $ quote
           defn on-save (files saved-files d!)
             let
@@ -302,6 +148,156 @@
                 js/fetch (str api-host "\"/compact-inc")
                   js-object (:method "\"PUT") (:body content)
                 .then $ fn (res) (js/console.log "\"response" res)
+        |run-command $ quote
+          defn run-command (code d!)
+            case-default (first code)
+              d! :warn $ str "\"invalid command: " code
+              "\"add-ns" $ d! :add-ns (nth code 1)
+              "\"rm-ns" $ d! :rm-ns (nth code 1)
+              "\"add-def" $ d! :add-def
+                [] (nth code 1) (nth code 2)
+              "\"rm-def" $ d! :rm-def
+                [] (nth code 1) (nth code 2)
+        |style-error $ quote
+          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
+            :color $ hsl 0 90 70
+            :background-color $ hsl 0 0 0 0.7
+        |style-navbar $ quote
+          def style-navbar $ {} (:padding "\"4px 8px") (:position :absolute) (:top 0) (:left 0) (:width "\"100%")
+      :ns $ quote
+        ns app.comp.nav $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev? api-host
+          app.widget :as widget
+          respo-alerts.core :refer $ use-prompt
+    |app.config $ {}
+      :defs $ {}
+        |api-host $ quote
+          def api-host $ str "\"http://" js/location.hostname "\":6101"
+        |block-indent $ quote (def block-indent 20)
+        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
+        |cors-headers $ quote
+          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
+        |leaf-gap $ quote (def leaf-gap 8)
+        |leaf-height $ quote (def leaf-height 24)
+        |line-height $ quote (def line-height 32)
+        |site $ quote
+          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+      :ns $ quote
+        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
+    |app.container $ {}
+      :defs $ {}
+        |comp-container $ quote
+          defcomp comp-container (store)
+            let
+                states $ :states store
+                cursor $ []
+                state $ or (:data states)
+                  {} (:selected-ns nil) (:def-target nil)
+                tree $ :code-tree store
+                focus $ :focus store
+                files $ :files store
+              container
+                {} $ :on-keyboard
+                  {} $ :down
+                    fn (e d!)
+                      if
+                        = "\"Tab" $ :key e
+                        .!preventDefault $ :event e
+                        .!stopPropagation $ :event e
+                        js/document.body.focus
+                      if
+                        not $ and (:meta? e)
+                          = "\"Tab" $ :key e
+                        d! :cirru-edit $ dissoc e :event
+                :tree $ let
+                    item $ -> files
+                      get-in $ :def-path store
+                      get 1
+                  cond
+                      nil? item
+                      , nil
+                    (string? item)
+                      wrap-leaf item ([]) focus false
+                    (is-linear? item)
+                      wrap-linear-expr item ([]) focus
+                    (with-linear? item)
+                      wrap-expr-with-linear item ([]) focus true
+                    true $ wrap-block-expr item ([]) focus
+                ; comp-hint (>> states :hint) focus $ get-in tree focus
+        |comp-error $ quote
+          defcomp comp-error (ys)
+            circle
+              {}
+                :position $ [] 0 0
+                :radius 10
+                :fill 0xff0000
+              text $ {}
+                :text $ format-cirru-edn ys
+                :position $ [] 0 0
+                :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
+        |comp-hint $ quote
+          defn comp-hint (states focus target)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :p1 ([] 400 -100)
+              container ({})
+                comp-drag-point (>> states :p1)
+                  {} (:hide-text? true)
+                    :position $ :p1 state
+                    :radius 8
+                    :fill $ hslx 60 90 44
+                    :on-change $ fn (position d!)
+                      d! cursor $ assoc state :p1 position
+                text $ {}
+                  :text $ .!slice
+                    format-to-lisp $ turn-quoted target
+                    , 0 200
+                  :position $ complex/add (:p1 state) ([] 12 -6)
+                  :style $ {}
+                    :fill $ hslx 200 40 50
+                    :font-size 10
+                    :font-family "|Roboto Mono, manospace"
+        |head-in-list $ quote
+          defn head-in-list (xs)
+            if
+              some? $ first xs
+              list? $ first xs
+              , false
+        |is-linear? $ quote
+          defn is-linear? (xs)
+            cond
+                empty? xs
+                , true
+              (= 1 (count xs))
+                let
+                    x0 $ first xs
+                  if (string? x0) true $ recur x0
+              true $ let
+                  x0 $ first xs
+                if (string? x0)
+                  recur $ rest xs
+                  , false
+        |on-expr-click $ quote
+          defn on-expr-click (e code coord d!)
+            let
+                event $ -> e .-data .-originalEvent
+              if
+                or (.-metaKey event) (.-ctrlKey event)
+                prompt-at!
+                  &let
+                    pos $ -> e .-data .-global
+                    [] (.-x pos) (.-y pos)
+                  {} (:textarea? true)
+                    :initial $ format-cirru ([] code)
+                    :style $ {} (:font-family code-font)
+                  fn (content)
+                    d! :cirru-edit-node $ [] coord
+                      first $ parse-cirru content
+                d! :focus coord
         |pattern-number $ quote
           def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
         |pick-leaf-color $ quote
@@ -316,16 +312,6 @@
               (.!test pattern-number s) (hslx 340 100 30)
               head? $ hslx 160 70 76
               true $ hslx 190 50 50
-        |run-command $ quote
-          defn run-command (code d!)
-            case-default (first code)
-              d! :warn $ str "\"invalid command: " code
-              "\"add-ns" $ d! :add-ns (nth code 1)
-              "\"rm-ns" $ d! :rm-ns (nth code 1)
-              "\"add-def" $ d! :add-def
-                [] (nth code 1) (nth code 2)
-              "\"rm-def" $ d! :rm-def
-                [] (nth code 1) (nth code 2)
         |shape-focus $ quote
           def shape-focus $ circle
             {} (:radius 8)
