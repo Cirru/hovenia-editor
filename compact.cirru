@@ -812,7 +812,7 @@
                   do
                     on-save (:files @*store) (:saved-files @*store) dispatch!
                     .!preventDefault event
-                true $ do (js/console.log event)
+                true $ do (;nil js/console.log event)
         |load-files! $ quote
           defn load-files! (d!)
             -> (str api-host "\"/compact-data") (js/fetch)
@@ -1085,19 +1085,32 @@
                     if (empty? tree)
                       [] ([] "\"") ([] 0) nil
                       [] tree focus "\"at root"
-                    if shift?
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-before xs (last focus) "\""
-                        , focus nil
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-after xs (last focus) "\""
-                        conj (butlast focus)
-                          inc $ last focus
-                        , nil
+                    let
+                        target $ get-in tree focus
+                      if
+                        and meta? $ list? target
+                        if shift?
+                          []
+                            update-in tree focus $ fn (xs) (append xs "\"")
+                            conj focus $ count target
+                            , nil
+                          []
+                            update-in tree focus $ fn (xs) (prepend xs "\"")
+                            conj focus 0
+                            , nil
+                        if shift?
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-before xs (last focus) "\""
+                            , focus nil
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-after xs (last focus) "\""
+                            conj (butlast focus)
+                              inc $ last focus
+                            , nil
                 (= key "\" ")
                   if (empty? focus)
                     if (empty? tree)
