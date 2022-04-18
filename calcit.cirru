@@ -1823,8 +1823,23 @@
                 :data $ {}
                   |T $ {} (:at 1649852297385) (:by |rJG4IHzWf) (:text |str) (:type :leaf)
                   |b $ {} (:at 1649852297385) (:by |rJG4IHzWf) (:text "|\"http://") (:type :leaf)
-                  |h $ {} (:at 1649852297385) (:by |rJG4IHzWf) (:text |js/location.hostname) (:type :leaf)
-                  |l $ {} (:at 1649852297385) (:by |rJG4IHzWf) (:text "|\":6101") (:type :leaf)
+                  |h $ {} (:at 1650257505762) (:by |rJG4IHzWf) (:type :expr)
+                    :data $ {}
+                      |D $ {} (:at 1650257506723) (:by |rJG4IHzWf) (:text |or) (:type :leaf)
+                      |L $ {} (:at 1650257516147) (:by |rJG4IHzWf) (:type :expr)
+                        :data $ {}
+                          |T $ {} (:at 1650257517150) (:by |rJG4IHzWf) (:text |get-env) (:type :leaf)
+                          |b $ {} (:at 1650257519744) (:by |rJG4IHzWf) (:text "|\"host") (:type :leaf)
+                      |T $ {} (:at 1650257513081) (:by |rJG4IHzWf) (:text "|\"localhost") (:type :leaf)
+                  |i $ {} (:at 1650257528595) (:by |rJG4IHzWf) (:text "|\":") (:type :leaf)
+                  |j $ {} (:at 1650257505762) (:by |rJG4IHzWf) (:type :expr)
+                    :data $ {}
+                      |D $ {} (:at 1650257506723) (:by |rJG4IHzWf) (:text |or) (:type :leaf)
+                      |L $ {} (:at 1650257516147) (:by |rJG4IHzWf) (:type :expr)
+                        :data $ {}
+                          |T $ {} (:at 1650257517150) (:by |rJG4IHzWf) (:text |get-env) (:type :leaf)
+                          |b $ {} (:at 1650257524947) (:by |rJG4IHzWf) (:text "|\"port") (:type :leaf)
+                      |T $ {} (:at 1650257536569) (:by |rJG4IHzWf) (:text |6101) (:type :leaf)
           |code-font $ {} (:at 1649851033607) (:by |rJG4IHzWf) (:type :expr)
             :data $ {}
               |T $ {} (:at 1649851044218) (:by |rJG4IHzWf) (:text |def) (:type :leaf)

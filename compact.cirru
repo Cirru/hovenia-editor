@@ -224,7 +224,10 @@
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
-          def api-host $ str "\"http://" js/location.hostname "\":6101"
+          def api-host $ str "\"http://"
+            or (get-env "\"host") "\"localhost"
+            , "\":"
+              or (get-env "\"port") 6101
         |code-font $ quote (def code-font "\"Roboto Mono, monospace")
         |cors-headers $ quote
           def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
