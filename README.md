@@ -17,6 +17,16 @@ Launch CLI for an HTTP server, at same folder of `compact.cirru`:
 cr --entry server path/to/hovernia-editor/compact.cirru
 ```
 
+Adding CLI shortcut in `$PATH`:
+
+```cirru
+#!/usr/bin/env cr -1
+{} (:package |app)
+  :configs $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
+    :modules $ [] |calcit-http/ |<path-to>/hovenia-editor/compact.cirru
+  :files $ {}
+```
+
 Use Web UI from http://repo.cirru.org/hovenia-editor/ .
 
 ### Workflow
