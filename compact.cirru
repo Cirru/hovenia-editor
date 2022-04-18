@@ -60,7 +60,7 @@
               [] (effect-focus "\"#query-box")
                 div
                   {} $ :style
-                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") (:z-index 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0")
+                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0")
                       :border $ str "\"1px solid " (hsl 0 0 30)
                       :background-color $ hsl 0 0 20 0.4
                   div
@@ -73,7 +73,10 @@
                       :on-input $ fn (e d!)
                         d! cursor $ assoc state :query (:value e)
                       :autofocus true
-                    a $ {} (:inner-text "\"close") (:style ui/link)
+                      :autocomplete false
+                    a $ {} (:inner-text "\"×")
+                      :style $ merge ui/link
+                        {} (:font-size 20) (:text-decoration :none) (:color :red)
                       :on-click $ fn (e d!) (on-close d!)
                   =< nil 8
                   if
@@ -799,6 +802,17 @@
                     op-id $ shortid/generate
                     op-time $ js/Date.now
                   reset! *store $ updater @*store op op-data op-id op-time
+        |handle-global-keys $ quote
+          defn handle-global-keys () $ js/window.addEventListener "\"keydown"
+            fn (event)
+              cond
+                  and
+                    or (.-metaKey event) (.-ctrlKey event)
+                    = "\"s" $ .-key event
+                  do
+                    on-save (:files @*store) (:saved-files @*store) dispatch!
+                    .!preventDefault event
+                true $ do (;nil js/console.log event)
         |load-files! $ quote
           defn load-files! (d!)
             -> (str api-host "\"/compact-data") (js/fetch)
@@ -816,6 +830,7 @@
             render-control!
             start-control-loop! 8 on-control-event
             load-files! dispatch!
+            handle-global-keys
             println "\"App Started"
         |mount-target $ quote
           def mount-target $ js/document.querySelector "\".app"
@@ -846,7 +861,7 @@
           "\"bottom-tip" :default hud!
           touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
           app.config :refer $ api-host
-          app.comp.nav :refer $ comp-navbar
+          app.comp.nav :refer $ comp-navbar on-save
           respo.core :refer $ defcomp defeffect <> >> div button textarea span input
           respo.core :as respo
           respo.comp.space :refer $ =<
@@ -953,7 +968,7 @@
                       , changes
                   write-file "\"compact.cirru" $ format-cirru-edn new-compact-data
                   write-file "\".compact-inc.cirru" body
-                  println "\"wrote to" "\".compact-inc.cirru" "\" and " "\"compact.cirru"
+                  println "\"wrote to" "\".compact-inc.cirru" "\"and" "\"compact.cirru"
                   ; println "\"data" $ :body req
                   {} (:code 200) (:headers cors-headers)
                     :body $ format-cirru-edn
@@ -1070,19 +1085,32 @@
                     if (empty? tree)
                       [] ([] "\"") ([] 0) nil
                       [] tree focus "\"at root"
-                    if shift?
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-before xs (last focus) "\""
-                        , focus nil
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-after xs (last focus) "\""
-                        conj (butlast focus)
-                          inc $ last focus
-                        , nil
+                    let
+                        target $ get-in tree focus
+                      if
+                        and meta? $ list? target
+                        if shift?
+                          []
+                            update-in tree focus $ fn (xs) (append xs "\"")
+                            conj focus $ count target
+                            , nil
+                          []
+                            update-in tree focus $ fn (xs) (prepend xs "\"")
+                            conj focus 0
+                            , nil
+                        if shift?
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-before xs (last focus) "\""
+                            , focus nil
+                          []
+                            update-in tree (butlast focus)
+                              fn (xs)
+                                &list:assoc-after xs (last focus) "\""
+                            conj (butlast focus)
+                              inc $ last focus
+                            , nil
                 (= key "\" ")
                   if (empty? focus)
                     if (empty? tree)
