@@ -277,7 +277,7 @@
             :color $ hsl 0 90 70
             :background-color $ hsl 0 0 0 0.7
         |style-navbar $ quote
-          def style-navbar $ {} (:padding "\"4px 8px") (:position :absolute) (:top 0) (:left 0) (:width "\"100%")
+          def style-navbar $ {} (:padding "\"0px 8px") (:position :absolute) (:top 16) (:left 0) (:width "\"100%") (:height 0)
       :ns $ quote
         ns app.comp.nav $ :require (respo-ui.core :as ui)
           respo-ui.core :refer $ hsl
@@ -640,7 +640,10 @@
                                 :tree info
                           rest ys
                           + x-position leaf-gap
-                          , y-stack y-stack-max y-stack-extend-x (inc idx) false x-position
+                          , y-stack y-stack-max
+                            &max y-stack-extend-x $ + x-position (:width info)
+                            inc idx
+                            , false x-position
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
@@ -891,7 +894,7 @@
             -> (new FontFaceObserver "\"Roboto Mono") (.!load)
               .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
             add-watch *store :change $ fn (store prev) (render-app!)
-            when mobile? (render-control!) (start-control-loop! 8 on-control-event)
+            when true (render-control!) (start-control-loop! 8 on-control-event)
             load-files! dispatch!
             ; handle-global-keys
             println "\"App Started"
@@ -902,7 +905,7 @@
             do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
               add-watch *store :change $ fn (store prev) (render-app!)
               render-app!
-              when mobile? $ replace-control-loop! 8 on-control-event
+              when true $ replace-control-loop! 8 on-control-event
               hud! "\"ok~" "\"Ok"
               load-files! dispatch!
             hud! "\"error" build-errors
