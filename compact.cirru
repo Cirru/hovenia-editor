@@ -567,6 +567,8 @@
                 ys xs
                 x-position leaf-gap
                 y-stack 1
+                y-stack-max 1
+                y-stack-extend-x 0
                 idx 0
                 winding-okay? parent-winding-okay?
                 winding-x nil
@@ -590,7 +592,7 @@
                         , shape-focus
                       create-list :container ({}) (reverse acc)
                   :width x-position
-                  :y-stack y-stack
+                  :y-stack y-stack-max
                   :winding-x winding-x
                 let
                     item $ first ys
@@ -608,7 +610,10 @@
                               , tree
                           rest ys
                           + x-position width leaf-gap
-                          , y-stack (inc idx) winding-okay? winding-x
+                          if
+                            > (+ x-position width leaf-gap) y-stack-extend-x
+                            , 1 y-stack
+                          , y-stack-max y-stack-extend-x (inc idx) winding-okay? winding-x
                     (and winding-okay? (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
@@ -635,7 +640,7 @@
                                 :tree info
                           rest ys
                           + x-position leaf-gap
-                          , y-stack (inc idx) false x-position
+                          , y-stack y-stack-max y-stack-extend-x (inc idx) false x-position
                     (and (is-linear? item) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
@@ -663,6 +668,8 @@
                           rest ys
                           + x-position leaf-gap
                           inc y-stack
+                          &max y-stack-max $ inc y-stack
+                          &max y-stack-extend-x $ + x-position leaf-gap (:width info)
                           inc idx
                           , false winding-x
                     (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
@@ -682,8 +689,8 @@
                           rest ys
                           + x-position width leaf-gap
                           &max y-stack $ :y-stack info
-                          inc idx
-                          , winding-okay? winding-x
+                          &max y-stack-max $ &max y-stack (:y-stack info)
+                          , y-stack-extend-x (inc idx) winding-okay? winding-x
                     (and (= 1 (count ys)) (&= y-stack 1))
                       let
                           info $ cond
@@ -701,8 +708,8 @@
                           rest ys
                           + x-position width leaf-gap
                           &max y-stack $ :y-stack info
-                          inc idx
-                          , winding-okay? $ either winding-x
+                          &max y-stack-max $ &max y-stack (:y-stack info)
+                          , y-stack-extend-x (inc idx) winding-okay? $ either winding-x
                             if-let
                               x $ :winding-x info
                               + x-position x
@@ -738,8 +745,8 @@
                           rest ys
                           + x-position width leaf-gap
                           + y-stack $ :y-stack info
-                          inc idx
-                          , winding-okay? winding-x
+                          &max y-stack-max $ + y-stack (:y-stack info)
+                          , y-stack-extend-x (inc idx) winding-okay? winding-x
                     true $ {}
                       :tree $ create-list :container ({})
                         conj acc $ [] idx (comp-error ys)
@@ -1072,6 +1079,9 @@
           app.config :refer $ cors-headers
     |app.updater $ {}
       :defs $ {}
+        |char-keymap $ quote
+          defn char-keymap (key)
+            case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
         |cirru-edit $ quote
           defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data)
             let
@@ -1154,19 +1164,35 @@
                             update-in tree focus $ fn (xs) (prepend xs "\"")
                             conj focus 0
                             , nil
-                        if shift?
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                &list:assoc-before xs (last focus) "\""
-                            , focus nil
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                &list:assoc-after xs (last focus) "\""
-                            conj (butlast focus)
-                              inc $ last focus
-                            , nil
+                        if (list? target)
+                          if shift?
+                            []
+                              update-in tree (butlast focus)
+                                fn (xs)
+                                  &list:assoc-before xs (last focus) ([] "\"")
+                              conj focus 0
+                              , nil
+                            []
+                              update-in tree (butlast focus)
+                                fn (xs)
+                                  &list:assoc-after xs (last focus) ([] "\"")
+                              conj (butlast focus)
+                                inc $ last focus
+                                , 0
+                              , nil
+                          if shift?
+                            []
+                              update-in tree (butlast focus)
+                                fn (xs)
+                                  &list:assoc-before xs (last focus) "\""
+                              , focus nil
+                            []
+                              update-in tree (butlast focus)
+                                fn (xs)
+                                  &list:assoc-after xs (last focus) "\""
+                              conj (butlast focus)
+                                inc $ last focus
+                              , nil
                 (= key "\" ")
                   if (empty? focus)
                     if (empty? tree)
@@ -1183,9 +1209,7 @@
                             update-in tree (butlast focus)
                               fn (xs)
                                 &list:assoc-before xs (last focus) "\""
-                            conj (butlast focus)
-                              inc $ last focus
-                            , nil
+                            , focus nil
                       []
                         update-in tree (butlast focus)
                           fn (xs)
@@ -1226,7 +1250,7 @@
                       target $ get-in tree focus
                     if (string? target)
                       []
-                        assoc-in tree focus $ str target key
+                        assoc-in tree focus $ str target (char-keymap key)
                         , focus nil
                       [] tree focus "\"not text"
                 true $ do (; js/console.log "\"unknown event:" op-data) ([] tree focus)
