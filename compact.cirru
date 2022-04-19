@@ -884,8 +884,7 @@
             -> (new FontFaceObserver "\"Roboto Mono") (.!load)
               .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
             add-watch *store :change $ fn (store prev) (render-app!)
-            render-control!
-            start-control-loop! 8 on-control-event
+            when mobile? (render-control!) (start-control-loop! 8 on-control-event)
             load-files! dispatch!
             ; handle-global-keys
             println "\"App Started"
@@ -896,7 +895,7 @@
             do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
               add-watch *store :change $ fn (store prev) (render-app!)
               render-app!
-              replace-control-loop! 8 on-control-event
+              when mobile? $ replace-control-loop! 8 on-control-event
               hud! "\"ok~" "\"Ok"
               load-files! dispatch!
             hud! "\"error" build-errors
