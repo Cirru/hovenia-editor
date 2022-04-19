@@ -6,6 +6,34 @@
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
   :files $ {}
+    |app.comp.key-event $ {}
+      :defs $ {}
+        |comp-key-event $ quote
+          defcomp comp-key-event (on-event)
+            [] (effect-listen-keyboard)
+              span $ {}
+                :on-keydown $ fn (e d!) (on-event e d!)
+        |effect-listen-keyboard $ quote
+          defeffect effect-listen-keyboard () (action el at?)
+            let
+                handler $ fn (event)
+                  if
+                    and
+                      or
+                        = "\"p" $ .-key event
+                        = "\"s" $ .-key event
+                      or (.-ctrlKey event) (.-metaKey event)
+                    .!preventDefault event
+                  .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+              case-default action nil
+                :mount $ js/window.addEventListener "\"keydown" handler
+                :unmount $ js/window.removeEventListener "\"keydown" handler
+      :ns $ quote
+        ns app.comp.key-event $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev? api-host
     |app.comp.nav $ {}
       :defs $ {}
         |comp-files-entry $ quote
@@ -56,7 +84,16 @@
             let
                 cursor $ :cursor states
                 state $ or (:data states)
-                  {} (:ns nil) (:query "\"" )
+                  {} (:ns nil) (:query "\"" ) (:select-idx 0)
+                queries $ .split (:query state) "\" "
+                entries $ -> files .to-list
+                  mapcat $ fn (entry)
+                    let[] (ns file) entry $ flipped prepend ([] ns :ns)
+                      -> (:defs file) keys .to-list $ .map
+                        fn (def-name) ([] ns :defs def-name)
+                  filter $ fn (entry)
+                    every? queries $ fn (x)
+                      .includes? (str entry) x
               [] (effect-focus "\"#query-box")
                 div
                   {} $ :style
@@ -67,13 +104,27 @@
                     {} $ :style ui/row-parted
                     input $ {} (:id "\"query-box")
                       :style $ merge ui/input
-                        {} (:background-color :transparent)
+                        {} (:background-color :transparent) (:font-family ui/font-code)
                           :color $ hsl 0 0 70
                       :value $ :query state
                       :on-input $ fn (e d!)
-                        d! cursor $ assoc state :query (:value e)
+                        d! cursor $ assoc state :query (:value e) :select-idx 0
                       :autofocus true
-                      :autocomplete false
+                      :autocomplete "\"off"
+                      :on-keydown $ fn (e d!)
+                        case-default (:key e) (;nil js/console.log e)
+                          "\"ArrowDown" $ d! cursor
+                            update state :select-idx $ fn (idx)
+                              if
+                                >= (inc idx) (count entries)
+                                , 0 $ inc idx
+                          "\"ArrowUp" $ d! cursor
+                            update state :select-idx $ fn (idx)
+                              if (> idx 0) (dec idx) 0
+                          "\"Enter" $ if-let
+                            target $ get entries (:select-idx state)
+                            do (d! :def-path target) (on-close d!)
+                              d! cursor $ assoc state :query "\""
                     a $ {} (:inner-text "\"×")
                       :style $ merge ui/link
                         {} (:font-size 20) (:text-decoration :none) (:color :red)
@@ -82,7 +133,10 @@
                   if
                     blank? $ :query state
                     comp-files-entry cursor state files on-close
-                    comp-search-entry cursor state files on-close
+                    comp-search-entry cursor state entries (:select-idx state)
+                      fn (idx d!)
+                        d! cursor $ assoc state :select-idx idx
+                      , on-close
         |comp-navbar $ quote
           defcomp comp-navbar (store states)
             let
@@ -123,33 +177,41 @@
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
+                comp-key-event $ fn (e d!)
+                  cond
+                      and
+                        or (:meta? e) (:ctrl? e)
+                        = "\"p" $ :key e
+                      if (:shift? e)
+                        .show command-plugin d! $ fn (content)
+                          let
+                              code $ first (parse-cirru content)
+                            if (list? code) (run-command code d!)
+                              d! :warn $ str "\"invalid command:" code
+                        d! cursor $ update state :menu? not
+                    (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
+                      on-save (:files store) (:saved-files store) d!
+                    true nil
                 .render command-plugin
         |comp-search-entry $ quote
-          defcomp comp-search-entry (cursor state files on-close)
-            let
-                queries $ .split (:query state) "\" "
-                entries $ -> files .to-list
-                  mapcat $ fn (entry)
-                    let[] (ns file) entry $ flipped prepend ([] ns :ns)
-                      -> (:defs file) keys .to-list $ .map
-                        fn (def-name) ([] ns :defs def-name)
-              list->
-                {} $ :style (merge ui/expand)
-                -> entries
-                  filter $ fn (entry)
-                    every? queries $ fn (x)
-                      .includes? (str entry) x
-                  map $ fn (entry)
-                    [] (str entry)
-                      div
-                        {} (:class-name "\"hover-entry")
-                          :style $ {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
-                          :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
-                            d! cursor $ assoc state :query "\""
-                        <> $ if
-                          = 2 $ count entry
-                          str (first entry) "\" :ns"
-                          str (first entry) "\"/" $ last entry
+          defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
+            let () $ list->
+              {} $ :style (merge ui/expand)
+              -> entries $ map-indexed
+                fn (idx entry)
+                  [] (str entry)
+                    div
+                      {} (:class-name "\"hover-entry")
+                        :style $ merge
+                          {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
+                          if (= idx selected-idx)
+                            {} $ :background-color (hsl 0 0 100 0.3)
+                        :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
+                          d! cursor $ assoc state :query "\""
+                      <> $ if
+                        = 2 $ count entry
+                        str (first entry) "\" :ns"
+                        str (first entry) "\"/" $ last entry
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
@@ -224,6 +286,7 @@
           app.config :refer $ dev? api-host
           app.widget :as widget
           respo-alerts.core :refer $ use-prompt
+          app.comp.key-event :refer $ comp-key-event
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -805,14 +868,8 @@
         |handle-global-keys $ quote
           defn handle-global-keys () $ js/window.addEventListener "\"keydown"
             fn (event)
-              cond
-                  and
-                    or (.-metaKey event) (.-ctrlKey event)
-                    = "\"s" $ .-key event
-                  do
-                    on-save (:files @*store) (:saved-files @*store) dispatch!
-                    .!preventDefault event
-                true $ do (;nil js/console.log event)
+              cond $ true
+                do $ ;nil js/console.log event
         |load-files! $ quote
           defn load-files! (d!)
             -> (str api-host "\"/compact-data") (js/fetch)
@@ -830,7 +887,7 @@
             render-control!
             start-control-loop! 8 on-control-event
             load-files! dispatch!
-            handle-global-keys
+            ; handle-global-keys
             println "\"App Started"
         |mount-target $ quote
           def mount-target $ js/document.querySelector "\".app"
@@ -1173,7 +1230,7 @@
                         assoc-in tree focus $ str target key
                         , focus nil
                       [] tree focus "\"not text"
-                true $ do (js/console.log "\"unknown event:" op-data) ([] tree focus)
+                true $ do (; js/console.log "\"unknown event:" op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
             loop
