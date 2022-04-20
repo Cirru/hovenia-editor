@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!) (:version nil)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/
   :entries $ {}
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
@@ -309,6 +309,9 @@
       :defs $ {}
         |all-block? $ quote
           defn all-block? (item) (every? item list?)
+        |char-keymap $ quote
+          defn char-keymap (key)
+            case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
         |comp-container $ quote
           defcomp comp-container (store)
             let
@@ -316,7 +319,6 @@
                 cursor $ []
                 state $ or (:data states)
                   {} (:selected-ns nil) (:def-target nil)
-                tree $ :code-tree store
                 focus $ :focus store
                 files $ :files store
               container
@@ -333,7 +335,17 @@
                           not $ and (:meta? e)
                             = "\"Tab" $ :key e
                           identical? js/document.body $ .-target (:event e)
-                        d! :cirru-edit $ dissoc e :event
+                        let
+                            target $ -> files
+                              get-in $ :def-path store
+                              get 1
+                              get-in focus
+                          cond
+                              list? target
+                              handle-expr-event focus (dissoc e :event) d!
+                            (string? target)
+                              handle-leaf-event focus target (dissoc e :event) d!
+                            true $ js/console.error "\"unknown target" target
                 :tree $ let
                     item $ -> files
                       get-in $ :def-path store
@@ -383,6 +395,92 @@
                     :fill $ hslx 200 40 50
                     :font-size 10
                     :font-family "|Roboto Mono, manospace"
+        |handle-expr-event $ quote
+          defn handle-expr-event (focus e d!)
+            let
+                key $ :key e
+                code $ :key-code e
+                meta? $ or (:meta? e) (:ctrl? e)
+                shift? $ :shift? e
+              cond
+                  = "\"Backspace" key
+                  d! :call-cirru-edit $ [] :remove-node focus
+                (= key "\"ArrowUp")
+                  d! :call-cirru-edit $ [] :node-up focus
+                (= key "\"ArrowLeft")
+                  d! :call-cirru-edit $ [] :node-left focus
+                (= key "\"ArrowRight")
+                  d! :call-cirru-edit $ [] :node-right focus
+                (= key "\"ArrowDown")
+                  d! :call-cirru-edit $ [] :expression-down focus
+                (= key "\"Enter")
+                  if meta?
+                    if shift?
+                      d! :call-cirru-edit $ [] :append-expression focus
+                      d! :call-cirru-edit $ [] :prepend-expression focus
+                    if shift?
+                      d! :call-cirru-edit $ [] :before-expression focus
+                      d! :call-cirru-edit $ [] :after-expression focus
+                (= key "\" ")
+                  if shift?
+                    d! :call-cirru-edit $ [] :before-token focus
+                    d! :call-cirru-edit $ [] :after-token focus
+                (= "\"Tab" key)
+                  if shift?
+                    d! :call-cirru-edit $ [] :unfold-expression focus
+                    d! :call-cirru-edit $ [] :fold-node focus
+                (and meta? (= "\"b" key))
+                  d! :call-cirru-edit $ [] :duplicate-expression focus
+                (and meta? (= "\"c" key))
+                  d! :call-cirru-edit $ [] :command-copy focus
+                (and meta? (= "\"x" key))
+                  d! :call-cirru-edit $ [] :command-cut focus
+                (and meta? (= "\"v" key))
+                  d! :call-cirru-edit $ [] :command-paste focus
+                true $ do (;nil js/console.log "\"unknown event:" e)
+        |handle-leaf-event $ quote
+          defn handle-leaf-event (focus token e d!)
+            let
+                key $ :key e
+                code $ :key-code e
+                meta? $ or (:meta? e) (:ctrl? e)
+                shift? $ :shift? e
+              cond
+                  = "\"Backspace" key
+                  if (empty? token)
+                    d! :call-cirru-edit $ [] :remove-node focus
+                    d! :call-cirru-edit $ [] :update-token
+                      [] focus $ .!slice token 0
+                        dec $ count token
+                (and (>= code 65) (<= code 90) (not meta?))
+                  d! :call-cirru-edit $ [] :update-token
+                    [] focus $ str token key
+                (= key "\"ArrowUp")
+                  d! :call-cirru-edit $ [] :node-up focus
+                (= key "\"ArrowLeft")
+                  d! :call-cirru-edit $ [] :node-left focus
+                (= key "\"ArrowRight")
+                  d! :call-cirru-edit $ [] :node-right focus
+                (= key "\"ArrowDown") (js/console.warn "\"unknown keydown")
+                (= key "\"Enter")
+                  if shift?
+                    d! :call-cirru-edit $ [] :before-token focus
+                    d! :call-cirru-edit $ [] :after-after focus
+                (= key "\" ")
+                  if shift?
+                    d! :call-cirru-edit $ [] :update-token
+                      [] focus $ str token "\" "
+                    d! :call-cirru-edit $ [] :after-token focus
+                (= "\"Tab" key)
+                  if shift?
+                    d! :call-cirru-edit $ [] :unfold-token focus
+                    d! :call-cirru-edit $ [] :fold-node focus
+                (and meta? (= "\"v" key))
+                  d! :call-cirru-edit $ [] :command-paste focus
+                (and (= 1 (count key)) (not meta?))
+                  d! :call-cirru-edit $ [] :update-token
+                    [] focus $ str token (char-keymap key)
+                true $ do (;nil js/console.warn "\"unknown event:" e)
         |head-in-list $ quote
           defn head-in-list (xs)
             if
@@ -879,7 +977,7 @@
           defn handle-global-keys () $ js/window.addEventListener "\"keydown"
             fn (event)
               cond $ true
-                do $ ;nil js/console.log event
+                do $ js/console.log event
         |load-files! $ quote
           defn load-files! (d!)
             -> (str api-host "\"/compact-data") (js/fetch)
@@ -1001,6 +1099,7 @@
             :saved-files $ {}
             :files $ {}
             :focus $ []
+            :clipboard $ []
             :warning nil
             :def-path $ []
       :ns $ quote (ns app.schema)
@@ -1082,181 +1181,6 @@
           app.config :refer $ cors-headers
     |app.updater $ {}
       :defs $ {}
-        |char-keymap $ quote
-          defn char-keymap (key)
-            case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
-        |cirru-edit $ quote
-          defn cirru-edit (tree focus op-data) (; println "\"TODO" tree focus op-data)
-            let
-                key $ :key op-data
-                code $ :key-code op-data
-                meta? $ or (:meta? op-data) (:ctrl? op-data)
-                shift? $ :shift? op-data
-              cond
-                  = "\"Backspace" key
-                  if (empty? focus) ([] tree focus "\"cannot delete root")
-                    let
-                        target $ get-in tree focus
-                      if
-                        or (list? target) meta? $ = target "\""
-                        let
-                            parent-coord $ butlast focus
-                            next-tree $ dissoc-in tree focus
-                            next-focus $ if
-                              = 0 $ last focus
-                              , parent-coord
-                                conj parent-coord $ dec (last focus)
-                          [] next-tree next-focus nil
-                        []
-                          update-in tree focus $ fn (leaf)
-                            .slice leaf 0 $ dec (count leaf)
-                          , focus nil
-                (and (>= code 65) (<= code 90) (not meta?))
-                  let
-                      target $ get-in tree focus
-                    if (string? target)
-                      []
-                        assoc-in tree focus $ str target key
-                        , focus nil
-                      [] tree focus "\"not text"
-                (= key "\"ArrowUp")
-                  if (empty? focus) ([] tree focus "\"already at top")
-                    [] tree (butlast focus) nil
-                (= key "\"ArrowLeft")
-                  if (empty? focus) ([] tree focus "\"already at root")
-                    if
-                      > (last focus) 0
-                      [] tree
-                        conj (butlast focus)
-                          dec $ last focus
-                        , nil
-                      [] tree focus "\"already at first elelement"
-                (= key "\"ArrowRight")
-                  if (empty? focus) ([] tree focus "\"already at root")
-                    let
-                        parent $ get-in tree (butlast focus)
-                      if
-                        >= (last focus)
-                          dec $ count parent
-                        [] tree focus "\"already at last elelement"
-                        [] tree
-                          conj (butlast focus)
-                            inc $ last focus
-                          , nil
-                (= key "\"ArrowDown")
-                  let
-                      target $ get-in tree focus
-                    if (string? target) ([] tree focus "\"already reached leaf")
-                      if (empty? target) ([] tree focus "\"it's empty")
-                        [] tree (conj focus 0) nil
-                (= key "\"Enter")
-                  if (empty? focus)
-                    if (empty? tree)
-                      [] ([] "\"") ([] 0) nil
-                      [] tree focus "\"at root"
-                    let
-                        target $ get-in tree focus
-                      if
-                        and meta? $ list? target
-                        if shift?
-                          []
-                            update-in tree focus $ fn (xs) (append xs "\"")
-                            conj focus $ count target
-                            , nil
-                          []
-                            update-in tree focus $ fn (xs) (prepend xs "\"")
-                            conj focus 0
-                            , nil
-                        if (list? target)
-                          if shift?
-                            []
-                              update-in tree (butlast focus)
-                                fn (xs)
-                                  &list:assoc-before xs (last focus) ([] "\"")
-                              conj focus 0
-                              , nil
-                            []
-                              update-in tree (butlast focus)
-                                fn (xs)
-                                  &list:assoc-after xs (last focus) ([] "\"")
-                              conj (butlast focus)
-                                inc $ last focus
-                                , 0
-                              , nil
-                          if shift?
-                            []
-                              update-in tree (butlast focus)
-                                fn (xs)
-                                  &list:assoc-before xs (last focus) "\""
-                              , focus nil
-                            []
-                              update-in tree (butlast focus)
-                                fn (xs)
-                                  &list:assoc-after xs (last focus) "\""
-                              conj (butlast focus)
-                                inc $ last focus
-                              , nil
-                (= key "\" ")
-                  if (empty? focus)
-                    if (empty? tree)
-                      [] ([] "\"") ([] 0) nil
-                      [] tree focus "\"at root"
-                    if shift?
-                      let
-                          target $ get-in tree focus
-                        if (string? target)
-                          []
-                            assoc-in tree focus $ str target key
-                            , focus nil
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                &list:assoc-before xs (last focus) "\""
-                            , focus nil
-                      []
-                        update-in tree (butlast focus)
-                          fn (xs)
-                            &list:assoc-after xs (last focus) "\""
-                        conj (butlast focus)
-                          inc $ last focus
-                        , nil
-                (= "\"Tab" key)
-                  if shift?
-                    if (empty? focus) ([] tree focus "\"not working for root")
-                      let
-                          target $ get-in tree focus
-                        if (string? target)
-                          let
-                              parent $ get-in tree (butlast focus)
-                            if
-                              = 1 $ count parent
-                              []
-                                assoc-in tree (butlast focus) (get-in tree focus)
-                                butlast focus
-                                , nil
-                              [] tree focus "\"not working for leaf"
-                          []
-                            update-in tree (butlast focus)
-                              fn (xs)
-                                let
-                                    i $ last focus
-                                  -> xs
-                                    splice-after i $ get xs i
-                                    dissoc i
-                            , focus nil
-                    []
-                      update-in tree focus $ fn (xs) ([] xs)
-                      conj focus 0
-                      , nil
-                (and (= 1 (count key)) (not meta?))
-                  let
-                      target $ get-in tree focus
-                    if (string? target)
-                      []
-                        assoc-in tree focus $ str target (char-keymap key)
-                        , focus nil
-                      [] tree focus "\"not text"
-                true $ do (; js/console.log "\"unknown event:" op-data) ([] tree focus)
         |splice-after $ quote
           defn splice-after (xs i ys)
             loop
@@ -1270,16 +1194,26 @@
             case-default op
               do (eprintln "\"unknown op" op op-data) store
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
-              :cirru-edit $ let
+              :call-cirru-edit $ let
                   def-path $ prepend (:def-path store) :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
-                  let[] (tree focus warning)
-                    cirru-edit (nth def-target 1) (:focus store) op-data
-                    if (some? warning) (js/console.warn warning)
+                  let
+                      result $ cirru-edit
+                        {}
+                          :tree $ nth def-target 1
+                          :clipboard $ :clipboard store
+                        nth op-data 0
+                        nth op-data 1
+                    js/console.log op-data result
+                    if-let
+                      warning $ :warning result
+                      js/console.warn warning
                     -> store
-                      assoc-in def-path $ :: 'quote tree
-                      assoc :focus focus :warning warning
+                      assoc-in def-path $ :: 'quote (:tree result)
+                      assoc :focus
+                        or (:focus result) (:focus store)
+                        , :warning (:warning result) :clipboard $ :clipboard result
                   assoc store :warning $ str "\"target not found at:" def-path
               :cirru-edit-node $ let-sugar
                     [] focus code
@@ -1325,6 +1259,7 @@
       :ns $ quote
         ns app.updater $ :require
           phlox.cursor :refer $ update-states
+          cirru-editor.core :refer $ cirru-edit
     |app.widget $ {}
       :defs $ {}
         |button $ quote
