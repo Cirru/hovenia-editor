@@ -1205,7 +1205,7 @@
                           :clipboard $ :clipboard store
                         nth op-data 0
                         nth op-data 1
-                    js/console.log op-data result
+                    ; js/console.log op-data result
                     if-let
                       warning $ :warning result
                       js/console.warn warning
