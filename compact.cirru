@@ -84,7 +84,7 @@
             let
                 cursor $ :cursor states
                 state $ or (:data states)
-                  {} (:ns nil) (:query "\"" ) (:select-idx 0)
+                  {} (:ns nil) (:query "\"") (:select-idx 0)
                 queries $ .split (:query state) "\" "
                 entries $ -> files .to-list
                   mapcat $ fn (entry)
@@ -104,8 +104,7 @@
                     {} $ :style ui/row-parted
                     input $ {} (:id "\"query-box")
                       :style $ merge ui/input
-                        {} (:background-color :transparent) (:font-family ui/font-code)
-                          :color $ hsl 0 0 70
+                        {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
                       :value $ :query state
                       :on-input $ fn (e d!)
                         d! cursor $ assoc state :query (:value e) :select-idx 0
@@ -125,9 +124,11 @@
                             target $ get entries (:select-idx state)
                             do (d! :def-path target) (on-close d!)
                               d! cursor $ assoc state :query "\""
+                          "\"Escape" $ on-close d!
                     a $ {} (:inner-text "\"×")
                       :style $ merge ui/link
-                        {} (:font-size 20) (:text-decoration :none) (:color :red)
+                        {} (:font-size 24) (:font-weight 100) (:text-decoration :none)
+                          :color $ hsl 0 100 30
                       :on-click $ fn (e d!) (on-close d!)
                   =< nil 8
                   if
@@ -168,7 +169,7 @@
                         .show command-plugin d! $ fn (content)
                           let
                               code $ first (parse-cirru content)
-                            if (list? code) (run-command code d!)
+                            if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
                   comp-menu (>> states :menu) (:files store) (:def-path store)
@@ -186,7 +187,7 @@
                         .show command-plugin d! $ fn (content)
                           let
                               code $ first (parse-cirru content)
-                            if (list? code) (run-command code d!)
+                            if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                         d! cursor $ update state :menu? not
                     (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
@@ -208,10 +209,16 @@
                             {} $ :background-color (hsl 0 0 100 0.3)
                         :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
                           d! cursor $ assoc state :query "\""
-                      <> $ if
+                      if
                         = 2 $ count entry
-                        str (first entry) "\" :ns"
-                        str (first entry) "\"/" $ last entry
+                        <> $ str (first entry) "\" :ns"
+                        div ({})
+                          <>
+                            str (first entry) "\"/"
+                            {} (:font-size 10)
+                              :color $ hsl 0 0 70
+                          =< 8 nil
+                          <> $ last entry
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
@@ -261,9 +268,11 @@
               ->
                 js/fetch (str api-host "\"/compact-inc")
                   js-object (:method "\"PUT") (:body content)
-                .then $ fn (res) (js/console.log "\"response" res)
+                .!then $ fn (res) (d! :ok)
+                .!catch $ fn (e)
+                  d! :warn $ str e
         |run-command $ quote
-          defn run-command (code d!)
+          defn run-command (code store d!)
             case-default (first code)
               d! :warn $ str "\"invalid command: " code
               "\"add-ns" $ d! :add-ns (nth code 1)
@@ -272,6 +281,12 @@
                 [] (nth code 1) (nth code 2)
               "\"rm-def" $ d! :rm-def
                 [] (nth code 1) (nth code 2)
+              "\"mv-ns" $ d! :mv-ns
+                [] (nth code 1) (nth code 2)
+              "\"mv-def" $ d! :mv-def
+                [] (nth code 1) (nth code 2)
+              "\"load" $ load-files! d!
+              "\"save" $ on-save (:files store) (:saved-files store) d!
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -287,6 +302,7 @@
           app.widget :as widget
           respo-alerts.core :refer $ use-prompt
           app.comp.key-event :refer $ comp-key-event
+          app.fetch :refer $ load-files!
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -309,6 +325,8 @@
       :defs $ {}
         |all-block? $ quote
           defn all-block? (item) (every? item list?)
+        |base-dot $ quote
+          def base-dot $ {} (:radius dot-radius) (:alpha 1)
         |char-keymap $ quote
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
@@ -523,7 +541,7 @@
         |pick-leaf-color $ quote
           defn pick-leaf-color (s head?)
             cond
-                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
+                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";") (= s "\"&")
                 hslx 300 100 30
               (= "\"" s) (hslx 190 50 50)
               (= "\"\"" (get s 0))
@@ -588,9 +606,11 @@
                         :points $ [] ([] 0 0) ([] leaf-gap 0)
                           [] leaf-gap $ * line-height
                             &max 0 $ dec y-stack
-                      circle $ {} (:radius dot-radius)
-                        :position $ [] 0 0
-                        :fill $ hslx 120 50 80
+                      rect $ {} (:angle 45)
+                        :size $ [] (* 2 dot-radius) (* 2 dot-radius)
+                        :pivot $ [] dot-radius dot-radius
+                        :alpha 1
+                        :fill $ hslx 120 100 70
                         :on $ {}
                           :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if focused? shape-focus
@@ -680,11 +700,11 @@
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] x-position 0)
                       if (not smaller?)
-                        circle $ {} (:radius dot-radius)
-                          :position $ [] 0 0
-                          :fill $ hslx 10 60 50
-                          :on $ {}
-                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                        circle $ merge base-dot
+                          {}
+                            :fill $ hslx 10 60 50
+                            :on $ {}
+                              :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if
                         and focused? $ not smaller?
                         , shape-focus
@@ -726,11 +746,11 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * -1 line-height
-                              circle $ {} (:radius dot-radius) (:alpha 1)
-                                :position $ [] 0 0
-                                :fill $ hslx 200 100 40
-                                :on $ {}
-                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              circle $ merge base-dot
+                                {}
+                                  :fill $ hslx 180 60 40
+                                  :on $ {}
+                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                               if focused? shape-focus
                               container
                                 {} $ :position
@@ -756,11 +776,11 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
-                              circle $ {} (:radius dot-radius) (:alpha 1)
-                                :position $ [] 0 0
-                                :fill $ hslx 160 100 30
-                                :on $ {}
-                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              circle $ merge base-dot
+                                {}
+                                  :fill $ hslx 160 100 30
+                                  :on $ {}
+                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                               if (= next-coord focus) shape-focus
                               container
                                 {} $ :position
@@ -833,11 +853,12 @@
                                   :position $ [] 0 0
                                   :points $ [] ([] 0 0)
                                     [] 0 $ * y-stack line-height
-                                circle $ {} (:radius dot-radius) (:alpha 1)
-                                  :fill $ hslx 300 100 30
-                                  :position $ [] 0 0
-                                  :on $ {}
-                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                                circle $ merge base-dot
+                                  {} (:alpha 1)
+                                    :fill $ hslx 300 100 30
+                                    :position $ [] 0 0
+                                    :on $ {}
+                                      :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                                 if focused? shape-focus
                                 container
                                   {} $ :position
@@ -864,9 +885,9 @@
                   rect $ {}
                     :position $ [] 0 (* -0.5 height)
                     :size $ [] (+ width 8) height
-                    :alpha 0.9
+                    :alpha 0.88
                     :fill $ hslx 190 70 14
-                    :line-style $ {} (:width 1) (:alpha 0.18)
+                    :line-style $ {} (:width 1) (:alpha 0.2)
                       :color $ hslx 60 80 100
                     :on $ {}
                       :pointertap $ fn (e d!)
@@ -918,11 +939,11 @@
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] x-position 0)
                       if (not smaller?)
-                        circle $ {} (:radius dot-radius)
-                          :position $ [] 0 0
-                          :fill $ hslx 260 80 60
-                          :on $ {}
-                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                        circle $ merge base-dot
+                          {}
+                            :fill $ hslx 260 80 60
+                            :on $ {}
+                              :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if
                         and focused? $ not smaller?
                         , shape-focus
@@ -958,6 +979,23 @@
           app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
+    |app.fetch $ {}
+      :defs $ {}
+        |load-files! $ quote
+          defn load-files! (d!)
+            -> (str api-host "\"/compact-data") (js/fetch)
+              .!then $ fn (res) (.!text res)
+              .!then $ fn (text)
+                let
+                    files $ :files (parse-cirru-edn text)
+                  if (some? files)
+                    do (d! :load-files files) (d! :ok nil)
+                    do (js/console.log "\"unknown data:" files) (d! :warn "\"unknown data")
+              .!catch $ fn (err)
+                d! :warn $ str err
+      :ns $ quote
+        ns app.fetch $ :require
+          app.config :refer $ api-host
     |app.main $ {}
       :defs $ {}
         |*store $ quote (defatom *store schema/store)
@@ -978,14 +1016,6 @@
             fn (event)
               cond $ true
                 do $ js/console.log event
-        |load-files! $ quote
-          defn load-files! (d!)
-            -> (str api-host "\"/compact-data") (js/fetch)
-              .then $ fn (res) (.!text res)
-              .then $ fn (text)
-                let
-                    files $ :files (parse-cirru-edn text)
-                  if (some? files) (d! :load-files files) (js/console.log "\"unknown data:" files)
         |main! $ quote
           defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
@@ -1024,11 +1054,11 @@
           "\"./calcit.build-errors" :default build-errors
           "\"bottom-tip" :default hud!
           touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
-          app.config :refer $ api-host
           app.comp.nav :refer $ comp-navbar on-save
           respo.core :refer $ defcomp defeffect <> >> div button textarea span input
           respo.core :as respo
           respo.comp.space :refer $ =<
+          app.fetch :refer $ load-files!
     |app.math $ {}
       :defs $ {}
         |add-path $ quote
@@ -1228,6 +1258,7 @@
               :focus $ assoc store :focus op-data
               :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
               :warn $ assoc store :warning op-data
+              :ok $ assoc store :warning nil
               :add-ns $ let
                   ns $ or op-data "\"TODO_NS"
                 assoc-in store ([] :files ns)
@@ -1254,6 +1285,31 @@
                       fn (defs)
                         if (contains? defs def-name) (dissoc defs def-name) defs
                     , files
+              :mv-ns $ let[] (from to) op-data
+                if
+                  contains-in? store $ [] :files from
+                  update store :files $ fn (files)
+                    -> files (dissoc from)
+                      assoc to $ get files from
+                  assoc store :warning $ str "\"unknown ns: " from
+              :mv-def $ let-sugar
+                    [] from to
+                    , op-data
+                  ([] from-ns from-def) (.split from "\"/")
+                  ([] to-ns to-def) (.split to "\"/")
+                if
+                  and
+                    contains-in? store $ [] :files from-ns :defs from-def
+                    contains-in? store $ [] :files to-ns
+                    not $ blank? to-def
+                  -> store
+                    update :files $ fn (files)
+                      -> files
+                        dissoc-in $ [] from-ns :defs from-def
+                        assoc-in ([] to-ns :defs to-def)
+                          get-in files $ [] from-ns :defs from-def
+                    assoc :warning nil
+                  assoc store :warning $ str "\"unknown ns/def: " from
               :states $ update-states store op-data
               :hydrate-storage op-data
       :ns $ quote

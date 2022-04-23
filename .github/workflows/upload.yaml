@@ -35,7 +35,7 @@ jobs:
         && git clone https://github.com/Quatrefoil-GL/touch-control.git
         && git clone https://github.com/mvc-works/pointed-prompt.git
         && git clone https://github.com/Respo/alerts.calcit.git
-        && git clone https://github.com/Cirru/respo-cirru-editor.git --branch 0.4.4
+        && git clone https://github.com/Cirru/respo-cirru-editor.git
 
     - name: "compiles to js"
       run: >
