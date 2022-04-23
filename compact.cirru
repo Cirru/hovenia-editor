@@ -319,6 +319,8 @@
         |line-height $ quote (def line-height 32)
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+        |twist-distance $ quote
+          def twist-distance $ * 0.8 js/window.innerWidth
       :ns $ quote
         ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
     |app.container $ {}
@@ -327,6 +329,7 @@
           defn all-block? (item) (every? item list?)
         |base-dot $ quote
           def base-dot $ {} (:radius dot-radius) (:alpha 1)
+            :position $ [] 0 0
         |char-keymap $ quote
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
@@ -363,6 +366,7 @@
                               handle-expr-event focus (dissoc e :event) d!
                             (string? target)
                               handle-leaf-event focus target (dissoc e :event) d!
+                            (nil? nil) nil
                             true $ js/console.error "\"unknown target" target
                 :tree $ let
                     item $ -> files
@@ -376,7 +380,7 @@
                     (is-linear? item)
                       wrap-linear-expr item ([]) focus false
                     (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true false
+                      wrap-expr-with-linear item ([]) focus true false 0
                     true $ wrap-block-expr item ([]) focus
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
         |comp-error $ quote
@@ -647,7 +651,7 @@
                           wrap-leaf item next-coord focus $ = idx 0
                         (is-linear? item) (wrap-linear-expr item next-coord focus false)
                         (and (with-linear? item) (not (all-block? item)))
-                          wrap-expr-with-linear item next-coord focus true false
+                          wrap-expr-with-linear item next-coord focus true false 0
                         true $ wrap-block-expr item next-coord focus
                       width $ :width info
                       tree $ :tree info
@@ -679,7 +683,7 @@
                           if (= 0 idx) (:winding-x info) winding-x
                           string? item
         |wrap-expr-with-linear $ quote
-          defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller?)
+          defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
                 acc $ []
                 ys xs
@@ -795,12 +799,7 @@
                           , false winding-x
                     (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
                       let
-                          info $ cond
-                              is-linear? item
-                              wrap-linear-expr item next-coord focus false
-                            (and (with-linear? item) (not (all-block? item)))
-                              wrap-expr-with-linear item next-coord focus winding-okay? false
-                            true $ wrap-block-expr item next-coord focus
+                          info $ wrap-linear-expr item next-coord focus false
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -818,7 +817,7 @@
                               is-linear? item
                               wrap-linear-expr item next-coord focus false
                             (and (with-linear? item) (not (all-block? item)))
-                              wrap-expr-with-linear item next-coord focus winding-okay? false
+                              wrap-expr-with-linear item next-coord focus winding-okay? false $ + acc-x x-position
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -834,12 +833,51 @@
                             if-let
                               x $ :winding-x info
                               + x-position x
+                    (and (> acc-x twist-distance) (= 1 (count ys)))
+                      let
+                          info $ cond
+                              and (with-linear? item)
+                                not $ all-block? item
+                              wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position (negate twist-distance)
+                            true $ wrap-block-expr item next-coord focus
+                          width $ :width info
+                        recur
+                          conj acc $ [] idx
+                            let
+                                focused? $ = next-coord focus
+                              container
+                                {} $ :position ([] x-position 0)
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                    [] (negate twist-distance) (* y-stack line-height)
+                                    [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                circle $ merge base-dot
+                                  {}
+                                    :fill $ hslx 300 100 30
+                                    :on $ {}
+                                      :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                                if focused? shape-focus
+                                container
+                                  {} $ :position
+                                    [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                  :tree info
+                          rest ys
+                          + x-position width leaf-gap
+                          + y-stack (:y-stack info) 1
+                          &max y-stack-max $ inc
+                            + y-stack $ :y-stack info
+                          , y-stack-extend-x (inc idx) winding-okay? winding-x
                     (= 1 (count ys))
                       let
                           info $ cond
                               and (with-linear? item)
                                 not $ all-block? item
-                              wrap-expr-with-linear item next-coord focus winding-okay? true
+                              wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -854,9 +892,8 @@
                                   :points $ [] ([] 0 0)
                                     [] 0 $ * y-stack line-height
                                 circle $ merge base-dot
-                                  {} (:alpha 1)
+                                  {}
                                     :fill $ hslx 300 100 30
-                                    :position $ [] 0 0
                                     :on $ {}
                                       :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                                 if focused? shape-focus
@@ -976,7 +1013,7 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
-          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
     |app.fetch $ {}
