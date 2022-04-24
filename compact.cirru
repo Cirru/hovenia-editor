@@ -16,15 +16,17 @@
         |effect-listen-keyboard $ quote
           defeffect effect-listen-keyboard () (action el at?)
             let
-                handler $ fn (event)
-                  if
-                    and
-                      or
-                        = "\"p" $ .-key event
-                        = "\"s" $ .-key event
-                      or (.-ctrlKey event) (.-metaKey event)
-                    .!preventDefault event
-                  .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+                handler $ or (aget el "\"_dirtyEventListener")
+                  fn (event)
+                    if
+                      and
+                        or
+                          = "\"p" $ .-key event
+                          = "\"s" $ .-key event
+                        or (.-ctrlKey event) (.-metaKey event)
+                      .!preventDefault event
+                    .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+              aset el "\"_dirtyEventListener" handler
               case-default action nil
                 :mount $ js/window.addEventListener "\"keydown" handler
                 :unmount $ js/window.removeEventListener "\"keydown" handler
@@ -84,7 +86,7 @@
             let
                 cursor $ :cursor states
                 state $ or (:data states)
-                  {} (:ns nil) (:query "\"" ) (:select-idx 0)
+                  {} (:ns nil) (:query "\"") (:select-idx 0)
                 queries $ .split (:query state) "\" "
                 entries $ -> files .to-list
                   mapcat $ fn (entry)
@@ -104,8 +106,7 @@
                     {} $ :style ui/row-parted
                     input $ {} (:id "\"query-box")
                       :style $ merge ui/input
-                        {} (:background-color :transparent) (:font-family ui/font-code)
-                          :color $ hsl 0 0 70
+                        {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
                       :value $ :query state
                       :on-input $ fn (e d!)
                         d! cursor $ assoc state :query (:value e) :select-idx 0
@@ -125,9 +126,11 @@
                             target $ get entries (:select-idx state)
                             do (d! :def-path target) (on-close d!)
                               d! cursor $ assoc state :query "\""
+                          "\"Escape" $ on-close d!
                     a $ {} (:inner-text "\"×")
                       :style $ merge ui/link
-                        {} (:font-size 20) (:text-decoration :none) (:color :red)
+                        {} (:font-size 24) (:font-weight 100) (:text-decoration :none)
+                          :color $ hsl 0 100 30
                       :on-click $ fn (e d!) (on-close d!)
                   =< nil 8
                   if
@@ -168,7 +171,7 @@
                         .show command-plugin d! $ fn (content)
                           let
                               code $ first (parse-cirru content)
-                            if (list? code) (run-command code d!)
+                            if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
                   comp-menu (>> states :menu) (:files store) (:def-path store)
@@ -177,6 +180,7 @@
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
+                if (:picker-mode? store) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
                       and
@@ -186,13 +190,25 @@
                         .show command-plugin d! $ fn (content)
                           let
                               code $ first (parse-cirru content)
-                            if (list? code) (run-command code d!)
+                            if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                         d! cursor $ update state :menu? not
                     (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
                       on-save (:files store) (:saved-files store) d!
                     true nil
                 .render command-plugin
+        |comp-picker-mode $ quote
+          defcomp comp-picker-mode () $ div
+            {} (:title "\"Click to disable")
+              :style $ {} (:position :absolute) (:top 16) (:left 16) (:font-size 20) (:padding "\"8px 16px") (:font-family ui/font-fancy) (:border-radius "\"8px") (:cursor :pointer)
+                :border $ str "\"2px solid " (hsl 180 30 60)
+                :background-color $ hsl 120 80 80 0.8
+              :on-click $ fn (e d!) (d! :picker-mode false)
+            <> "\"Picker Mode"
+            comp-key-event $ fn (e d!)
+              if
+                = "\"Escape" $ :key e
+                d! :picker-mode false
         |comp-search-entry $ quote
           defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
             let () $ list->
@@ -208,10 +224,16 @@
                             {} $ :background-color (hsl 0 0 100 0.3)
                         :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
                           d! cursor $ assoc state :query "\""
-                      <> $ if
+                      if
                         = 2 $ count entry
-                        str (first entry) "\" :ns"
-                        str (first entry) "\"/" $ last entry
+                        <> $ str (first entry) "\" :ns"
+                        div ({})
+                          <>
+                            str (first entry) "\"/"
+                            {} (:font-size 10)
+                              :color $ hsl 0 0 70
+                          =< 8 nil
+                          <> $ last entry
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
@@ -261,17 +283,28 @@
               ->
                 js/fetch (str api-host "\"/compact-inc")
                   js-object (:method "\"PUT") (:body content)
-                .then $ fn (res) (js/console.log "\"response" res)
+                .!then $ fn (res) (d! :ok nil)
+                .!catch $ fn (e)
+                  d! :warn $ str e
         |run-command $ quote
-          defn run-command (code d!)
-            case-default (first code)
-              d! :warn $ str "\"invalid command: " code
-              "\"add-ns" $ d! :add-ns (nth code 1)
-              "\"rm-ns" $ d! :rm-ns (nth code 1)
-              "\"add-def" $ d! :add-def
-                [] (nth code 1) (nth code 2)
-              "\"rm-def" $ d! :rm-def
-                [] (nth code 1) (nth code 2)
+          defn run-command (code store d!)
+            let
+                p1 $ get code 1
+              case-default (first code)
+                d! :warn $ str "\"invalid command: " code
+                "\"add-ns" $ d! :add-ns p1
+                "\"rm-ns" $ d! :rm-ns p1
+                "\"add-def" $ d! :add-def
+                  [] p1 $ nth code 2
+                "\"rm-def" $ d! :rm-def
+                  [] p1 $ nth code 2
+                "\"mv-ns" $ d! :mv-ns
+                  [] p1 $ nth code 2
+                "\"mv-def" $ d! :mv-def
+                  [] p1 $ nth code 2
+                "\"load" $ load-files! d!
+                "\"save" $ on-save (:files store) (:saved-files store) d!
+                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -286,6 +319,8 @@
           app.config :refer $ dev? api-host
           app.widget :as widget
           respo-alerts.core :refer $ use-prompt
+          app.comp.key-event :refer $ comp-key-event
+          app.fetch :refer $ load-files!
           app.comp.key-event :refer $ comp-key-event
     |app.config $ {}
       :defs $ {}
@@ -303,12 +338,17 @@
         |line-height $ quote (def line-height 32)
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+        |twist-distance $ quote
+          def twist-distance $ * 0.8 js/window.innerWidth
       :ns $ quote
         ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
     |app.container $ {}
       :defs $ {}
         |all-block? $ quote
           defn all-block? (item) (every? item list?)
+        |base-dot $ quote
+          def base-dot $ {} (:radius dot-radius) (:alpha 1)
+            :position $ [] 0 0
         |char-keymap $ quote
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
@@ -345,6 +385,7 @@
                               handle-expr-event focus (dissoc e :event) d!
                             (string? target)
                               handle-leaf-event focus target (dissoc e :event) d!
+                            (nil? nil) nil
                             true $ js/console.error "\"unknown target" target
                 :tree $ let
                     item $ -> files
@@ -358,7 +399,7 @@
                     (is-linear? item)
                       wrap-linear-expr item ([]) focus false
                     (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true false
+                      wrap-expr-with-linear item ([]) focus true false 0
                     true $ wrap-block-expr item ([]) focus
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
         |comp-error $ quote
@@ -447,7 +488,8 @@
                 shift? $ :shift? e
               cond
                   = "\"Backspace" key
-                  if (empty? token)
+                  if
+                    or meta? $ empty? token
                     d! :call-cirru-edit $ [] :remove-node focus
                     d! :call-cirru-edit $ [] :update-token
                       [] focus $ .!slice token 0
@@ -517,13 +559,13 @@
                   fn (content)
                     d! :cirru-edit-node $ [] coord
                       first $ parse-cirru content
-                d! :focus coord
+                d! :focus-or-pick coord
         |pattern-number $ quote
           def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
         |pick-leaf-color $ quote
           defn pick-leaf-color (s head?)
             cond
-                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";")
+                or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";") (= s "\"&")
                 hslx 300 100 30
               (= "\"" s) (hslx 190 50 50)
               (= "\"\"" (get s 0))
@@ -588,9 +630,11 @@
                         :points $ [] ([] 0 0) ([] leaf-gap 0)
                           [] leaf-gap $ * line-height
                             &max 0 $ dec y-stack
-                      circle $ {} (:radius dot-radius)
-                        :position $ [] 0 0
-                        :fill $ hslx 120 50 80
+                      rect $ {} (:angle 45)
+                        :size $ [] (* 2 dot-radius) (* 2 dot-radius)
+                        :pivot $ [] dot-radius dot-radius
+                        :alpha 1
+                        :fill $ hslx 120 100 70
                         :on $ {}
                           :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if focused? shape-focus
@@ -627,7 +671,7 @@
                           wrap-leaf item next-coord focus $ = idx 0
                         (is-linear? item) (wrap-linear-expr item next-coord focus false)
                         (and (with-linear? item) (not (all-block? item)))
-                          wrap-expr-with-linear item next-coord focus true false
+                          wrap-expr-with-linear item next-coord focus true false 0
                         true $ wrap-block-expr item next-coord focus
                       width $ :width info
                       tree $ :tree info
@@ -659,7 +703,7 @@
                           if (= 0 idx) (:winding-x info) winding-x
                           string? item
         |wrap-expr-with-linear $ quote
-          defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller?)
+          defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
                 acc $ []
                 ys xs
@@ -680,11 +724,11 @@
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] x-position 0)
                       if (not smaller?)
-                        circle $ {} (:radius dot-radius)
-                          :position $ [] 0 0
-                          :fill $ hslx 10 60 50
-                          :on $ {}
-                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                        circle $ merge base-dot
+                          {}
+                            :fill $ hslx 10 60 50
+                            :on $ {}
+                              :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if
                         and focused? $ not smaller?
                         , shape-focus
@@ -726,11 +770,11 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * -1 line-height
-                              circle $ {} (:radius dot-radius) (:alpha 1)
-                                :position $ [] 0 0
-                                :fill $ hslx 200 100 40
-                                :on $ {}
-                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              circle $ merge base-dot
+                                {}
+                                  :fill $ hslx 180 60 40
+                                  :on $ {}
+                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                               if focused? shape-focus
                               container
                                 {} $ :position
@@ -756,11 +800,11 @@
                                 :position $ [] 0 0
                                 :points $ [] ([] 0 0)
                                   [] 0 $ * y-stack line-height
-                              circle $ {} (:radius dot-radius) (:alpha 1)
-                                :position $ [] 0 0
-                                :fill $ hslx 160 100 30
-                                :on $ {}
-                                  :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                              circle $ merge base-dot
+                                {}
+                                  :fill $ hslx 160 100 30
+                                  :on $ {}
+                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                               if (= next-coord focus) shape-focus
                               container
                                 {} $ :position
@@ -775,12 +819,7 @@
                           , false winding-x
                     (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
                       let
-                          info $ cond
-                              is-linear? item
-                              wrap-linear-expr item next-coord focus false
-                            (and (with-linear? item) (not (all-block? item)))
-                              wrap-expr-with-linear item next-coord focus winding-okay? false
-                            true $ wrap-block-expr item next-coord focus
+                          info $ wrap-linear-expr item next-coord focus false
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -798,7 +837,7 @@
                               is-linear? item
                               wrap-linear-expr item next-coord focus false
                             (and (with-linear? item) (not (all-block? item)))
-                              wrap-expr-with-linear item next-coord focus winding-okay? false
+                              wrap-expr-with-linear item next-coord focus winding-okay? false $ + acc-x x-position
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -814,12 +853,12 @@
                             if-let
                               x $ :winding-x info
                               + x-position x
-                    (= 1 (count ys))
+                    (and (> acc-x twist-distance) (= 1 (count ys)))
                       let
                           info $ cond
                               and (with-linear? item)
                                 not $ all-block? item
-                              wrap-expr-with-linear item next-coord focus winding-okay? true
+                              wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position (negate twist-distance)
                             true $ wrap-block-expr item next-coord focus
                           width $ :width info
                         recur
@@ -833,11 +872,50 @@
                                   :position $ [] 0 0
                                   :points $ [] ([] 0 0)
                                     [] 0 $ * y-stack line-height
-                                circle $ {} (:radius dot-radius) (:alpha 1)
-                                  :fill $ hslx 300 100 30
+                                    [] (negate twist-distance) (* y-stack line-height)
+                                    [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                circle $ merge base-dot
+                                  {}
+                                    :fill $ hslx 300 100 30
+                                    :on $ {}
+                                      :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                                if focused? shape-focus
+                                container
+                                  {} $ :position
+                                    [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                  :tree info
+                          rest ys
+                          + x-position width leaf-gap
+                          + y-stack (:y-stack info) 1
+                          &max y-stack-max $ inc
+                            + y-stack $ :y-stack info
+                          , y-stack-extend-x (inc idx) winding-okay? winding-x
+                    (= 1 (count ys))
+                      let
+                          info $ cond
+                              and (with-linear? item)
+                                not $ all-block? item
+                              wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position
+                            true $ wrap-block-expr item next-coord focus
+                          width $ :width info
+                        recur
+                          conj acc $ [] idx
+                            let
+                                focused? $ = next-coord focus
+                              container
+                                {} $ :position ([] x-position 0)
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
                                   :position $ [] 0 0
-                                  :on $ {}
-                                    :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                circle $ merge base-dot
+                                  {}
+                                    :fill $ hslx 300 100 30
+                                    :on $ {}
+                                      :pointertap $ fn (e d!) (on-expr-click e item next-coord d!)
                                 if focused? shape-focus
                                 container
                                   {} $ :position
@@ -864,9 +942,9 @@
                   rect $ {}
                     :position $ [] 0 (* -0.5 height)
                     :size $ [] (+ width 8) height
-                    :alpha 0.9
+                    :alpha 0.88
                     :fill $ hslx 190 70 14
-                    :line-style $ {} (:width 1) (:alpha 0.18)
+                    :line-style $ {} (:width 1) (:alpha 0.2)
                       :color $ hslx 60 80 100
                     :on $ {}
                       :pointertap $ fn (e d!)
@@ -882,7 +960,7 @@
                                 :style $ {} (:font-family code-font)
                               fn (content)
                                 d! :cirru-edit-node $ [] coord content
-                            d! :focus coord
+                            d! :focus-or-pick coord
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
@@ -918,11 +996,11 @@
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] x-position 0)
                       if (not smaller?)
-                        circle $ {} (:radius dot-radius)
-                          :position $ [] 0 0
-                          :fill $ hslx 260 80 60
-                          :on $ {}
-                            :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
+                        circle $ merge base-dot
+                          {}
+                            :fill $ hslx 260 80 60
+                            :on $ {}
+                              :pointertap $ fn (e d!) (on-expr-click e xs coord d!)
                       if
                         and focused? $ not smaller?
                         , shape-focus
@@ -955,9 +1033,26 @@
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
           app.math :refer $ divide-path multiply-path
-          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
+    |app.fetch $ {}
+      :defs $ {}
+        |load-files! $ quote
+          defn load-files! (d!)
+            -> (str api-host "\"/compact-data") (js/fetch)
+              .!then $ fn (res) (.!text res)
+              .!then $ fn (text)
+                let
+                    files $ :files (parse-cirru-edn text)
+                  if (some? files)
+                    do (d! :load-files files) (d! :ok nil)
+                    do (js/console.log "\"unknown data:" files) (d! :warn "\"unknown data")
+              .!catch $ fn (err)
+                d! :warn $ str err
+      :ns $ quote
+        ns app.fetch $ :require
+          app.config :refer $ api-host
     |app.main $ {}
       :defs $ {}
         |*store $ quote (defatom *store schema/store)
@@ -978,14 +1073,6 @@
             fn (event)
               cond $ true
                 do $ js/console.log event
-        |load-files! $ quote
-          defn load-files! (d!)
-            -> (str api-host "\"/compact-data") (js/fetch)
-              .then $ fn (res) (.!text res)
-              .then $ fn (text)
-                let
-                    files $ :files (parse-cirru-edn text)
-                  if (some? files) (d! :load-files files) (js/console.log "\"unknown data:" files)
         |main! $ quote
           defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
@@ -1024,11 +1111,11 @@
           "\"./calcit.build-errors" :default build-errors
           "\"bottom-tip" :default hud!
           touch-control.core :refer $ render-control! start-control-loop! replace-control-loop!
-          app.config :refer $ api-host
           app.comp.nav :refer $ comp-navbar on-save
           respo.core :refer $ defcomp defeffect <> >> div button textarea span input
           respo.core :as respo
           respo.comp.space :refer $ =<
+          app.fetch :refer $ load-files!
     |app.math $ {}
       :defs $ {}
         |add-path $ quote
@@ -1102,6 +1189,7 @@
             :clipboard $ []
             :warning nil
             :def-path $ []
+            :picker-mode? false
       :ns $ quote (ns app.schema)
     |app.server $ {}
       :defs $ {}
@@ -1193,6 +1281,7 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (eprintln "\"unknown op" op op-data) store
+              :states $ update-states store op-data
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
               :call-cirru-edit $ let
                   def-path $ prepend (:def-path store) :files
@@ -1228,6 +1317,7 @@
               :focus $ assoc store :focus op-data
               :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
               :warn $ assoc store :warning op-data
+              :ok $ assoc store :warning nil
               :add-ns $ let
                   ns $ or op-data "\"TODO_NS"
                 assoc-in store ([] :files ns)
@@ -1254,7 +1344,43 @@
                       fn (defs)
                         if (contains? defs def-name) (dissoc defs def-name) defs
                     , files
-              :states $ update-states store op-data
+              :mv-ns $ let[] (from to) op-data
+                if
+                  contains-in? store $ [] :files from
+                  update store :files $ fn (files)
+                    -> files (dissoc from)
+                      assoc to $ get files from
+                  assoc store :warning $ str "\"unknown ns: " from
+              :mv-def $ let-sugar
+                    [] from to
+                    , op-data
+                  ([] from-ns from-def) (.split from "\"/")
+                  ([] to-ns to-def) (.split to "\"/")
+                if
+                  and
+                    contains-in? store $ [] :files from-ns :defs from-def
+                    contains-in? store $ [] :files to-ns
+                    not $ blank? to-def
+                  -> store
+                    update :files $ fn (files)
+                      -> files
+                        dissoc-in $ [] from-ns :defs from-def
+                        assoc-in ([] to-ns :defs to-def)
+                          get-in files $ [] from-ns :defs from-def
+                    assoc :warning nil
+                  assoc store :warning $ str "\"unknown ns/def: " from
+              :picker-mode $ assoc store :picker-mode? op-data
+              :focus-or-pick $ if (:picker-mode? store)
+                let
+                    item $ get-in store
+                      concat ([] :files) (:def-path store) ([] 1) op-data
+                  -> store
+                    update-in
+                      concat ([] :files) (:def-path store)
+                      fn (pair)
+                        :: 'quate $ assoc-in (nth pair 1) (:focus store) item
+                    assoc :picker-mode? false
+                assoc store :focus op-data
               :hydrate-storage op-data
       :ns $ quote
         ns app.updater $ :require
