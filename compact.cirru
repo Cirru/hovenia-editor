@@ -6,6 +6,152 @@
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
   :files $ {}
+    |app.analyze $ {}
+      :defs $ {}
+        |analyze-deps $ quote
+          defn analyze-deps (files)
+            let
+                ns-deps-dict $ -> files
+                  map-kv $ fn (ns file)
+                    [] ns $ parse-import-dict
+                      get-in file $ [] :ns 1
+                defs-deps-dict $ -> files .to-list
+                  mapcat $ fn (pair)
+                    let
+                        ns $ nth pair 0
+                        defs $ -> pair (nth 1) (get :defs)
+                      -> defs (.to-list)
+                        map $ fn (pair)
+                          let
+                              def-name $ nth pair 0
+                              code $ -> pair (nth 1) (nth 1)
+                            [] ([] ns def-name)
+                              lookup-body-deps (slice code 2) (get ns-deps-dict ns) ns def-name $ keys defs
+                  pairs-map
+                defs-dependants-dict $ lookup-dependants defs-deps-dict
+              js/console.log "\"result" defs-deps-dict defs-dependants-dict
+        |digit-pattern $ quote
+          def digit-pattern $ new js/RegExp "\"^\\d$"
+        |flatten $ quote
+          defn flatten (xs)
+            if (list? xs) (mapcat xs flatten) ([] xs)
+        |lookup-body-deps $ quote
+          defn lookup-body-deps (body imports-dict ns def-name def-names)
+            -> body flatten distinct
+              map $ fn (token)
+                cond
+                    = token def-name
+                    , nil
+                  (= "\":" (get token 0))
+                    , nil
+                  (= "\":" (get token 0))
+                    , nil
+                  (= "\"'" (get token 0))
+                    , nil
+                  (or (= token "\"true") (= token "\"false") (= token "\"nil"))
+                    , nil
+                  (.!test digit-pattern token) nil
+                  (.includes? def-names token) ([] ns token :file)
+                  (contains? (:defs imports-dict) token)
+                    &let
+                      target-ns $ get-in imports-dict ([] :defs token)
+                      [] target-ns token :def
+                  (contains? (:npm-defs imports-dict) token)
+                    &let
+                      target-ns $ get-in imports-dict ([] :npm-defs token)
+                      [] target-ns token :npm-def
+                  (contains? (:npm-defaults imports-dict) token)
+                    &let
+                      target-ns $ get-in imports-dict ([] :npm-defaults token)
+                      [] target-ns token :npm-default
+                  (and (not= (get token 0) "\"/") (.includes? token "\"/"))
+                    let
+                        pieces $ .split token "\"/"
+                        ns-alias $ first pieces
+                        def-part $ nth pieces 1
+                      cond
+                          contains? (:namespaces imports-dict) ns-alias
+                          &let
+                            target-ns $ get-in imports-dict ([] :namespaces ns-alias)
+                            [] target-ns def-part :ns-def
+                        (contains? (:npm-namespaces imports-dict) ns-alias)
+                          &let
+                            target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
+                            [] target-ns def-part :npm-ns-def
+                        true nil
+                  true nil
+              filter some?
+        |lookup-dependants $ quote
+          defn lookup-dependants (deps-dict)
+            -> deps-dict keys
+              map $ fn (entry)
+                [] entry $ -> deps-dict
+                  filter $ fn (pair)
+                    let
+                        deps $ nth pair 1
+                      any? deps $ fn (piece)
+                        and
+                          = (nth piece 0) (nth entry 0)
+                          = (nth piece 1) (nth entry 1)
+                  keys
+              pairs-map
+        |parse-import-dict $ quote
+          defn parse-import-dict (ns-form)
+            loop
+                dict $ {}
+                  :namespaces $ {}
+                  :defs $ {}
+                  :npm-defaults $ {}
+                  :npm-defs $ {}
+                  :npm-namespaces $ {}
+                rules $ rest (nth ns-form 2 )
+              if (empty? rules) dict $ let
+                  rule $ regularize-rule (first rules)
+                  method $ nth rule 1
+                case-default method
+                  raise $ str "\"unknown rule: " method
+                  "\":as" $ let[] (target _m alias) rule
+                    if
+                      = "\"\"" $ first target
+                      recur
+                        assoc-in dict ([] :npm-namespaces alias) target
+                        rest rules
+                      recur
+                        assoc-in dict ([] :namespaces alias) target
+                        rest rules
+                  "\":refer" $ let[] (target _m defs-list) rule
+                    if
+                      = "\"\"" $ first target
+                      recur
+                        update dict :npm-defs $ fn (dict)
+                          loop
+                              d dict
+                              defs defs-list
+                            if (empty? d) dict $ let
+                                d0 $ first defs
+                              recur (assoc d d0 target) (rest defs)
+                        rest rules
+                      recur
+                        update dict :defs $ fn (dict)
+                          loop
+                              d dict
+                              defs defs-list
+                            if (empty? defs) d $ let
+                                d0 $ first defs
+                              recur (assoc d d0 target) (rest defs)
+                        rest rules
+                  "\":default" $ recur
+                    assoc-in dict
+                      [] :npm-defaults $ nth rule 2
+                      nth rule 0
+                    rest rules
+        |regularize-rule $ quote
+          defn regularize-rule (rule)
+            -> rule
+              filter $ fn (item) (not= item "\"[]")
+              map $ fn (item)
+                if (list? item) (regularize-rule item) item
+      :ns $ quote (ns app.analyze)
     |app.comp.key-event $ {}
       :defs $ {}
         |comp-key-event $ quote
@@ -305,6 +451,8 @@
                 "\"load" $ load-files! d!
                 "\"save" $ on-save (:files store) (:saved-files store) d!
                 "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
+                "\"deps-tree" $ do
+                  js/console.log $ analyze-deps (:files store)
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -322,6 +470,7 @@
           app.comp.key-event :refer $ comp-key-event
           app.fetch :refer $ load-files!
           app.comp.key-event :refer $ comp-key-event
+          app.analyze :refer $ analyze-deps
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
