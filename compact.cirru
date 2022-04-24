@@ -566,15 +566,17 @@
           defn pick-leaf-color (s head?)
             cond
                 or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";") (= s "\"&")
-                hslx 300 100 30
+                hslx 300 100 33
               (= "\"" s) (hslx 190 50 50)
               (= "\"\"" (get s 0))
                 hslx 70 50 40
               (= "\"|" (nth s 0))
                 hslx 70 50 40
               (= "\":" (nth s 0))
-                hslx 240 80 74
-              (.!test pattern-number s) (hslx 340 100 30)
+                hslx 240 90 74
+              (= "\"." (nth s 0))
+                hslx 100 100 70
+              (.!test pattern-number s) (hslx 330 100 40)
               head? $ hslx 160 70 76
               true $ hslx 190 50 50
         |shape-focus $ quote
@@ -587,10 +589,10 @@
                 :alpha 0.8
         |style-active-line $ quote
           def style-active-line $ {} (:width 2) (:alpha 1)
-            :color $ hslx 200 100 60
+            :color $ hslx 20 100 70
         |style-shadow-line $ quote
-          def style-shadow-line $ {} (:width 0.5) (:alpha 0.8)
-            :color $ hslx 200 100 60
+          def style-shadow-line $ {} (:width 1) (:alpha 0.7)
+            :color $ hslx 200 70 54
         |turn-quoted $ quote
           defn turn-quoted (target)
             if (string? target) (turn-symbol target) (map target turn-quoted)
@@ -939,11 +941,10 @@
               {}
                 :tree $ container
                   {} $ :position ([] -4 0)
-                  rect $ {}
+                  rect $ {} (:alpha 0.8)
                     :position $ [] 0 (* -0.5 height)
                     :size $ [] (+ width 8) height
-                    :alpha 0.88
-                    :fill $ hslx 190 70 14
+                    :fill $ hslx 190 70 10
                     :line-style $ {} (:width 1) (:alpha 0.2)
                       :color $ hslx 60 80 100
                     :on $ {}
