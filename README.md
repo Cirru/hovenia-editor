@@ -29,6 +29,20 @@ Adding CLI shortcut in `$PATH`:
 
 Use Web UI from http://repo.cirru.org/hovenia-editor/ .
 
+### Commands
+
+In the command box:
+
+- `add-ns a.b`
+- `rm-ns a.b`
+- `add-def a.b c`
+- `rm-def a.b c`
+- `load`
+- `save`
+- `mv-ns from to`
+- `mv-def from/a to/b`
+- `pick` or `pick off` for turning on/off picker mode
+
 ### Workflow
 
 Workflow https://github.com/Phlox-GL/phlox-workflow
