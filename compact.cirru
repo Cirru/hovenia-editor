@@ -16,15 +16,17 @@
         |effect-listen-keyboard $ quote
           defeffect effect-listen-keyboard () (action el at?)
             let
-                handler $ fn (event)
-                  if
-                    and
-                      or
-                        = "\"p" $ .-key event
-                        = "\"s" $ .-key event
-                      or (.-ctrlKey event) (.-metaKey event)
-                    .!preventDefault event
-                  .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+                handler $ or (aget el "\"_dirtyEventListener")
+                  fn (event)
+                    if
+                      and
+                        or
+                          = "\"p" $ .-key event
+                          = "\"s" $ .-key event
+                        or (.-ctrlKey event) (.-metaKey event)
+                      .!preventDefault event
+                    .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+              aset el "\"_dirtyEventListener" handler
               case-default action nil
                 :mount $ js/window.addEventListener "\"keydown" handler
                 :unmount $ js/window.removeEventListener "\"keydown" handler
@@ -178,6 +180,7 @@
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
+                if (:picker-mode? store) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
                       and
@@ -194,6 +197,18 @@
                       on-save (:files store) (:saved-files store) d!
                     true nil
                 .render command-plugin
+        |comp-picker-mode $ quote
+          defcomp comp-picker-mode () $ div
+            {} (:title "\"Click to disable")
+              :style $ {} (:position :absolute) (:top 16) (:left 16) (:font-size 20) (:padding "\"8px 16px") (:font-family ui/font-fancy) (:border-radius "\"8px") (:cursor :pointer)
+                :border $ str "\"2px solid " (hsl 180 30 60)
+                :background-color $ hsl 120 80 80 0.8
+              :on-click $ fn (e d!) (d! :picker-mode false)
+            <> "\"Picker Mode"
+            comp-key-event $ fn (e d!)
+              if
+                = "\"Escape" $ :key e
+                d! :picker-mode false
         |comp-search-entry $ quote
           defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
             let () $ list->
@@ -268,25 +283,28 @@
               ->
                 js/fetch (str api-host "\"/compact-inc")
                   js-object (:method "\"PUT") (:body content)
-                .!then $ fn (res) (d! :ok)
+                .!then $ fn (res) (d! :ok nil)
                 .!catch $ fn (e)
                   d! :warn $ str e
         |run-command $ quote
           defn run-command (code store d!)
-            case-default (first code)
-              d! :warn $ str "\"invalid command: " code
-              "\"add-ns" $ d! :add-ns (nth code 1)
-              "\"rm-ns" $ d! :rm-ns (nth code 1)
-              "\"add-def" $ d! :add-def
-                [] (nth code 1) (nth code 2)
-              "\"rm-def" $ d! :rm-def
-                [] (nth code 1) (nth code 2)
-              "\"mv-ns" $ d! :mv-ns
-                [] (nth code 1) (nth code 2)
-              "\"mv-def" $ d! :mv-def
-                [] (nth code 1) (nth code 2)
-              "\"load" $ load-files! d!
-              "\"save" $ on-save (:files store) (:saved-files store) d!
+            let
+                p1 $ get code 1
+              case-default (first code)
+                d! :warn $ str "\"invalid command: " code
+                "\"add-ns" $ d! :add-ns p1
+                "\"rm-ns" $ d! :rm-ns p1
+                "\"add-def" $ d! :add-def
+                  [] p1 $ nth code 2
+                "\"rm-def" $ d! :rm-def
+                  [] p1 $ nth code 2
+                "\"mv-ns" $ d! :mv-ns
+                  [] p1 $ nth code 2
+                "\"mv-def" $ d! :mv-def
+                  [] p1 $ nth code 2
+                "\"load" $ load-files! d!
+                "\"save" $ on-save (:files store) (:saved-files store) d!
+                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -303,6 +321,7 @@
           respo-alerts.core :refer $ use-prompt
           app.comp.key-event :refer $ comp-key-event
           app.fetch :refer $ load-files!
+          app.comp.key-event :refer $ comp-key-event
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -469,7 +488,8 @@
                 shift? $ :shift? e
               cond
                   = "\"Backspace" key
-                  if (empty? token)
+                  if
+                    or meta? $ empty? token
                     d! :call-cirru-edit $ [] :remove-node focus
                     d! :call-cirru-edit $ [] :update-token
                       [] focus $ .!slice token 0
@@ -539,7 +559,7 @@
                   fn (content)
                     d! :cirru-edit-node $ [] coord
                       first $ parse-cirru content
-                d! :focus coord
+                d! :focus-or-pick coord
         |pattern-number $ quote
           def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
         |pick-leaf-color $ quote
@@ -940,7 +960,7 @@
                                 :style $ {} (:font-family code-font)
                               fn (content)
                                 d! :cirru-edit-node $ [] coord content
-                            d! :focus coord
+                            d! :focus-or-pick coord
                   if (= coord focus)
                     rect $ {}
                       :position $ [] 0 (* -0.5 height)
@@ -1169,6 +1189,7 @@
             :clipboard $ []
             :warning nil
             :def-path $ []
+            :picker-mode? false
       :ns $ quote (ns app.schema)
     |app.server $ {}
       :defs $ {}
@@ -1260,6 +1281,7 @@
           defn updater (store op op-data op-id op-time)
             case-default op
               do (eprintln "\"unknown op" op op-data) store
+              :states $ update-states store op-data
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
               :call-cirru-edit $ let
                   def-path $ prepend (:def-path store) :files
@@ -1347,7 +1369,18 @@
                           get-in files $ [] from-ns :defs from-def
                     assoc :warning nil
                   assoc store :warning $ str "\"unknown ns/def: " from
-              :states $ update-states store op-data
+              :picker-mode $ assoc store :picker-mode? op-data
+              :focus-or-pick $ if (:picker-mode? store)
+                let
+                    item $ get-in store
+                      concat ([] :files) (:def-path store) ([] 1) op-data
+                  -> store
+                    update-in
+                      concat ([] :files) (:def-path store)
+                      fn (pair)
+                        :: 'quate $ assoc-in (nth pair 1) (:focus store) item
+                    assoc :picker-mode? false
+                assoc store :focus op-data
               :hydrate-storage op-data
       :ns $ quote
         ns app.updater $ :require
