@@ -295,15 +295,16 @@
                 command-plugin $ use-prompt (>> states :command)
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
+                editor $ :editor store
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
                   span $ {} (:class-name "\"hover-entry")
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
                     :inner-text $ if
-                      empty? $ :def-path store
+                      empty? $ :def-path editor
                       , "\"..."
-                        str $ .join-str (:def-path store) "\" "
+                        str $ .join-str (:def-path editor) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
                       .!preventDefault $ :event e
@@ -320,13 +321,13 @@
                             if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
-                  comp-menu (>> states :menu) (:files store) (:def-path store)
+                  comp-menu (>> states :menu) (:files store) (:def-path editor)
                     fn (d!)
                       d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
-                if (:picker-mode? store) (comp-picker-mode)
+                if (:picker-mode? editor) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
                       and
@@ -508,7 +509,8 @@
                 cursor $ []
                 state $ or (:data states)
                   {} (:selected-ns nil) (:def-target nil)
-                focus $ :focus store
+                editor $ :editor store
+                focus $ :focus editor
                 files $ :files store
               container
                 {} $ :on-keyboard
@@ -526,7 +528,7 @@
                           identical? js/document.body $ .-target (:event e)
                         let
                             target $ -> files
-                              get-in $ :def-path store
+                              get-in $ :def-path editor
                               get 1
                               get-in focus
                           cond
@@ -538,7 +540,7 @@
                             true $ js/console.error "\"unknown target" target
                 :tree $ let
                     item $ -> files
-                      get-in $ :def-path store
+                      get-in $ :def-path editor
                       get 1
                   cond
                       nil? item
@@ -1335,11 +1337,13 @@
               :cursor $ [] :dom
             :saved-files $ {}
             :files $ {}
-            :focus $ []
-            :clipboard $ []
             :warning nil
-            :def-path $ []
-            :picker-mode? false
+            :editor $ {}
+              :focus $ []
+              :clipboard $ []
+              :def-path $ []
+              :picker-mode? false
+            :router $ {} (:name :editor)
       :ns $ quote (ns app.schema)
     |app.server $ {}
       :defs $ {}
@@ -1434,14 +1438,15 @@
               :states $ update-states store op-data
               :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
               :call-cirru-edit $ let
-                  def-path $ prepend (:def-path store) :files
+                  editor $ :editor store
+                  def-path $ prepend (:def-path editor) :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
                   let
                       result $ cirru-edit
                         {}
                           :tree $ nth def-target 1
-                          :clipboard $ :clipboard store
+                          :clipboard $ :clipboard editor
                         nth op-data 0
                         nth op-data 1
                     ; js/console.log op-data result
@@ -1450,9 +1455,9 @@
                       js/console.warn warning
                     -> store
                       assoc-in def-path $ :: 'quote (:tree result)
-                      assoc :focus
-                        or (:focus result) (:focus store)
-                        , :warning (:warning result) :clipboard $ :clipboard result
+                      assoc-in ([] :editor :focus)
+                        or (:focus result) (:focus editor)
+                      assoc :warning (:warning result) :clipboard $ :clipboard result
                   assoc store :warning $ str "\"target not found at:" def-path
               :cirru-edit-node $ let-sugar
                     [] focus code
@@ -1463,9 +1468,8 @@
                   assoc-in store def-path $ :: 'quote
                     assoc-in (nth def-target 1) focus code
                   assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ assoc store :def-path op-data
-              :focus $ assoc store :focus op-data
-              :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
+              :def-path $ assoc-in store ([] :editor :def-path) op-data
+              :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
               :add-ns $ let
@@ -1519,18 +1523,20 @@
                           get-in files $ [] from-ns :defs from-def
                     assoc :warning nil
                   assoc store :warning $ str "\"unknown ns/def: " from
-              :picker-mode $ assoc store :picker-mode? op-data
-              :focus-or-pick $ if (:picker-mode? store)
+              :picker-mode $ assoc-in store ([] :editor :picker-mode?) op-data
+              :focus-or-pick $ if
+                :picker-mode? $ :editor store
                 let
+                    editor $ :editor store
                     item $ get-in store
-                      concat ([] :files) (:def-path store) ([] 1) op-data
+                      concat ([] :files) (:def-path editor) ([] 1) op-data
                   -> store
                     update-in
-                      concat ([] :files) (:def-path store)
+                      concat ([] :files) (:def-path editor)
                       fn (pair)
-                        :: 'quate $ assoc-in (nth pair 1) (:focus store) item
-                    assoc :picker-mode? false
-                assoc store :focus op-data
+                        :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
+                    assoc-in ([] :editor :picker-mode?) false
+                assoc-in store ([] :editor :focus) op-data
               :hydrate-storage op-data
       :ns $ quote
         ns app.updater $ :require
