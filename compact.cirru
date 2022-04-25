@@ -28,8 +28,8 @@
                             [] ([] ns def-name)
                               lookup-body-deps (slice code 2) (get ns-deps-dict ns) ns def-name $ keys defs
                   pairs-map
-                defs-dependants-dict $ lookup-dependants defs-deps-dict
-              js/console.log "\"result" defs-deps-dict defs-dependants-dict
+                ; defs-dependants-dict $ lookup-dependants defs-deps-dict
+              , defs-deps-dict
         |digit-pattern $ quote
           def digit-pattern $ new js/RegExp "\"^\\d$"
         |flatten $ quote
@@ -152,6 +152,144 @@
               map $ fn (item)
                 if (list? item) (regularize-rule item) item
       :ns $ quote (ns app.analyze)
+    |app.comp.deps-tree $ {}
+      :defs $ {}
+        |*defs-layout-stack $ quote
+          defatom *defs-layout-stack $ {}
+        |*defs-metrics-states $ quote
+          defatom *defs-metrics-states $ {}
+        |build-defs-metrics $ quote
+          defn build-defs-metrics (entry3 deps-tree depth pkg)
+            let
+                entry $ take entry3 2
+              if (contains? @*defs-metrics-states entry)
+                [] $ get @*defs-metrics-states entry
+                let
+                    info $ get deps-tree entry
+                    scoped-defs $ -> info
+                      filter $ fn (item)
+                        .starts-with? (first item) pkg
+                    thirdpart-defs $ -> info
+                      filter $ fn (item)
+                        .starts-with? (first item) pkg
+                    partial-self $ &let
+                      it $ {} (:depth depth)
+                        :y $ new-def-stack-y-of depth
+                          + 2 $ count scoped-defs
+                        :scoped-defs scoped-defs
+                        :thirdpart-defs thirdpart-defs
+                        :entry entry3
+                      swap! *defs-metrics-states assoc entry it
+                      , it
+                    children $ -> scoped-defs
+                      filter $ fn (e)
+                        not $ contains? @*defs-metrics-states e
+                      mapcat $ fn (e)
+                        build-defs-metrics e deps-tree (inc depth) pkg
+                  concat ([] partial-self) children
+        |calcit-def? $ quote
+          defn calcit-def? (item)
+            or
+              = :def $ nth item 2
+              = :ns $ nth item 2
+        |comp-deps-tree $ quote
+          defn comp-deps-tree (deps-tree)
+            reset! *defs-layout-stack $ {}
+            reset! *defs-metrics-states $ {}
+            let
+                defs-metrics $ build-defs-metrics ([] "\"app.main" "\"main!") deps-tree 0 "\"app"
+                connections $ -> defs-metrics
+                  mapcat $ fn (info)
+                    let
+                        base $ expand-layout-xy info
+                      -> (:scoped-defs info)
+                        map-indexed $ fn (idx def-entry)
+                          let
+                              target $ get @*defs-metrics-states (take def-entry 2)
+                            []
+                              complex/add base $ []
+                                measure-text-width! (str-def-entry def-entry) 14 "\"Hind"
+                                + 10 $ * 20 (inc idx)
+                              complex/add (expand-layout-xy target) ([] 0 10)
+              ; js/console.log @*defs-metrics-states
+              js/console.log "\"connection" connections
+              container ({})
+                line-segments $ {}
+                  :style $ {} (:width 1)
+                    :color $ hslx 40 100 30
+                    :alpha 1
+                  :position $ [] 0 0
+                  :segments connections
+                create-list :container ({})
+                  -> defs-metrics $ map-indexed
+                    fn (idx info)
+                      [] idx $ let
+                          position $ expand-layout-xy info
+                        ; js/console.log $ :scoped-defs info
+                        container ({})
+                          rect $ {} (:position position)
+                            :size $ [] 100 20
+                            :fill $ hslx 0 0 20
+                          text $ {}
+                            :text $ str-def-entry (:entry info)
+                            :position position
+                            :style $ {}
+                              :fill $ hslx 0 0 80
+                              :font-size 14
+                              :font-family |Hind
+                          create-list :container ({})
+                            -> (:scoped-defs info)
+                              map-indexed $ fn (idx def-entry)
+                                [] idx $ container ({})
+                                  rect $ {}
+                                    :position $ complex/add position
+                                      [] 0 $ * 20 (inc idx)
+                                    :size $ []
+                                      measure-text-width! (str-def-entry def-entry) 14 "\"Hind"
+                                      , 20
+                                    :fill $ hslx 0 0 20
+                                    :alpha 0.5
+                                  text $ {}
+                                    :text $ str-def-entry def-entry
+                                    :position $ complex/add position
+                                      [] 0 $ * 20 (inc idx)
+                                    :style $ {}
+                                      :fill $ hslx 180 30 40
+                                      :font-size 14
+                                      :font-family |Hind
+        |expand-layout-xy $ quote
+          defn expand-layout-xy (info)
+            let
+                max-y $ get-def-stack-y-of (:depth info)
+              []
+                * 320 $ :depth info
+                * 20 $ - (:y info) (* 0.3 max-y)
+        |get-def-stack-y-of $ quote
+          defn get-def-stack-y-of (depth) (get @*defs-layout-stack depth)
+        |new-def-stack-y-of $ quote
+          defn new-def-stack-y-of (depth size)
+            let
+                dict @*defs-layout-stack
+              if (contains? dict depth)
+                let
+                    v $ get dict depth
+                  swap! *defs-layout-stack update depth $ fn (x) (+ x size)
+                  , v
+                do (swap! *defs-layout-stack assoc depth size) 0
+        |str-def-entry $ quote
+          defn str-def-entry (pair)
+            str (nth pair 0) "\"/" $ nth pair 1
+      :ns $ quote
+        ns app.comp.deps-tree $ :require
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline line-segments
+          phlox.comp.button :refer $ comp-button
+          phlox.comp.drag-point :refer $ comp-drag-point
+          phlox.comp.slider :refer $ comp-slider
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+          phlox.util :refer $ measure-text-width!
     |app.comp.key-event $ {}
       :defs $ {}
         |comp-key-event $ quote
@@ -307,6 +445,7 @@
                         str $ .join-str (:def-path editor) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
+                      d! :router $ {} (:name :editor)
                       .!preventDefault $ :event e
                   div ({})
                     a $ {} (:inner-text "\"Save") (:style ui/link)
@@ -453,7 +592,9 @@
                 "\"save" $ on-save (:files store) (:saved-files store) d!
                 "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
                 "\"deps-tree" $ do
-                  js/console.log $ analyze-deps (:files store)
+                  d! :router $ {} (:name :deps-tree)
+                  d! :deps-tree $ w-js-log
+                    analyze-deps $ :files store
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -512,47 +653,59 @@
                 editor $ :editor store
                 focus $ :focus editor
                 files $ :files store
-              container
-                {} $ :on-keyboard
-                  {} $ :down
-                    fn (e d!)
-                      if
-                        = "\"Tab" $ :key e
-                        .!preventDefault $ :event e
-                        .!stopPropagation $ :event e
-                        js/document.body.focus
-                      if
-                        and
-                          not $ and (:meta? e)
-                            = "\"Tab" $ :key e
-                          identical? js/document.body $ .-target (:event e)
-                        let
-                            target $ -> files
-                              get-in $ :def-path editor
-                              get 1
-                              get-in focus
-                          cond
-                              list? target
-                              handle-expr-event focus (dissoc e :event) d!
-                            (string? target)
-                              handle-leaf-event focus target (dissoc e :event) d!
-                            (nil? nil) nil
-                            true $ js/console.error "\"unknown target" target
-                :tree $ let
-                    item $ -> files
-                      get-in $ :def-path editor
-                      get 1
-                  cond
-                      nil? item
-                      , nil
-                    (string? item)
-                      wrap-leaf item ([]) focus false
-                    (is-linear? item)
-                      wrap-linear-expr item ([]) focus false
-                    (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true false 0
-                    true $ wrap-block-expr item ([]) focus
-                ; comp-hint (>> states :hint) focus $ get-in tree focus
+                router $ :router store
+              case-default (:name router)
+                text $ {}
+                  :text $ str "\"Unknown router: " router
+                  :position $ [] 1 1
+                  :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                :editor $ container
+                  {} $ :on-keyboard
+                    {} $ :down
+                      fn (e d!)
+                        if
+                          = "\"Tab" $ :key e
+                          .!preventDefault $ :event e
+                          .!stopPropagation $ :event e
+                          js/document.body.focus
+                        if
+                          and
+                            not $ and (:meta? e)
+                              = "\"Tab" $ :key e
+                            identical? js/document.body $ .-target (:event e)
+                          let
+                              target $ -> files
+                                get-in $ :def-path editor
+                                get 1
+                                get-in focus
+                            cond
+                                list? target
+                                handle-expr-event focus (dissoc e :event) d!
+                              (string? target)
+                                handle-leaf-event focus target (dissoc e :event) d!
+                              (nil? nil) nil
+                              true $ js/console.error "\"unknown target" target
+                  :tree $ let
+                      item $ -> files
+                        get-in $ :def-path editor
+                        get 1
+                    cond
+                        nil? item
+                        , nil
+                      (string? item)
+                        wrap-leaf item ([]) focus false
+                      (is-linear? item)
+                        wrap-linear-expr item ([]) focus false
+                      (with-linear? item)
+                        wrap-expr-with-linear item ([]) focus true false 0
+                      true $ wrap-block-expr item ([]) focus
+                  ; comp-hint (>> states :hint) focus $ get-in tree focus
+                :deps-tree $ if
+                  nil? $ :deps-tree store
+                  text $ {} (:text "\"tree is empty")
+                    :position $ [] 1 1
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                  comp-deps-tree $ :deps-tree store
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -1188,6 +1341,7 @@
           app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
+          app.comp.deps-tree :refer $ comp-deps-tree
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
@@ -1344,6 +1498,7 @@
               :def-path $ []
               :picker-mode? false
             :router $ {} (:name :editor)
+            :deps-tree nil
       :ns $ quote (ns app.schema)
     |app.server $ {}
       :defs $ {}
@@ -1436,7 +1591,8 @@
             case-default op
               do (eprintln "\"unknown op" op op-data) store
               :states $ update-states store op-data
-              :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
+              :load-files $ -> store (assoc :files op-data) (assoc  :saved-files op-data)
+              :router $ assoc store :router op-data
               :call-cirru-edit $ let
                   editor $ :editor store
                   def-path $ prepend (:def-path editor) :files
@@ -1537,6 +1693,7 @@
                         :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
                     assoc-in ([] :editor :picker-mode?) false
                 assoc-in store ([] :editor :focus) op-data
+              :deps-tree $ assoc store :deps-tree op-data
               :hydrate-storage op-data
       :ns $ quote
         ns app.updater $ :require
