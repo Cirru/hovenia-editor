@@ -162,13 +162,19 @@
           defn build-defs-metrics (entry3 deps-tree depth pkg)
             let
                 entry $ take entry3 2
-              if (contains? @*defs-metrics-states entry)
-                [] $ get @*defs-metrics-states entry
+                target $ get @*defs-metrics-states entry
+              if
+                and (some? target)
+                  >= depth $ :depth target
+                [] target
                 let
                     info $ get deps-tree entry
-                    scoped-defs $ -> info
-                      filter $ fn (item)
-                        .starts-with? (first item) pkg
+                    scoped-defs $ &let
+                      it $ -> info
+                        filter $ fn (item)
+                          .starts-with? (first item) pkg
+                      js/console.warn "\"failed building for:" pkg entry3
+                      or it $ []
                     thirdpart-defs $ -> info
                       filter $ fn (item)
                         .starts-with? (first item) pkg
@@ -193,11 +199,11 @@
               = :def $ nth item 2
               = :ns $ nth item 2
         |comp-deps-tree $ quote
-          defn comp-deps-tree (deps-tree)
+          defn comp-deps-tree (deps-tree init-fn pkg)
             reset! *defs-layout-stack $ {}
             reset! *defs-metrics-states $ {}
             let
-                defs-metrics $ build-defs-metrics ([] "\"app.main" "\"main!") deps-tree 0 "\"app"
+                defs-metrics $ build-defs-metrics (.split init-fn "\"/") deps-tree 0 pkg
                 connections $ -> defs-metrics
                   mapcat $ fn (info)
                     let
@@ -206,20 +212,41 @@
                         map-indexed $ fn (idx def-entry)
                           let
                               target $ get @*defs-metrics-states (take def-entry 2)
-                            []
-                              complex/add base $ []
-                                measure-text-width! (str-def-entry def-entry) 14 "\"Hind"
-                                + 10 $ * 20 (inc idx)
-                              complex/add (expand-layout-xy target) ([] 0 10)
+                            if
+                              empty? $ :scoped-defs target
+                              , nil $ []
+                                complex/add base $ []
+                                  + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 "\"Hind"
+                                  + 10 $ * 20 (inc idx)
+                                complex/add (expand-layout-xy target) ([] 0 10)
+                        filter $ fn (pair)
+                          some? $ last pair
               ; js/console.log @*defs-metrics-states
               js/console.log "\"connection" connections
               container ({})
-                line-segments $ {}
+                ; line-segments $ {}
                   :style $ {} (:width 1)
-                    :color $ hslx 40 100 30
+                    :color $ hslx 40 100 20
                     :alpha 1
                   :position $ [] 0 0
                   :segments connections
+                graphics $ {}
+                  :ops $ concat &
+                    -> connections $ map-indexed
+                      fn (idx pair)
+                        let
+                            from $ nth pair 0
+                            to $ nth pair 1
+                          []
+                            g :line-style $ {} (:width 2) (:alpha 1)
+                              :color $ hclx
+                                .rem (* 37 idx) 360
+                                , 100 60
+                            g :move-to from
+                            g :bezier-to $ {}
+                              :p1 $ complex/add from ([] 50 0)
+                              :p2 $ complex/minus to ([] 50 0)
+                              :to-p to
                 create-list :container ({})
                   -> defs-metrics $ map-indexed
                     fn (idx info)
@@ -228,11 +255,15 @@
                         ; js/console.log $ :scoped-defs info
                         container ({})
                           rect $ {} (:position position)
-                            :size $ [] 100 20
+                            :size $ []
+                              measure-text-width!
+                                + 8 $ str-def-entry (:entry info) pkg
+                                , 14 "\"Hind"
+                              , 20
                             :fill $ hslx 0 0 20
                           text $ {}
-                            :text $ str-def-entry (:entry info)
-                            :position position
+                            :text $ str-def-entry (:entry info) pkg
+                            :position $ complex/add position ([] 4 0)
                             :style $ {}
                               :fill $ hslx 0 0 80
                               :font-size 14
@@ -245,14 +276,18 @@
                                     :position $ complex/add position
                                       [] 0 $ * 20 (inc idx)
                                     :size $ []
-                                      measure-text-width! (str-def-entry def-entry) 14 "\"Hind"
+                                      + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 "\"Hind"
                                       , 20
                                     :fill $ hslx 0 0 20
-                                    :alpha 0.5
+                                    :alpha 0.3
+                                    :on $ {}
+                                      :pointertap $ fn (e d!)
+                                        d! :router $ {} (:name :editor)
+                                        d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
                                   text $ {}
-                                    :text $ str-def-entry def-entry
+                                    :text $ str-def-entry def-entry pkg
                                     :position $ complex/add position
-                                      [] 0 $ * 20 (inc idx)
+                                      [] 4 $ * 20 (inc idx)
                                     :style $ {}
                                       :fill $ hslx 180 30 40
                                       :font-size 14
@@ -277,11 +312,13 @@
                   , v
                 do (swap! *defs-layout-stack assoc depth size) 0
         |str-def-entry $ quote
-          defn str-def-entry (pair)
-            str (nth pair 0) "\"/" $ nth pair 1
+          defn str-def-entry (pair pkg)
+            let[] (ns def-name) pair $ if (.starts-with? ns pkg)
+              str (.strip-prefix ns pkg) "\"/" def-name
+              str ns "\"/" def-name
       :ns $ quote
         ns app.comp.deps-tree $ :require
-          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline line-segments
+          phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline line-segments
           phlox.comp.button :refer $ comp-button
           phlox.comp.drag-point :refer $ comp-drag-point
           phlox.comp.slider :refer $ comp-slider
@@ -593,7 +630,7 @@
                 "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
                 "\"deps-tree" $ do
                   d! :router $ {} (:name :deps-tree)
-                  d! :deps-tree $ w-js-log
+                  d! :deps-tree $ wo-js-log
                     analyze-deps $ :files store
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
@@ -705,7 +742,7 @@
                   text $ {} (:text "\"tree is empty")
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
-                  comp-deps-tree $ :deps-tree store
+                  comp-deps-tree (:deps-tree store) (-> store :configs :init-fn) (:package store)
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -1350,10 +1387,10 @@
               .!then $ fn (res) (.!text res)
               .!then $ fn (text)
                 let
-                    files $ :files (parse-cirru-edn text)
-                  if (some? files)
-                    do (d! :load-files files) (d! :ok nil)
-                    do (js/console.log "\"unknown data:" files) (d! :warn "\"unknown data")
+                    compact-files $ parse-cirru-edn text
+                  if (some? compact-files)
+                    do (d! :load-files compact-files) (d! :ok nil)
+                    do (js/console.log "\"unknown data:" compact-files) (d! :warn "\"unknown data")
               .!catch $ fn (err)
                 d! :warn $ str err
       :ns $ quote
@@ -1490,7 +1527,9 @@
             :dom-states $ {}
               :cursor $ [] :dom
             :saved-files $ {}
+            :package nil
             :files $ {}
+            :configs nil
             :warning nil
             :editor $ {}
               :focus $ []
@@ -1591,7 +1630,11 @@
             case-default op
               do (eprintln "\"unknown op" op op-data) store
               :states $ update-states store op-data
-              :load-files $ -> store (assoc :files op-data) (assoc  :saved-files op-data)
+              :load-files $ -> store
+                assoc :package $ :package op-data
+                assoc :configs $ :configs op-data
+                assoc :files $ :files op-data
+                assoc :saved-files $ :files op-data
               :router $ assoc store :router op-data
               :call-cirru-edit $ let
                   editor $ :editor store
