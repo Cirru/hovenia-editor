@@ -42,11 +42,7 @@
                 if (= token "\"") false $ let
                     c $ nth token 0
                   not $ or (= "\":" c) (= "\"\"" c) (= "\"'" c) (= "\"." c) (= "\";" c) (= token def-name) (= token "\"true") (= token "\"false") (= token "\"nil") (.!test digit-pattern token)
-              map $ fn (token)
-                if
-                  = "\"@" $ nth token 0
-                  .!slice token 1
-                  , token
+              map strip-at
               , distinct
                 map $ fn (token)
                   cond
@@ -96,6 +92,32 @@
                           = (nth piece 1) (nth entry 1)
                   keys
               pairs-map
+        |lookup-target-def $ quote
+          defn lookup-target-def (token files def-path pkg)
+            let
+                ns $ first def-path
+                imports-form $ get-in files ([] ns :ns 1)
+                dict $ parse-import-dict imports-form
+              if
+                contains-in? files $ [] ns :defs token
+                [] ns :defs token
+                if
+                  contains-in? dict $ [] :defs token
+                  let
+                      target-ns $ get-in dict ([] :defs token)
+                    if (.starts-with? target-ns pkg) ([] target-ns :defs token) nil
+                  if
+                    and
+                      not= "\"/" $ get token 0
+                      .includes? token "\"/"
+                    let[] (ns-part def-part) (.split token "\"/")
+                      if
+                        contains? (:namespaces dict) ns-part
+                        let
+                            target-ns $ get-in dict ([] :namespaces ns-part)
+                          if (.starts-with? target-ns pkg) ([] target-ns :defs def-part) nil
+                        , nil
+                    , nil
         |parse-import-dict $ quote
           defn parse-import-dict (ns-form)
             loop
@@ -152,6 +174,12 @@
               filter $ fn (item) (not= item "\"[]")
               map $ fn (item)
                 if (list? item) (regularize-rule item) item
+        |strip-at $ quote
+          defn strip-at (token)
+            if
+              = "\"@" $ nth token 0
+              .!slice token 1
+              , token
       :ns $ quote (ns app.analyze)
     |app.comp.deps-tree $ {}
       :defs $ {}
@@ -350,6 +378,7 @@
                         or
                           = "\"p" $ .-key event
                           = "\"s" $ .-key event
+                          = "\"d" $ .-key event
                         or (.-ctrlKey event) (.-metaKey event)
                       .!preventDefault event
                     .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
@@ -725,7 +754,7 @@
                                 list? target
                                 handle-expr-event focus (dissoc e :event) d!
                               (string? target)
-                                handle-leaf-event focus target (dissoc e :event) d!
+                                handle-leaf-event store focus target (dissoc e :event) d!
                               (nil? nil) nil
                               true $ js/console.error "\"unknown target" target
                   :tree $ let
@@ -827,7 +856,7 @@
                   d! :call-cirru-edit $ [] :command-paste focus
                 true $ do (;nil js/console.log "\"unknown event:" e)
         |handle-leaf-event $ quote
-          defn handle-leaf-event (focus token e d!)
+          defn handle-leaf-event (store focus token e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -864,6 +893,11 @@
                   if shift?
                     d! :call-cirru-edit $ [] :unfold-token focus
                     d! :call-cirru-edit $ [] :fold-node focus
+                (= key "\"d")
+                  if-let
+                    def-path $ lookup-target-def (strip-at token) (:files store) (-> store :editor :def-path) (:package store)
+                    d! :def-path def-path
+                    d! :warn $ str "\"not found: " token
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
                 (and (= 1 (count key)) (not meta?))
@@ -1385,6 +1419,7 @@
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
           app.comp.deps-tree :refer $ comp-deps-tree
+          app.analyze :refer $ lookup-target-def strip-at
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
