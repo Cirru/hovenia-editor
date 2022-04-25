@@ -37,50 +37,51 @@
             if (list? xs) (mapcat xs flatten) ([] xs)
         |lookup-body-deps $ quote
           defn lookup-body-deps (body imports-dict ns def-name def-names)
-            -> body flatten distinct
+            -> body flatten
+              filter $ fn (token)
+                if (= token "\"") false $ let
+                    c $ nth token 0
+                  not $ or (= "\":" c) (= "\"\"" c) (= "\"'" c) (= "\"." c) (= "\";" c) (= token def-name) (= token "\"true") (= token "\"false") (= token "\"nil") (.!test digit-pattern token)
               map $ fn (token)
-                cond
-                    = token def-name
-                    , nil
-                  (= "\":" (get token 0))
-                    , nil
-                  (= "\":" (get token 0))
-                    , nil
-                  (= "\"'" (get token 0))
-                    , nil
-                  (or (= token "\"true") (= token "\"false") (= token "\"nil"))
-                    , nil
-                  (.!test digit-pattern token) nil
-                  (.includes? def-names token) ([] ns token :file)
-                  (contains? (:defs imports-dict) token)
-                    &let
-                      target-ns $ get-in imports-dict ([] :defs token)
-                      [] target-ns token :def
-                  (contains? (:npm-defs imports-dict) token)
-                    &let
-                      target-ns $ get-in imports-dict ([] :npm-defs token)
-                      [] target-ns token :npm-def
-                  (contains? (:npm-defaults imports-dict) token)
-                    &let
-                      target-ns $ get-in imports-dict ([] :npm-defaults token)
-                      [] target-ns token :npm-default
-                  (and (not= (get token 0) "\"/") (.includes? token "\"/"))
-                    let
-                        pieces $ .split token "\"/"
-                        ns-alias $ first pieces
-                        def-part $ nth pieces 1
-                      cond
-                          contains? (:namespaces imports-dict) ns-alias
-                          &let
-                            target-ns $ get-in imports-dict ([] :namespaces ns-alias)
-                            [] target-ns def-part :ns-def
-                        (contains? (:npm-namespaces imports-dict) ns-alias)
-                          &let
-                            target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
-                            [] target-ns def-part :npm-ns-def
-                        true nil
-                  true nil
-              filter some?
+                if
+                  = "\"@" $ nth token 0
+                  .!slice token 1
+                  , token
+              , distinct
+                map $ fn (token)
+                  cond
+                      = token def-name
+                      , nil
+                    (.includes? def-names token) ([] ns token :file)
+                    (contains? (:defs imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :defs token)
+                        [] target-ns token :def
+                    (contains? (:npm-defs imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :npm-defs token)
+                        [] target-ns token :npm-def
+                    (contains? (:npm-defaults imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :npm-defaults token)
+                        [] target-ns token :npm-default
+                    (and (not= (get token 0) "\"/") (.includes? token "\"/"))
+                      let
+                          pieces $ .split token "\"/"
+                          ns-alias $ first pieces
+                          def-part $ nth pieces 1
+                        cond
+                            contains? (:namespaces imports-dict) ns-alias
+                            &let
+                              target-ns $ get-in imports-dict ([] :namespaces ns-alias)
+                              [] target-ns def-part :ns-def
+                          (contains? (:npm-namespaces imports-dict) ns-alias)
+                            &let
+                              target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
+                              [] target-ns def-part :npm-ns-def
+                          true nil
+                    true nil
+                filter some?
         |lookup-dependants $ quote
           defn lookup-dependants (deps-dict)
             -> deps-dict keys
@@ -165,7 +166,7 @@
                 target $ get @*defs-metrics-states entry
               if
                 and (some? target)
-                  >= depth $ :depth target
+                  ; >= depth $ :depth target
                 [] target
                 let
                     info $ get deps-tree entry
@@ -173,7 +174,8 @@
                       it $ -> info
                         filter $ fn (item)
                           .starts-with? (first item) pkg
-                      js/console.warn "\"failed building for:" pkg entry3
+                      if (nil? it)
+                        js/console.warn "\"failed building for:" entry3 info $ contains? deps-tree entry
                       or it $ []
                     thirdpart-defs $ -> info
                       filter $ fn (item)
@@ -204,6 +206,7 @@
             reset! *defs-metrics-states $ {}
             let
                 defs-metrics $ build-defs-metrics (.split init-fn "\"/") deps-tree 0 pkg
+                ; defs-metrics $ .to-list (.values @*defs-metrics-states)
                 connections $ -> defs-metrics
                   mapcat $ fn (info)
                     let
@@ -213,7 +216,9 @@
                           let
                               target $ get @*defs-metrics-states (take def-entry 2)
                             if
-                              empty? $ :scoped-defs target
+                              and
+                                empty? $ :scoped-defs target
+                                <= (:depth target) (:depth info)
                               , nil $ []
                                 complex/add base $ []
                                   + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 "\"Hind"
@@ -222,7 +227,7 @@
                         filter $ fn (pair)
                           some? $ last pair
               ; js/console.log @*defs-metrics-states
-              js/console.log "\"connection" connections
+              ; js/console.log "\"connection" connections
               container ({})
                 ; line-segments $ {}
                   :style $ {} (:width 1)
@@ -281,9 +286,10 @@
                                     :fill $ hslx 0 0 20
                                     :alpha 0.3
                                     :on $ {}
-                                      :pointertap $ fn (e d!)
-                                        d! :router $ {} (:name :editor)
-                                        d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
+                                      :pointertap $ fn (e d!) (js/console.log e)
+                                        when (-> e .-data .-originalEvent .-metaKey)
+                                          d! :router $ {} (:name :editor)
+                                          d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
                                   text $ {}
                                     :text $ str-def-entry def-entry pkg
                                     :position $ complex/add position
@@ -298,7 +304,7 @@
                 max-y $ get-def-stack-y-of (:depth info)
               []
                 * 320 $ :depth info
-                * 20 $ - (:y info) (* 0.3 max-y)
+                * 20 $ - (:y info) (* 0.4 max-y)
         |get-def-stack-y-of $ quote
           defn get-def-stack-y-of (depth) (get @*defs-layout-stack depth)
         |new-def-stack-y-of $ quote
