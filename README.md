@@ -42,6 +42,7 @@ In the command box:
 - `mv-ns from to`
 - `mv-def from/a to/b`
 - `pick` or `pick off` for turning on/off picker mode
+- `deps-tree` for loading dependency graph
 
 ### Workflow
 

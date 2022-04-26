@@ -6,6 +6,361 @@
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
   :files $ {}
+    |app.analyze $ {}
+      :defs $ {}
+        |analyze-deps $ quote
+          defn analyze-deps (files)
+            let
+                ns-deps-dict $ -> files
+                  map-kv $ fn (ns file)
+                    [] ns $ parse-import-dict
+                      get-in file $ [] :ns 1
+                defs-deps-dict $ -> files .to-list
+                  mapcat $ fn (pair)
+                    let
+                        ns $ nth pair 0
+                        defs $ -> pair (nth 1) (get :defs)
+                      -> defs (.to-list)
+                        map $ fn (pair)
+                          let
+                              def-name $ nth pair 0
+                              code $ -> pair (nth 1) (nth 1)
+                            [] ([] ns def-name)
+                              lookup-body-deps (slice code 2) (get ns-deps-dict ns) ns def-name $ keys defs
+                  pairs-map
+                ; defs-dependants-dict $ lookup-dependants defs-deps-dict
+              , defs-deps-dict
+        |digit-pattern $ quote
+          def digit-pattern $ new js/RegExp "\"^\\d$"
+        |flatten $ quote
+          defn flatten (xs)
+            if (list? xs) (mapcat xs flatten) ([] xs)
+        |lookup-body-deps $ quote
+          defn lookup-body-deps (body imports-dict ns def-name def-names)
+            -> body flatten
+              filter $ fn (token)
+                if (= token "\"") false $ let
+                    c $ nth token 0
+                  not $ or (= "\":" c) (= "\"\"" c) (= "\"'" c) (= "\"." c) (= "\";" c) (= token def-name) (= token "\"true") (= token "\"false") (= token "\"nil") (.!test digit-pattern token)
+              map strip-at
+              , distinct
+                map $ fn (token)
+                  cond
+                      = token def-name
+                      , nil
+                    (.includes? def-names token) ([] ns token :file)
+                    (contains? (:defs imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :defs token)
+                        [] target-ns token :def
+                    (contains? (:npm-defs imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :npm-defs token)
+                        [] target-ns token :npm-def
+                    (contains? (:npm-defaults imports-dict) token)
+                      &let
+                        target-ns $ get-in imports-dict ([] :npm-defaults token)
+                        [] target-ns token :npm-default
+                    (and (not= (get token 0) "\"/") (.includes? token "\"/"))
+                      let
+                          pieces $ .split token "\"/"
+                          ns-alias $ first pieces
+                          def-part $ nth pieces 1
+                        cond
+                            contains? (:namespaces imports-dict) ns-alias
+                            &let
+                              target-ns $ get-in imports-dict ([] :namespaces ns-alias)
+                              [] target-ns def-part :ns-def
+                          (contains? (:npm-namespaces imports-dict) ns-alias)
+                            &let
+                              target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
+                              [] target-ns def-part :npm-ns-def
+                          true nil
+                    true nil
+                filter some?
+        |lookup-dependants $ quote
+          defn lookup-dependants (deps-dict)
+            -> deps-dict keys
+              map $ fn (entry)
+                [] entry $ -> deps-dict
+                  filter $ fn (pair)
+                    let
+                        deps $ nth pair 1
+                      any? deps $ fn (piece)
+                        and
+                          = (nth piece 0) (nth entry 0)
+                          = (nth piece 1) (nth entry 1)
+                  keys
+              pairs-map
+        |lookup-target-def $ quote
+          defn lookup-target-def (token files def-path pkg)
+            let
+                ns $ first def-path
+                imports-form $ get-in files ([] ns :ns 1)
+                dict $ parse-import-dict imports-form
+              if
+                contains-in? files $ [] ns :defs token
+                [] ns :defs token
+                if
+                  contains-in? dict $ [] :defs token
+                  let
+                      target-ns $ get-in dict ([] :defs token)
+                    if (.starts-with? target-ns pkg) ([] target-ns :defs token) nil
+                  if
+                    and
+                      not= "\"/" $ get token 0
+                      .includes? token "\"/"
+                    let[] (ns-part def-part) (.split token "\"/")
+                      if
+                        contains? (:namespaces dict) ns-part
+                        let
+                            target-ns $ get-in dict ([] :namespaces ns-part)
+                          if (.starts-with? target-ns pkg) ([] target-ns :defs def-part) nil
+                        , nil
+                    , nil
+        |parse-import-dict $ quote
+          defn parse-import-dict (ns-form)
+            loop
+                dict $ {}
+                  :namespaces $ {}
+                  :defs $ {}
+                  :npm-defaults $ {}
+                  :npm-defs $ {}
+                  :npm-namespaces $ {}
+                rules $ rest (nth ns-form 2 )
+              if (empty? rules) dict $ let
+                  rule $ regularize-rule (first rules)
+                  method $ nth rule 1
+                case-default method
+                  raise $ str "\"unknown rule: " method
+                  "\":as" $ let[] (target _m alias) rule
+                    if
+                      = "\"\"" $ first target
+                      recur
+                        assoc-in dict ([] :npm-namespaces alias) target
+                        rest rules
+                      recur
+                        assoc-in dict ([] :namespaces alias) target
+                        rest rules
+                  "\":refer" $ let[] (target _m defs-list) rule
+                    if
+                      = "\"\"" $ first target
+                      recur
+                        update dict :npm-defs $ fn (dict)
+                          loop
+                              d dict
+                              defs defs-list
+                            if (empty? d) dict $ let
+                                d0 $ first defs
+                              recur (assoc d d0 target) (rest defs)
+                        rest rules
+                      recur
+                        update dict :defs $ fn (dict)
+                          loop
+                              d dict
+                              defs defs-list
+                            if (empty? defs) d $ let
+                                d0 $ first defs
+                              recur (assoc d d0 target) (rest defs)
+                        rest rules
+                  "\":default" $ recur
+                    assoc-in dict
+                      [] :npm-defaults $ nth rule 2
+                      nth rule 0
+                    rest rules
+        |regularize-rule $ quote
+          defn regularize-rule (rule)
+            -> rule
+              filter $ fn (item) (not= item "\"[]")
+              map $ fn (item)
+                if (list? item) (regularize-rule item) item
+        |strip-at $ quote
+          defn strip-at (token)
+            if
+              = "\"@" $ nth token 0
+              .!slice token 1
+              , token
+      :ns $ quote (ns app.analyze)
+    |app.comp.deps-tree $ {}
+      :defs $ {}
+        |*defs-layout-stack $ quote
+          defatom *defs-layout-stack $ {}
+        |*defs-metrics-states $ quote
+          defatom *defs-metrics-states $ {}
+        |build-defs-metrics $ quote
+          defn build-defs-metrics (entry3 deps-tree depth pkg)
+            let
+                entry $ take entry3 2
+                target $ get @*defs-metrics-states entry
+              if
+                and (some? target)
+                  ; >= depth $ :depth target
+                [] target
+                let
+                    info $ get deps-tree entry
+                    scoped-defs $ &let
+                      it $ -> info
+                        filter $ fn (item)
+                          .starts-with? (first item) pkg
+                      if (nil? it)
+                        js/console.warn "\"failed building for:" entry3 info $ contains? deps-tree entry
+                      or it $ []
+                    thirdpart-defs $ -> info
+                      filter $ fn (item)
+                        .starts-with? (first item) pkg
+                    partial-self $ &let
+                      it $ {} (:depth depth)
+                        :y $ new-def-stack-y-of depth
+                          + 2 $ count scoped-defs
+                        :scoped-defs scoped-defs
+                        :thirdpart-defs thirdpart-defs
+                        :entry entry3
+                      swap! *defs-metrics-states assoc entry it
+                      , it
+                    children $ -> scoped-defs
+                      filter $ fn (e)
+                        not $ contains? @*defs-metrics-states e
+                      mapcat $ fn (e)
+                        build-defs-metrics e deps-tree (inc depth) pkg
+                  concat ([] partial-self) children
+        |calcit-def? $ quote
+          defn calcit-def? (item)
+            or
+              = :def $ nth item 2
+              = :ns $ nth item 2
+        |comp-deps-tree $ quote
+          defn comp-deps-tree (deps-tree init-fn pkg)
+            reset! *defs-layout-stack $ {}
+            reset! *defs-metrics-states $ {}
+            let
+                defs-metrics $ build-defs-metrics (.split init-fn "\"/") deps-tree 0 pkg
+                ; defs-metrics $ .to-list (.values @*defs-metrics-states)
+                connections $ -> defs-metrics
+                  mapcat $ fn (info)
+                    let
+                        base $ expand-layout-xy info
+                      -> (:scoped-defs info)
+                        map-indexed $ fn (idx def-entry)
+                          let
+                              target $ get @*defs-metrics-states (take def-entry 2)
+                            if
+                              and
+                                empty? $ :scoped-defs target
+                                <= (:depth target) (:depth info)
+                              , nil $ []
+                                complex/add base $ []
+                                  + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 "\"Hind"
+                                  + 10 $ * 20 (inc idx)
+                                complex/add (expand-layout-xy target) ([] 0 10)
+                        filter $ fn (pair)
+                          some? $ last pair
+              ; js/console.log @*defs-metrics-states
+              ; js/console.log "\"connection" connections
+              container ({})
+                ; line-segments $ {}
+                  :style $ {} (:width 1)
+                    :color $ hslx 40 100 20
+                    :alpha 1
+                  :position $ [] 0 0
+                  :segments connections
+                graphics $ {}
+                  :ops $ concat &
+                    -> connections $ map-indexed
+                      fn (idx pair)
+                        let
+                            from $ nth pair 0
+                            to $ nth pair 1
+                          []
+                            g :line-style $ {} (:width 2) (:alpha 1)
+                              :color $ hclx
+                                .rem (* 37 idx) 360
+                                , 100 60
+                            g :move-to from
+                            g :bezier-to $ {}
+                              :p1 $ complex/add from ([] 50 0)
+                              :p2 $ complex/minus to ([] 50 0)
+                              :to-p to
+                create-list :container ({})
+                  -> defs-metrics $ map-indexed
+                    fn (idx info)
+                      [] idx $ let
+                          position $ expand-layout-xy info
+                        ; js/console.log $ :scoped-defs info
+                        container ({})
+                          rect $ {} (:position position)
+                            :size $ []
+                              measure-text-width!
+                                + 8 $ str-def-entry (:entry info) pkg
+                                , 14 "\"Hind"
+                              , 20
+                            :fill $ hslx 0 0 20
+                          text $ {}
+                            :text $ str-def-entry (:entry info) pkg
+                            :position $ complex/add position ([] 4 0)
+                            :style $ {}
+                              :fill $ hslx 0 0 80
+                              :font-size 14
+                              :font-family |Hind
+                          create-list :container ({})
+                            -> (:scoped-defs info)
+                              map-indexed $ fn (idx def-entry)
+                                [] idx $ container ({})
+                                  rect $ {}
+                                    :position $ complex/add position
+                                      [] 0 $ * 20 (inc idx)
+                                    :size $ []
+                                      + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 "\"Hind"
+                                      , 20
+                                    :fill $ hslx 0 0 20
+                                    :alpha 0.3
+                                    :on $ {}
+                                      :pointertap $ fn (e d!) (js/console.log e)
+                                        when (-> e .-data .-originalEvent .-metaKey)
+                                          d! :router $ {} (:name :editor)
+                                          d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
+                                  text $ {}
+                                    :text $ str-def-entry def-entry pkg
+                                    :position $ complex/add position
+                                      [] 4 $ * 20 (inc idx)
+                                    :style $ {}
+                                      :fill $ hslx 180 30 40
+                                      :font-size 14
+                                      :font-family |Hind
+        |expand-layout-xy $ quote
+          defn expand-layout-xy (info)
+            let
+                max-y $ get-def-stack-y-of (:depth info)
+              []
+                * 320 $ :depth info
+                * 20 $ - (:y info) (* 0.4 max-y)
+        |get-def-stack-y-of $ quote
+          defn get-def-stack-y-of (depth) (get @*defs-layout-stack depth)
+        |new-def-stack-y-of $ quote
+          defn new-def-stack-y-of (depth size)
+            let
+                dict @*defs-layout-stack
+              if (contains? dict depth)
+                let
+                    v $ get dict depth
+                  swap! *defs-layout-stack update depth $ fn (x) (+ x size)
+                  , v
+                do (swap! *defs-layout-stack assoc depth size) 0
+        |str-def-entry $ quote
+          defn str-def-entry (pair pkg)
+            let[] (ns def-name) pair $ if (.starts-with? ns pkg)
+              str (.strip-prefix ns pkg) "\"/" def-name
+              str ns "\"/" def-name
+      :ns $ quote
+        ns app.comp.deps-tree $ :require
+          phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline line-segments
+          phlox.comp.button :refer $ comp-button
+          phlox.comp.drag-point :refer $ comp-drag-point
+          phlox.comp.slider :refer $ comp-slider
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+          phlox.util :refer $ measure-text-width!
     |app.comp.key-event $ {}
       :defs $ {}
         |comp-key-event $ quote
@@ -23,6 +378,7 @@
                         or
                           = "\"p" $ .-key event
                           = "\"s" $ .-key event
+                          = "\"d" $ .-key event
                         or (.-ctrlKey event) (.-metaKey event)
                       .!preventDefault event
                     .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
@@ -149,17 +505,19 @@
                 command-plugin $ use-prompt (>> states :command)
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
+                editor $ :editor store
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
                   span $ {} (:class-name "\"hover-entry")
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
                     :inner-text $ if
-                      empty? $ :def-path store
+                      empty? $ :def-path editor
                       , "\"..."
-                        str $ .join-str (:def-path store) "\" "
+                        str $ .join-str (:def-path editor) "\" "
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
+                      d! :router $ {} (:name :editor)
                       .!preventDefault $ :event e
                   div ({})
                     a $ {} (:inner-text "\"Save") (:style ui/link)
@@ -174,13 +532,13 @@
                             if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
-                  comp-menu (>> states :menu) (:files store) (:def-path store)
+                  comp-menu (>> states :menu) (:files store) (:def-path editor)
                     fn (d!)
                       d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
-                if (:picker-mode? store) (comp-picker-mode)
+                if (:picker-mode? editor) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
                       and
@@ -305,6 +663,10 @@
                 "\"load" $ load-files! d!
                 "\"save" $ on-save (:files store) (:saved-files store) d!
                 "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
+                "\"deps-tree" $ do
+                  d! :router $ {} (:name :deps-tree)
+                  d! :deps-tree $ wo-js-log
+                    analyze-deps $ :files store
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -322,6 +684,7 @@
           app.comp.key-event :refer $ comp-key-event
           app.fetch :refer $ load-files!
           app.comp.key-event :refer $ comp-key-event
+          app.analyze :refer $ analyze-deps
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -359,49 +722,62 @@
                 cursor $ []
                 state $ or (:data states)
                   {} (:selected-ns nil) (:def-target nil)
-                focus $ :focus store
+                editor $ :editor store
+                focus $ :focus editor
                 files $ :files store
-              container
-                {} $ :on-keyboard
-                  {} $ :down
-                    fn (e d!)
-                      if
-                        = "\"Tab" $ :key e
-                        .!preventDefault $ :event e
-                        .!stopPropagation $ :event e
-                        js/document.body.focus
-                      if
-                        and
-                          not $ and (:meta? e)
-                            = "\"Tab" $ :key e
-                          identical? js/document.body $ .-target (:event e)
-                        let
-                            target $ -> files
-                              get-in $ :def-path store
-                              get 1
-                              get-in focus
-                          cond
-                              list? target
-                              handle-expr-event focus (dissoc e :event) d!
-                            (string? target)
-                              handle-leaf-event focus target (dissoc e :event) d!
-                            (nil? nil) nil
-                            true $ js/console.error "\"unknown target" target
-                :tree $ let
-                    item $ -> files
-                      get-in $ :def-path store
-                      get 1
-                  cond
-                      nil? item
-                      , nil
-                    (string? item)
-                      wrap-leaf item ([]) focus false
-                    (is-linear? item)
-                      wrap-linear-expr item ([]) focus false
-                    (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true false 0
-                    true $ wrap-block-expr item ([]) focus
-                ; comp-hint (>> states :hint) focus $ get-in tree focus
+                router $ :router store
+              case-default (:name router)
+                text $ {}
+                  :text $ str "\"Unknown router: " router
+                  :position $ [] 1 1
+                  :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                :editor $ container
+                  {} $ :on-keyboard
+                    {} $ :down
+                      fn (e d!)
+                        if
+                          = "\"Tab" $ :key e
+                          .!preventDefault $ :event e
+                          .!stopPropagation $ :event e
+                          js/document.body.focus
+                        if
+                          and
+                            not $ and (:meta? e)
+                              = "\"Tab" $ :key e
+                            identical? js/document.body $ .-target (:event e)
+                          let
+                              target $ -> files
+                                get-in $ :def-path editor
+                                get 1
+                                get-in focus
+                            cond
+                                list? target
+                                handle-expr-event focus (dissoc e :event) d!
+                              (string? target)
+                                handle-leaf-event store focus target (dissoc e :event) d!
+                              (nil? nil) nil
+                              true $ js/console.error "\"unknown target" target
+                  :tree $ let
+                      item $ -> files
+                        get-in $ :def-path editor
+                        get 1
+                    cond
+                        nil? item
+                        , nil
+                      (string? item)
+                        wrap-leaf item ([]) focus false
+                      (is-linear? item)
+                        wrap-linear-expr item ([]) focus false
+                      (with-linear? item)
+                        wrap-expr-with-linear item ([]) focus true false 0
+                      true $ wrap-block-expr item ([]) focus
+                  ; comp-hint (>> states :hint) focus $ get-in tree focus
+                :deps-tree $ if
+                  nil? $ :deps-tree store
+                  text $ {} (:text "\"tree is empty")
+                    :position $ [] 1 1
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                  comp-deps-tree (:deps-tree store) (-> store :configs :init-fn) (:package store)
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -480,7 +856,7 @@
                   d! :call-cirru-edit $ [] :command-paste focus
                 true $ do (;nil js/console.log "\"unknown event:" e)
         |handle-leaf-event $ quote
-          defn handle-leaf-event (focus token e d!)
+          defn handle-leaf-event (store focus token e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -517,6 +893,11 @@
                   if shift?
                     d! :call-cirru-edit $ [] :unfold-token focus
                     d! :call-cirru-edit $ [] :fold-node focus
+                (= key "\"d")
+                  if-let
+                    def-path $ lookup-target-def (strip-at token) (:files store) (-> store :editor :def-path) (:package store)
+                    d! :def-path def-path
+                    d! :warn $ str "\"not found: " token
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
                 (and (= 1 (count key)) (not meta?))
@@ -566,15 +947,17 @@
           defn pick-leaf-color (s head?)
             cond
                 or (= s "\"true") (= s "\"false") (= s "\"nil") (= s "\";") (= s "\"&")
-                hslx 300 100 30
+                hslx 300 100 33
               (= "\"" s) (hslx 190 50 50)
               (= "\"\"" (get s 0))
                 hslx 70 50 40
               (= "\"|" (nth s 0))
                 hslx 70 50 40
               (= "\":" (nth s 0))
-                hslx 240 80 74
-              (.!test pattern-number s) (hslx 340 100 30)
+                hslx 240 90 74
+              (= "\"." (nth s 0))
+                hslx 100 100 70
+              (.!test pattern-number s) (hslx 330 100 40)
               head? $ hslx 160 70 76
               true $ hslx 190 50 50
         |shape-focus $ quote
@@ -587,10 +970,10 @@
                 :alpha 0.8
         |style-active-line $ quote
           def style-active-line $ {} (:width 2) (:alpha 1)
-            :color $ hslx 200 100 60
+            :color $ hslx 20 100 70
         |style-shadow-line $ quote
-          def style-shadow-line $ {} (:width 0.5) (:alpha 0.8)
-            :color $ hslx 200 100 60
+          def style-shadow-line $ {} (:width 1) (:alpha 0.7)
+            :color $ hslx 200 70 54
         |turn-quoted $ quote
           defn turn-quoted (target)
             if (string? target) (turn-symbol target) (map target turn-quoted)
@@ -939,11 +1322,10 @@
               {}
                 :tree $ container
                   {} $ :position ([] -4 0)
-                  rect $ {}
+                  rect $ {} (:alpha 0.8)
                     :position $ [] 0 (* -0.5 height)
                     :size $ [] (+ width 8) height
-                    :alpha 0.88
-                    :fill $ hslx 190 70 14
+                    :fill $ hslx 190 70 10
                     :line-style $ {} (:width 1) (:alpha 0.2)
                       :color $ hslx 60 80 100
                     :on $ {}
@@ -1036,6 +1418,8 @@
           app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
+          app.comp.deps-tree :refer $ comp-deps-tree
+          app.analyze :refer $ lookup-target-def strip-at
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
@@ -1044,10 +1428,10 @@
               .!then $ fn (res) (.!text res)
               .!then $ fn (text)
                 let
-                    files $ :files (parse-cirru-edn text)
-                  if (some? files)
-                    do (d! :load-files files) (d! :ok nil)
-                    do (js/console.log "\"unknown data:" files) (d! :warn "\"unknown data")
+                    compact-files $ parse-cirru-edn text
+                  if (some? compact-files)
+                    do (d! :load-files compact-files) (d! :ok nil)
+                    do (js/console.log "\"unknown data:" compact-files) (d! :warn "\"unknown data")
               .!catch $ fn (err)
                 d! :warn $ str err
       :ns $ quote
@@ -1184,12 +1568,17 @@
             :dom-states $ {}
               :cursor $ [] :dom
             :saved-files $ {}
+            :package nil
             :files $ {}
-            :focus $ []
-            :clipboard $ []
+            :configs nil
             :warning nil
-            :def-path $ []
-            :picker-mode? false
+            :editor $ {}
+              :focus $ []
+              :clipboard $ []
+              :def-path $ []
+              :picker-mode? false
+            :router $ {} (:name :editor)
+            :deps-tree nil
       :ns $ quote (ns app.schema)
     |app.server $ {}
       :defs $ {}
@@ -1282,16 +1671,22 @@
             case-default op
               do (eprintln "\"unknown op" op op-data) store
               :states $ update-states store op-data
-              :load-files $ -> store (assoc  :files op-data) (assoc  :saved-files op-data)
+              :load-files $ -> store
+                assoc :package $ :package op-data
+                assoc :configs $ :configs op-data
+                assoc :files $ :files op-data
+                assoc :saved-files $ :files op-data
+              :router $ assoc store :router op-data
               :call-cirru-edit $ let
-                  def-path $ prepend (:def-path store) :files
+                  editor $ :editor store
+                  def-path $ prepend (:def-path editor) :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
                   let
                       result $ cirru-edit
                         {}
                           :tree $ nth def-target 1
-                          :clipboard $ :clipboard store
+                          :clipboard $ :clipboard editor
                         nth op-data 0
                         nth op-data 1
                     ; js/console.log op-data result
@@ -1300,9 +1695,9 @@
                       js/console.warn warning
                     -> store
                       assoc-in def-path $ :: 'quote (:tree result)
-                      assoc :focus
-                        or (:focus result) (:focus store)
-                        , :warning (:warning result) :clipboard $ :clipboard result
+                      assoc-in ([] :editor :focus)
+                        or (:focus result) (:focus editor)
+                      assoc :warning (:warning result) :clipboard $ :clipboard result
                   assoc store :warning $ str "\"target not found at:" def-path
               :cirru-edit-node $ let-sugar
                     [] focus code
@@ -1313,9 +1708,8 @@
                   assoc-in store def-path $ :: 'quote
                     assoc-in (nth def-target 1) focus code
                   assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ assoc store :def-path op-data
-              :focus $ assoc store :focus op-data
-              :replace-tree $ assoc store :code-tree op-data :focus ([]) :warning nil
+              :def-path $ assoc-in store ([] :editor :def-path) op-data
+              :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
               :add-ns $ let
@@ -1369,18 +1763,21 @@
                           get-in files $ [] from-ns :defs from-def
                     assoc :warning nil
                   assoc store :warning $ str "\"unknown ns/def: " from
-              :picker-mode $ assoc store :picker-mode? op-data
-              :focus-or-pick $ if (:picker-mode? store)
+              :picker-mode $ assoc-in store ([] :editor :picker-mode?) op-data
+              :focus-or-pick $ if
+                :picker-mode? $ :editor store
                 let
+                    editor $ :editor store
                     item $ get-in store
-                      concat ([] :files) (:def-path store) ([] 1) op-data
+                      concat ([] :files) (:def-path editor) ([] 1) op-data
                   -> store
                     update-in
-                      concat ([] :files) (:def-path store)
+                      concat ([] :files) (:def-path editor)
                       fn (pair)
-                        :: 'quate $ assoc-in (nth pair 1) (:focus store) item
-                    assoc :picker-mode? false
-                assoc store :focus op-data
+                        :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
+                    assoc-in ([] :editor :picker-mode?) false
+                assoc-in store ([] :editor :focus) op-data
+              :deps-tree $ assoc store :deps-tree op-data
               :hydrate-storage op-data
       :ns $ quote
         ns app.updater $ :require
