@@ -379,6 +379,7 @@
                           = "\"p" $ .-key event
                           = "\"s" $ .-key event
                           = "\"d" $ .-key event
+                          = "\"i" $ .-key event
                         or (.-ctrlKey event) (.-metaKey event)
                       .!preventDefault event
                     .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
@@ -455,7 +456,7 @@
               [] (effect-focus "\"#query-box")
                 div
                   {} $ :style
-                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0")
+                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0") (:z-index 100)
                       :border $ str "\"1px solid " (hsl 0 0 30)
                       :background-color $ hsl 0 0 20 0.4
                   div
@@ -474,7 +475,7 @@
                             update state :select-idx $ fn (idx)
                               if
                                 >= (inc idx) (count entries)
-                                , 0 $ inc idx
+                                , idx $ inc idx
                           "\"ArrowUp" $ d! cursor
                             update state :select-idx $ fn (idx)
                               if (> idx 0) (dec idx) 0
@@ -506,15 +507,15 @@
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
                 editor $ :editor store
+                def-path $ get-in editor
+                  [] :stack $ :pointer editor
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
                   span $ {} (:class-name "\"hover-entry")
-                    :style $ {} (:cursor :pointer) (:padding "\"4px 8px")
-                    :inner-text $ if
-                      empty? $ :def-path editor
-                      , "\"..."
-                        str $ .join-str (:def-path editor) "\" "
+                    :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
+                      :color $ hsl 200 80 70
+                    :inner-text "\"Hovernia"
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
                       d! :router $ {} (:name :editor)
@@ -532,12 +533,12 @@
                             if (list? code) (run-command code store d!)
                               d! :warn $ str "\"invalid command:" code
                 if (:menu? state)
-                  comp-menu (>> states :menu) (:files store) (:def-path editor)
-                    fn (d!)
-                      d! cursor $ assoc state :menu? false
+                  comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
+                    d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
+                comp-stack (:stack editor) (:pointer editor) (:package store)
                 if (:picker-mode? editor) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
@@ -683,15 +684,62 @@
           respo-alerts.core :refer $ use-prompt
           app.comp.key-event :refer $ comp-key-event
           app.fetch :refer $ load-files!
+          app.analyze :refer $ analyze-deps
+          app.comp.stack :refer $ comp-stack
+    |app.comp.stack $ {}
+      :defs $ {}
+        |comp-stack $ quote
+          defcomp comp-stack (stack pointer pkg) (js/console.log stack)
+            div ({})
+              list->
+                {} $ :style
+                  merge ui/column $ {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start)
+                -> stack $ map-indexed
+                  fn (idx frame)
+                    [] idx $ div
+                      {}
+                        :on-click $ fn (e d!) (d! :stack-pointer idx)
+                        :style $ merge
+                          {} (:cursor :pointer) (:padding "\"4px 8px")
+                          if (= idx pointer)
+                            {} $ :background-color (hsl 0 0 30)
+                      case-default (nth frame 1)
+                        <> (str "\"Err: " frame)
+                          {} $ :color :red
+                        :ns $ <>
+                          str $ nth frame 0
+                        :defs $ div
+                          {} $ :style (merge ui/column)
+                          <>
+                            str (nth frame 0) "\"/"
+                            {} (:font-size 10) (:line-height 1)
+                              :color $ hsl 0 0 60
+                          div ({})
+                            <> (nth frame 2)
+                              {} $ :color (hsl 0 0 100)
+              comp-key-event $ fn (e d!)
+                cond
+                    and
+                      or (:meta? e) (:ctrl? e)
+                      = "\"k" $ :key e
+                    d! :pointer-shrink pointer
+                  (and (or (:meta? e) (:ctrl? e)) (= "\"j" (:key e)))
+                    d! :pointer-down pointer
+                  (and (or (:meta? e) (:ctrl? e)) (= "\"i" (:key e)))
+                    d! :pointer-up pointer
+                  true nil
+      :ns $ quote
+        ns app.comp.stack $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.widget :as widget
           app.comp.key-event :refer $ comp-key-event
           app.analyze :refer $ analyze-deps
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
-          def api-host $ str "\"http://"
-            or (get-env "\"host") "\"localhost"
-            , "\":"
-              or (get-env "\"port") 6101
+          def api-host $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6101")
         |code-font $ quote (def code-font "\"Roboto Mono, monospace")
         |cors-headers $ quote
           def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
@@ -747,7 +795,9 @@
                             identical? js/document.body $ .-target (:event e)
                           let
                               target $ -> files
-                                get-in $ :def-path editor
+                                get-in $ either
+                                  get-in editor $ [] :stack (:pointer editor)
+                                  []
                                 get 1
                                 get-in focus
                             cond
@@ -759,7 +809,9 @@
                               true $ js/console.error "\"unknown target" target
                   :tree $ let
                       item $ -> files
-                        get-in $ :def-path editor
+                        get-in $ either
+                          get-in editor $ [] :stack (:pointer editor)
+                          []
                         get 1
                     cond
                         nil? item
@@ -895,8 +947,12 @@
                     d! :call-cirru-edit $ [] :fold-node focus
                 (= key "\"d")
                   if-let
-                    def-path $ lookup-target-def (strip-at token) (:files store) (-> store :editor :def-path) (:package store)
-                    d! :def-path def-path
+                    next-def-path $ let
+                        editor $ :editor store
+                      lookup-target-def (strip-at token) (:files store)
+                        get-in editor $ [] :stack (:pointer editor)
+                        :package store
+                    d! :def-path next-def-path
                     d! :warn $ str "\"not found: " token
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
@@ -1008,7 +1064,8 @@
                       focused? $ = coord focus
                     container ({})
                       polyline $ {}
-                        :style $ if focused? style-active-line style-shadow-line
+                        :style $ if focused? style-active-line
+                          assoc style-shadow-line :color $ hslx 120 90 30
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] leaf-gap 0)
                           [] leaf-gap $ * line-height
@@ -1281,7 +1338,7 @@
                               and (with-linear? item)
                                 not $ all-block? item
                               wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position
-                            true $ wrap-block-expr item next-coord focus
+                            true $ assoc (wrap-block-expr item next-coord focus) :width 0
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -1317,7 +1374,7 @@
         |wrap-leaf $ quote
           defn wrap-leaf (s coord focus head?)
             let
-                width $ * 8.5 (count s)
+                width $ measure-text-width! s 14 "|Roboto Mono"
                 height leaf-height
               {}
                 :tree $ container
@@ -1420,6 +1477,7 @@
           pointed-prompt.core :refer $ prompt-at!
           app.comp.deps-tree :refer $ comp-deps-tree
           app.analyze :refer $ lookup-target-def strip-at
+          phlox.util :refer $ measure-text-width!
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
@@ -1576,6 +1634,8 @@
               :focus $ []
               :clipboard $ []
               :def-path $ []
+              :pointer 0
+              :stack $ []
               :picker-mode? false
             :router $ {} (:name :editor)
             :deps-tree nil
@@ -1677,9 +1737,33 @@
                 assoc :files $ :files op-data
                 assoc :saved-files $ :files op-data
               :router $ assoc store :router op-data
+              :stack-pointer $ assoc-in store ([] :editor :pointer) op-data
+              :pointer-down $ update store :editor
+                fn (editor)
+                  let
+                      size $ count (:stack editor)
+                    if
+                      >= op-data $ dec size
+                      , editor $ update editor :pointer inc
+              :pointer-up $ update store :editor
+                fn (editor)
+                  let
+                      size $ count (:stack editor)
+                    if (= 0 op-data) editor $ update editor :pointer dec
+              :pointer-shrink $ update store :editor
+                fn (editor)
+                  if
+                    contains? (:stack editor) (:pointer editor)
+                    -> editor
+                      update :pointer $ fn (idx)
+                        if (= 0 idx) 0 $ dec idx
+                      update :stack $ fn (xs) (dissoc xs op-data)
+                    , editor
               :call-cirru-edit $ let
                   editor $ :editor store
-                  def-path $ prepend (:def-path editor) :files
+                  def-path $ prepend
+                    get-in editor $ [] :stack (:pointer editor)
+                    , :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
                   let
@@ -1702,13 +1786,27 @@
               :cirru-edit-node $ let-sugar
                     [] focus code
                     , op-data
-                  def-path $ prepend (:def-path store) :files
+                  editor $ :editor store
+                  def-path $ prepend
+                    get-in editor $ [] :stack (:pointer editor)
+                    , :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
                   assoc-in store def-path $ :: 'quote
                     assoc-in (nth def-target 1) focus code
                   assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ assoc-in store ([] :editor :def-path) op-data
+              :def-path $ -> store
+                assoc :router $ {} (:name :editor)
+                update :editor $ fn (editor)
+                  let
+                      pointer $ :pointer editor
+                      stack $ :stack editor
+                    merge editor $ if (empty? stack)
+                      {} (:pointer 0)
+                        :stack $ [] op-data
+                      {}
+                        :stack $ .assoc-after stack pointer op-data
+                        :pointer $ inc pointer
               :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
@@ -1768,11 +1866,13 @@
                 :picker-mode? $ :editor store
                 let
                     editor $ :editor store
+                    def-path $ get-in editor
+                      [] :stack $ :pointer editor
                     item $ get-in store
-                      concat ([] :files) (:def-path editor) ([] 1) op-data
+                      concat ([] :files) def-path ([] 1) op-data
                   -> store
                     update-in
-                      concat ([] :files) (:def-path editor)
+                      concat ([] :files) def-path
                       fn (pair)
                         :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
                     assoc-in ([] :editor :picker-mode?) false
