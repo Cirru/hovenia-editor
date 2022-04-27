@@ -372,7 +372,7 @@
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
         |comp-editor $ quote
-          defn comp-editor (editor files focus pkg)
+          defn comp-editor (code focus pkg)
             container
               {} $ :on-keyboard
                 {} $ :down
@@ -388,25 +388,16 @@
                           = "\"Tab" $ :key e
                         identical? js/document.body $ .-target (:event e)
                       let
-                          target $ -> files
-                            get-in $ either
-                              get-in editor $ [] :stack (:pointer editor)
-                              []
-                            get 1
-                            get-in focus
+                          target $ get-in code focus
                         cond
                             list? target
                             handle-expr-event focus (dissoc e :event) d!
                           (string? target)
-                            handle-leaf-event focus target editor files pkg (dissoc e :event) d!
+                            handle-leaf-event focus target (dissoc e :event) d!
                           (nil? nil) nil
                           true $ js/console.error "\"unknown target" target
               :tree $ let
-                  item $ -> files
-                    get-in $ either
-                      get-in editor $ [] :stack (:pointer editor)
-                      []
-                    get 1
+                  item code
                 cond
                     nil? item
                     , nil
@@ -473,7 +464,7 @@
                   d! :call-cirru-edit $ [] :command-paste focus
                 true $ do (;nil js/console.log "\"unknown event:" e)
         |handle-leaf-event $ quote
-          defn handle-leaf-event (focus token editor files pkg e d!)
+          defn handle-leaf-event (focus token e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -511,12 +502,7 @@
                     d! :call-cirru-edit $ [] :unfold-token focus
                     d! :call-cirru-edit $ [] :fold-node focus
                 (= key "\"d")
-                  if-let
-                    next-def-path $ lookup-target-def (strip-at token) files
-                      get-in editor $ [] :stack (:pointer editor)
-                      , pkg
-                    d! :def-path next-def-path
-                    d! :warn $ str "\"not found: " token
+                  d! :effect-goto-def $ strip-at token
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
                 (and (= 1 (count key)) (not meta?))
@@ -618,8 +604,7 @@
                       focused? $ = coord focus
                     container ({})
                       polyline $ {}
-                        :style $ if focused? style-active-line
-                          assoc style-shadow-line :color $ hslx 120 90 30
+                        :style $ if focused? style-active-line style-shadow-line
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] leaf-gap 0)
                           [] leaf-gap $ * line-height
@@ -1371,7 +1356,7 @@
                       {}
                         :on-click $ fn (e d!) (d! :stack-pointer idx)
                         :style $ merge
-                          {} (:cursor :pointer) (:padding "\"4px 8px")
+                          {} (:cursor :pointer) (:padding "\"4px 8px") (:border-radius "\"6px")
                           if (= idx pointer)
                             {} $ :background-color (hsl 0 0 30)
                       case-default (nth frame 1)
@@ -1442,7 +1427,17 @@
                   :text $ str "\"Unknown router: " router
                   :position $ [] 1 1
                   :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
-                :editor $ comp-editor editor files focus (:package store)
+                :editor $ let
+                    code $ -> files
+                      get-in $ either
+                        get-in editor $ [] :stack (:pointer editor)
+                        []
+                      get 1
+                  if (nil? code)
+                    text $ {} (:text "\"No code selected")
+                      :position $ [] -60 0
+                      :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
+                    memof1-call comp-editor code focus $ :package store
                 :deps-tree $ if
                   nil? $ :deps-tree store
                   text $ {} (:text "\"tree is empty")
@@ -1489,6 +1484,7 @@
           app.analyze :refer $ lookup-target-def strip-at
           phlox.util :refer $ measure-text-width!
           app.comp.editor :refer $ comp-editor
+          memof.once :refer $ memof1-call
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
@@ -1511,9 +1507,20 @@
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
           defn dispatch! (op op-data)
-            if (list? op)
-              recur :states $ [] op op-data
-              do
+            cond
+                list? op
+                dispatch! :states $ [] op op-data
+              (= op :effect-goto-def)
+                let
+                    files $ :files @*store
+                    editor $ :editor @*store
+                  if-let
+                    next-def-path $ lookup-target-def op-data files
+                      get-in editor $ [] :stack (:pointer editor)
+                      :package @*store
+                    dispatch! :def-path next-def-path
+                    dispatch! :warn $ str "\"not found: " op-data
+              true $ do
                 when
                   and dev? $ not= op :states
                   println "\"dispatch!" op
@@ -1569,6 +1576,7 @@
           respo.core :as respo
           respo.comp.space :refer $ =<
           app.fetch :refer $ load-files!
+          app.analyze :refer $ lookup-target-def
     |app.math $ {}
       :defs $ {}
         |add-path $ quote
