@@ -181,6 +181,79 @@
               .!slice token 1
               , token
       :ns $ quote (ns app.analyze)
+    |app.comp.deps-of $ {}
+      :defs $ {}
+        |comp-deps-of $ quote
+          defn comp-deps-of (deps-tree entry pkg) (; js/console.log deps-tree entry)
+            if (contains? deps-tree entry)
+              let
+                  deps $ get deps-tree entry
+                  internal-deps $ -> deps
+                    filter $ fn (item)
+                      .starts-with? (nth item 0) pkg
+                  external-deps $ -> deps
+                    filter $ fn (item)
+                      not $ .starts-with? (nth item 0) pkg
+                  dependants $ -> deps-tree
+                    .filter-kv $ fn (k v)
+                      any? v $ fn (piece)
+                        and
+                          = (nth entry 0) (nth piece 0)
+                          = (nth entry 1) (nth piece 1)
+                    keys
+                container ({})
+                  comp-button $ {}
+                    :text $ str (nth entry 0) "\"/" (nth entry 1)
+                    :position $ [] 0 0
+                    :align-right? false
+                  create-list :container
+                    {} $ :position ([] -320 -40)
+                    -> dependants .to-list $ map-indexed
+                      fn (idx item)
+                        [] idx $ comp-button
+                          {}
+                            :text $ str (nth item 0) "\"/" (nth item 1) "\"  "
+                              count $ get deps-tree (take item 2)
+                            :position $ [] 0 (* idx 40)
+                            :align-right? false
+                            :on $ {}
+                              :pointertap $ fn (e d!)
+                                d! :router $ {} (:name :deps-of)
+                                  :data $ take item 2
+                  create-list :container
+                    {} $ :position ([] 320 -40)
+                    -> internal-deps $ map-indexed
+                      fn (idx item)
+                        [] idx $ comp-button
+                          {}
+                            :text $ if
+                              .starts-with? (nth item 0) pkg
+                              str (nth item 0) "\"/" (nth item 1) "\"  " $ count
+                                get deps-tree $ take item 2
+                              str (nth item 0) "\"/" $ nth item 1
+                            :position $ [] 0 (* idx 40)
+                            :align-right? false
+                            :on $ {}
+                              :pointertap $ fn (e d!)
+                                d! :router $ {} (:name :deps-of)
+                                  :data $ take item 2
+              text $ {}
+                :text $ str "\"not found: " entry
+                :position $ [] 1 1
+                :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+      :ns $ quote
+        ns app.comp.deps-of $ :require
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+          phlox.comp.button :refer $ comp-button
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+          app.comp.deps-tree :refer $ comp-deps-tree
+          app.analyze :refer $ lookup-target-def strip-at
+          phlox.util :refer $ measure-text-width!
+          app.comp.editor :refer $ comp-editor
+          memof.once :refer $ memof1-call
     |app.comp.deps-tree $ {}
       :defs $ {}
         |*defs-layout-stack $ quote
@@ -1163,6 +1236,7 @@
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
                 editor $ :editor store
+                router $ :router store
                 def-path $ get-in editor
                   [] :stack $ :pointer editor
               div ({})
@@ -1194,7 +1268,11 @@
                 div
                   {} $ :style style-error
                   <> $ or (:warning store) "\""
-                comp-stack (:stack editor) (:pointer editor) (:package store)
+                if
+                  and
+                    = :editor $ :name router
+                    not $ :menu? state
+                  comp-stack (:stack editor) (:pointer editor) (:package store)
                 if (:picker-mode? editor) (comp-picker-mode)
                 comp-key-event $ fn (e d!)
                   cond
@@ -1305,25 +1383,26 @@
           defn run-command (code store d!)
             let
                 p1 $ get code 1
+                p2 $ get code 2
               case-default (first code)
                 d! :warn $ str "\"invalid command: " code
                 "\"add-ns" $ d! :add-ns p1
                 "\"rm-ns" $ d! :rm-ns p1
-                "\"add-def" $ d! :add-def
-                  [] p1 $ nth code 2
-                "\"rm-def" $ d! :rm-def
-                  [] p1 $ nth code 2
-                "\"mv-ns" $ d! :mv-ns
-                  [] p1 $ nth code 2
-                "\"mv-def" $ d! :mv-def
-                  [] p1 $ nth code 2
+                "\"add-def" $ d! :add-def ([] p1 p2)
+                "\"rm-def" $ d! :rm-def ([] p1 p2)
+                "\"mv-ns" $ d! :mv-ns ([] p1 p2)
+                "\"mv-def" $ d! :mv-def ([] p1 p2)
                 "\"load" $ load-files! d!
                 "\"save" $ on-save (:files store) (:saved-files store) d!
                 "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
                 "\"deps-tree" $ do
-                  d! :router $ {} (:name :deps-tree)
                   d! :deps-tree $ wo-js-log
                     analyze-deps $ :files store
+                  d! :router $ {} (:name :deps-tree)
+                "\"deps-of" $ do
+                  d! :deps-tree $ analyze-deps (:files store)
+                  d! :router $ {} (:name :deps-of)
+                    :data $ [] p1 p2
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -1444,6 +1523,12 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-tree (:deps-tree store) (-> store :configs :init-fn) (:package store)
+                :deps-of $ if
+                  nil? $ :deps-tree store
+                  text $ {} (:text "\"tree is empty")
+                    :position $ [] 1 1
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                  comp-deps-of (:deps-tree store) (:data router) (:package store)
         |comp-hint $ quote
           defn comp-hint (states focus target)
             let
@@ -1485,6 +1570,7 @@
           phlox.util :refer $ measure-text-width!
           app.comp.editor :refer $ comp-editor
           memof.once :refer $ memof1-call
+          app.comp.deps-of :refer $ comp-deps-of
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
