@@ -688,10 +688,7 @@
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
-          def api-host $ str "\"http://"
-            or (get-env "\"host") "\"localhost"
-            , "\":"
-              or (get-env "\"port") 6101
+          def api-host $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6101")
         |code-font $ quote (def code-font "\"Roboto Mono, monospace")
         |cors-headers $ quote
           def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
@@ -1008,7 +1005,8 @@
                       focused? $ = coord focus
                     container ({})
                       polyline $ {}
-                        :style $ if focused? style-active-line style-shadow-line
+                        :style $ if focused? style-active-line
+                          assoc style-shadow-line :color $ hslx 120 90 30
                         :position $ [] 0 0
                         :points $ [] ([] 0 0) ([] leaf-gap 0)
                           [] leaf-gap $ * line-height
@@ -1281,7 +1279,7 @@
                               and (with-linear? item)
                                 not $ all-block? item
                               wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position
-                            true $ wrap-block-expr item next-coord focus
+                            true $ assoc (wrap-block-expr item next-coord focus) :width 0
                           width $ :width info
                         recur
                           conj acc $ [] idx
@@ -1317,7 +1315,7 @@
         |wrap-leaf $ quote
           defn wrap-leaf (s coord focus head?)
             let
-                width $ * 8.5 (count s)
+                width $ measure-text-width! s 14 "|Roboto Mono"
                 height leaf-height
               {}
                 :tree $ container
@@ -1420,6 +1418,7 @@
           pointed-prompt.core :refer $ prompt-at!
           app.comp.deps-tree :refer $ comp-deps-tree
           app.analyze :refer $ lookup-target-def strip-at
+          phlox.util :refer $ measure-text-width!
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
@@ -1702,13 +1701,16 @@
               :cirru-edit-node $ let-sugar
                     [] focus code
                     , op-data
-                  def-path $ prepend (:def-path store) :files
+                  editor $ :editor store
+                  def-path $ prepend (:def-path editor) :files
                   def-target $ -> store (get-in def-path)
                 if (tuple? def-target)
                   assoc-in store def-path $ :: 'quote
                     assoc-in (nth def-target 1) focus code
                   assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ assoc-in store ([] :editor :def-path) op-data
+              :def-path $ -> store
+                assoc-in ([] :editor :def-path) op-data
+                assoc :router $ {} (:name :editor)
               :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
