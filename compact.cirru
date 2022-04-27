@@ -361,399 +361,7 @@
           phlox.complex :as complex
           pointed-prompt.core :refer $ prompt-at!
           phlox.util :refer $ measure-text-width!
-    |app.comp.key-event $ {}
-      :defs $ {}
-        |comp-key-event $ quote
-          defcomp comp-key-event (on-event)
-            [] (effect-listen-keyboard)
-              span $ {}
-                :on-keydown $ fn (e d!) (on-event e d!)
-        |effect-listen-keyboard $ quote
-          defeffect effect-listen-keyboard () (action el at?)
-            let
-                handler $ or (aget el "\"_dirtyEventListener")
-                  fn (event)
-                    if
-                      and
-                        or
-                          = "\"p" $ .-key event
-                          = "\"s" $ .-key event
-                          = "\"d" $ .-key event
-                          = "\"i" $ .-key event
-                        or (.-ctrlKey event) (.-metaKey event)
-                      .!preventDefault event
-                    .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
-              aset el "\"_dirtyEventListener" handler
-              case-default action nil
-                :mount $ js/window.addEventListener "\"keydown" handler
-                :unmount $ js/window.removeEventListener "\"keydown" handler
-      :ns $ quote
-        ns app.comp.key-event $ :require (respo-ui.core :as ui)
-          respo-ui.core :refer $ hsl
-          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-          respo.comp.space :refer $ =<
-          app.config :refer $ dev? api-host
-    |app.comp.nav $ {}
-      :defs $ {}
-        |comp-files-entry $ quote
-          defcomp comp-files-entry (cursor state files on-close)
-            div
-              {} $ :style (merge ui/expand ui/row)
-              list->
-                {} $ :style ui/expand
-                -> (keys files) .to-list sort $ map
-                  fn (ns)
-                    [] ns $ div
-                      {} (:class-name "\"hover-entry")
-                        :style $ merge
-                          {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
-                          if
-                            = ns $ :ns state
-                            {} $ :background-color (hsl 0 0 100 0.3)
-                        :on-click $ fn (e d!)
-                          d! cursor $ assoc state :ns ns
-                      <> ns
-              =< 8 nil
-              if-let
-                ns $ :ns state
-                if-let
-                  file $ get files ns
-                  div
-                    {} $ :style ui/expand
-                    div
-                      {}
-                        :style $ {} (:cursor :pointer)
-                        :on-click $ fn (e d!)
-                          d! :def-path $ [] ns :ns
-                      <> ns $ {} (:font-family ui/font-code)
-                    =< nil 8
-                    list-> ({})
-                      -> files (get ns) (get :defs) keys .to-list sort $ map
-                        fn (def-name)
-                          [] def-name $ div
-                            {} (:class-name "\"hover-entry")
-                              :style $ merge
-                                {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
-                              :on-click $ fn (e d!)
-                                d! :def-path $ [] ns :defs def-name
-                                on-close d!
-                            <> def-name
-        |comp-menu $ quote
-          defcomp comp-menu (states files def-path on-close)
-            let
-                cursor $ :cursor states
-                state $ or (:data states)
-                  {} (:ns nil) (:query "\"") (:select-idx 0)
-                queries $ .split (:query state) "\" "
-                entries $ -> files .to-list
-                  mapcat $ fn (entry)
-                    let[] (ns file) entry $ flipped prepend ([] ns :ns)
-                      -> (:defs file) keys .to-list $ .map
-                        fn (def-name) ([] ns :defs def-name)
-                  filter $ fn (entry)
-                    every? queries $ fn (x)
-                      .includes? (str entry) x
-              [] (effect-focus "\"#query-box")
-                div
-                  {} $ :style
-                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0") (:z-index 100)
-                      :border $ str "\"1px solid " (hsl 0 0 30)
-                      :background-color $ hsl 0 0 20 0.4
-                  div
-                    {} $ :style ui/row-parted
-                    input $ {} (:id "\"query-box")
-                      :style $ merge ui/input
-                        {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
-                      :value $ :query state
-                      :on-input $ fn (e d!)
-                        d! cursor $ assoc state :query (:value e) :select-idx 0
-                      :autofocus true
-                      :autocomplete "\"off"
-                      :on-keydown $ fn (e d!)
-                        case-default (:key e) (;nil js/console.log e)
-                          "\"ArrowDown" $ d! cursor
-                            update state :select-idx $ fn (idx)
-                              if
-                                >= (inc idx) (count entries)
-                                , idx $ inc idx
-                          "\"ArrowUp" $ d! cursor
-                            update state :select-idx $ fn (idx)
-                              if (> idx 0) (dec idx) 0
-                          "\"Enter" $ if-let
-                            target $ get entries (:select-idx state)
-                            do (d! :def-path target) (on-close d!)
-                              d! cursor $ assoc state :query "\""
-                          "\"Escape" $ on-close d!
-                    a $ {} (:inner-text "\"×")
-                      :style $ merge ui/link
-                        {} (:font-size 24) (:font-weight 100) (:text-decoration :none)
-                          :color $ hsl 0 100 30
-                      :on-click $ fn (e d!) (on-close d!)
-                  =< nil 8
-                  if
-                    blank? $ :query state
-                    comp-files-entry cursor state files on-close
-                    comp-search-entry cursor state entries (:select-idx state)
-                      fn (idx d!)
-                        d! cursor $ assoc state :select-idx idx
-                      , on-close
-        |comp-navbar $ quote
-          defcomp comp-navbar (store states)
-            let
-                cursor $ :cursor states
-                state $ or (:data states)
-                  {} $ :menu? false
-                command-plugin $ use-prompt (>> states :command)
-                  {} (:text "\"command")
-                    :input-style $ {} (:font-family ui/font-code)
-                editor $ :editor store
-                def-path $ get-in editor
-                  [] :stack $ :pointer editor
-              div ({})
-                div
-                  {} $ :style (merge ui/row-parted style-navbar)
-                  span $ {} (:class-name "\"hover-entry")
-                    :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
-                      :color $ hsl 200 80 70
-                    :inner-text "\"Hovernia"
-                    :on-click $ fn (e d!)
-                      d! cursor $ assoc state :menu? true
-                      d! :router $ {} (:name :editor)
-                      .!preventDefault $ :event e
-                  div ({})
-                    a $ {} (:inner-text "\"Save") (:style ui/link)
-                      :on-click $ fn (e d!)
-                        on-save (:files store) (:saved-files store) d!
-                    =< 8 nil
-                    a $ {} (:inner-text "\"Command") (:style ui/link)
-                      :on-click $ fn (e d!)
-                        .show command-plugin d! $ fn (content)
-                          let
-                              code $ first (parse-cirru content)
-                            if (list? code) (run-command code store d!)
-                              d! :warn $ str "\"invalid command:" code
-                if (:menu? state)
-                  comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
-                    d! cursor $ assoc state :menu? false
-                div
-                  {} $ :style style-error
-                  <> $ or (:warning store) "\""
-                comp-stack (:stack editor) (:pointer editor) (:package store)
-                if (:picker-mode? editor) (comp-picker-mode)
-                comp-key-event $ fn (e d!)
-                  cond
-                      and
-                        or (:meta? e) (:ctrl? e)
-                        = "\"p" $ :key e
-                      if (:shift? e)
-                        .show command-plugin d! $ fn (content)
-                          let
-                              code $ first (parse-cirru content)
-                            if (list? code) (run-command code store d!)
-                              d! :warn $ str "\"invalid command:" code
-                        d! cursor $ update state :menu? not
-                    (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
-                      on-save (:files store) (:saved-files store) d!
-                    true nil
-                .render command-plugin
-        |comp-picker-mode $ quote
-          defcomp comp-picker-mode () $ div
-            {} (:title "\"Click to disable")
-              :style $ {} (:position :absolute) (:top 16) (:left 16) (:font-size 20) (:padding "\"8px 16px") (:font-family ui/font-fancy) (:border-radius "\"8px") (:cursor :pointer)
-                :border $ str "\"2px solid " (hsl 180 30 60)
-                :background-color $ hsl 120 80 80 0.8
-              :on-click $ fn (e d!) (d! :picker-mode false)
-            <> "\"Picker Mode"
-            comp-key-event $ fn (e d!)
-              if
-                = "\"Escape" $ :key e
-                d! :picker-mode false
-        |comp-search-entry $ quote
-          defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
-            let () $ list->
-              {} $ :style (merge ui/expand)
-              -> entries $ map-indexed
-                fn (idx entry)
-                  [] (str entry)
-                    div
-                      {} (:class-name "\"hover-entry")
-                        :style $ merge
-                          {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
-                          if (= idx selected-idx)
-                            {} $ :background-color (hsl 0 0 100 0.3)
-                        :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
-                          d! cursor $ assoc state :query "\""
-                      if
-                        = 2 $ count entry
-                        <> $ str (first entry) "\" :ns"
-                        div ({})
-                          <>
-                            str (first entry) "\"/"
-                            {} (:font-size 10)
-                              :color $ hsl 0 0 70
-                          =< 8 nil
-                          <> $ last entry
-        |effect-focus $ quote
-          defeffect effect-focus (query) (action el at?)
-            .!select $ js/document.querySelector query
-        |on-save $ quote
-          defn on-save (files saved-files d!)
-            let
-                removed-entries $ difference (keys saved-files) (keys files)
-                common-ns $ intersection (keys files) (keys saved-files)
-                new-entries $ ->
-                  difference (keys files) (keys saved-files)
-                  .to-list
-                  map $ fn (ns)
-                    [] ns $ get files ns
-                  pairs-map
-                changed-entries $ -> common-ns
-                  map $ fn (ns)
-                    [] ns $ let
-                        file $ get files ns
-                        saved-file $ get saved-files ns
-                      if (= file saved-file) nil $ let
-                          defs $ :defs file
-                          saved-defs $ :defs saved-file
-                          common-defs $ intersection (keys saved-defs) (keys defs)
-                          new-defs $ difference (keys defs) (keys saved-defs)
-                        {}
-                          :ns $ if
-                            = (:ns file) (:ns saved-file)
-                            , nil (:ns file)
-                          :added-defs $ -> new-defs
-                            map $ fn (def-name)
-                              [] def-name $ get defs def-name
-                            pairs-map
-                          :removed-defs $ difference (keys saved-defs) (keys defs)
-                          :changed-defs $ -> common-defs
-                            filter $ fn (def-name)
-                              not= (get defs def-name) (get saved-defs def-name)
-                            map $ fn (def-name)
-                              [] def-name $ get defs def-name
-                            pairs-map
-                  filter $ fn (pair)
-                    some? $ nth pair 1
-                  pairs-map
-                content $ format-cirru-edn
-                  {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
-              ; js/console.log changed-entries
-              ; println $ format-cirru-edn changed-entries
-              ->
-                js/fetch (str api-host "\"/compact-inc")
-                  js-object (:method "\"PUT") (:body content)
-                .!then $ fn (res) (d! :ok nil)
-                .!catch $ fn (e)
-                  d! :warn $ str e
-        |run-command $ quote
-          defn run-command (code store d!)
-            let
-                p1 $ get code 1
-              case-default (first code)
-                d! :warn $ str "\"invalid command: " code
-                "\"add-ns" $ d! :add-ns p1
-                "\"rm-ns" $ d! :rm-ns p1
-                "\"add-def" $ d! :add-def
-                  [] p1 $ nth code 2
-                "\"rm-def" $ d! :rm-def
-                  [] p1 $ nth code 2
-                "\"mv-ns" $ d! :mv-ns
-                  [] p1 $ nth code 2
-                "\"mv-def" $ d! :mv-def
-                  [] p1 $ nth code 2
-                "\"load" $ load-files! d!
-                "\"save" $ on-save (:files store) (:saved-files store) d!
-                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
-                "\"deps-tree" $ do
-                  d! :router $ {} (:name :deps-tree)
-                  d! :deps-tree $ wo-js-log
-                    analyze-deps $ :files store
-        |style-error $ quote
-          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
-            :color $ hsl 0 90 70
-            :background-color $ hsl 0 0 0 0.7
-        |style-navbar $ quote
-          def style-navbar $ {} (:padding "\"0px 8px") (:position :absolute) (:top 16) (:left 0) (:width "\"100%") (:height 0)
-      :ns $ quote
-        ns app.comp.nav $ :require (respo-ui.core :as ui)
-          respo-ui.core :refer $ hsl
-          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-          respo.comp.space :refer $ =<
-          app.config :refer $ dev? api-host
-          app.widget :as widget
-          respo-alerts.core :refer $ use-prompt
-          app.comp.key-event :refer $ comp-key-event
-          app.fetch :refer $ load-files!
-          app.analyze :refer $ analyze-deps
-          app.comp.stack :refer $ comp-stack
-    |app.comp.stack $ {}
-      :defs $ {}
-        |comp-stack $ quote
-          defcomp comp-stack (stack pointer pkg) (js/console.log stack)
-            div ({})
-              list->
-                {} $ :style
-                  merge ui/column $ {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start)
-                -> stack $ map-indexed
-                  fn (idx frame)
-                    [] idx $ div
-                      {}
-                        :on-click $ fn (e d!) (d! :stack-pointer idx)
-                        :style $ merge
-                          {} (:cursor :pointer) (:padding "\"4px 8px")
-                          if (= idx pointer)
-                            {} $ :background-color (hsl 0 0 30)
-                      case-default (nth frame 1)
-                        <> (str "\"Err: " frame)
-                          {} $ :color :red
-                        :ns $ <>
-                          str $ nth frame 0
-                        :defs $ div
-                          {} $ :style (merge ui/column)
-                          <>
-                            str (nth frame 0) "\"/"
-                            {} (:font-size 10) (:line-height 1)
-                              :color $ hsl 0 0 60
-                          div ({})
-                            <> (nth frame 2)
-                              {} $ :color (hsl 0 0 100)
-              comp-key-event $ fn (e d!)
-                cond
-                    and
-                      or (:meta? e) (:ctrl? e)
-                      = "\"k" $ :key e
-                    d! :pointer-shrink pointer
-                  (and (or (:meta? e) (:ctrl? e)) (= "\"j" (:key e)))
-                    d! :pointer-down pointer
-                  (and (or (:meta? e) (:ctrl? e)) (= "\"i" (:key e)))
-                    d! :pointer-up pointer
-                  true nil
-      :ns $ quote
-        ns app.comp.stack $ :require (respo-ui.core :as ui)
-          respo-ui.core :refer $ hsl
-          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-          respo.comp.space :refer $ =<
-          app.widget :as widget
-          app.comp.key-event :refer $ comp-key-event
-          app.analyze :refer $ analyze-deps
-    |app.config $ {}
-      :defs $ {}
-        |api-host $ quote
-          def api-host $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6101")
-        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
-        |cors-headers $ quote
-          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
-        |dot-radius $ quote (def dot-radius 4)
-        |leaf-gap $ quote (def leaf-gap 16)
-        |leaf-height $ quote (def leaf-height 24)
-        |line-height $ quote (def line-height 32)
-        |site $ quote
-          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
-        |twist-distance $ quote
-          def twist-distance $ * 0.8 js/window.innerWidth
-      :ns $ quote
-        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
-    |app.container $ {}
+    |app.comp.editor $ {}
       :defs $ {}
         |all-block? $ quote
           defn all-block? (item) (every? item list?)
@@ -763,73 +371,53 @@
         |char-keymap $ quote
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
-        |comp-container $ quote
-          defcomp comp-container (store)
-            let
-                states $ :states store
-                cursor $ []
-                state $ or (:data states)
-                  {} (:selected-ns nil) (:def-target nil)
-                editor $ :editor store
-                focus $ :focus editor
-                files $ :files store
-                router $ :router store
-              case-default (:name router)
-                text $ {}
-                  :text $ str "\"Unknown router: " router
-                  :position $ [] 1 1
-                  :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
-                :editor $ container
-                  {} $ :on-keyboard
-                    {} $ :down
-                      fn (e d!)
-                        if
+        |comp-editor $ quote
+          defn comp-editor (editor files focus pkg)
+            container
+              {} $ :on-keyboard
+                {} $ :down
+                  fn (e d!)
+                    if
+                      = "\"Tab" $ :key e
+                      .!preventDefault $ :event e
+                      .!stopPropagation $ :event e
+                      js/document.body.focus
+                    if
+                      and
+                        not $ and (:meta? e)
                           = "\"Tab" $ :key e
-                          .!preventDefault $ :event e
-                          .!stopPropagation $ :event e
-                          js/document.body.focus
-                        if
-                          and
-                            not $ and (:meta? e)
-                              = "\"Tab" $ :key e
-                            identical? js/document.body $ .-target (:event e)
-                          let
-                              target $ -> files
-                                get-in $ either
-                                  get-in editor $ [] :stack (:pointer editor)
-                                  []
-                                get 1
-                                get-in focus
-                            cond
-                                list? target
-                                handle-expr-event focus (dissoc e :event) d!
-                              (string? target)
-                                handle-leaf-event store focus target (dissoc e :event) d!
-                              (nil? nil) nil
-                              true $ js/console.error "\"unknown target" target
-                  :tree $ let
-                      item $ -> files
-                        get-in $ either
-                          get-in editor $ [] :stack (:pointer editor)
-                          []
-                        get 1
-                    cond
-                        nil? item
-                        , nil
-                      (string? item)
-                        wrap-leaf item ([]) focus false
-                      (is-linear? item)
-                        wrap-linear-expr item ([]) focus false
-                      (with-linear? item)
-                        wrap-expr-with-linear item ([]) focus true false 0
-                      true $ wrap-block-expr item ([]) focus
-                  ; comp-hint (>> states :hint) focus $ get-in tree focus
-                :deps-tree $ if
-                  nil? $ :deps-tree store
-                  text $ {} (:text "\"tree is empty")
-                    :position $ [] 1 1
-                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
-                  comp-deps-tree (:deps-tree store) (-> store :configs :init-fn) (:package store)
+                        identical? js/document.body $ .-target (:event e)
+                      let
+                          target $ -> files
+                            get-in $ either
+                              get-in editor $ [] :stack (:pointer editor)
+                              []
+                            get 1
+                            get-in focus
+                        cond
+                            list? target
+                            handle-expr-event focus (dissoc e :event) d!
+                          (string? target)
+                            handle-leaf-event focus target editor files pkg (dissoc e :event) d!
+                          (nil? nil) nil
+                          true $ js/console.error "\"unknown target" target
+              :tree $ let
+                  item $ -> files
+                    get-in $ either
+                      get-in editor $ [] :stack (:pointer editor)
+                      []
+                    get 1
+                cond
+                    nil? item
+                    , nil
+                  (string? item)
+                    wrap-leaf item ([]) focus false
+                  (is-linear? item)
+                    wrap-linear-expr item ([]) focus false
+                  (with-linear? item)
+                    wrap-expr-with-linear item ([]) focus true false 0
+                  true $ wrap-block-expr item ([]) focus
+              ; comp-hint (>> states :hint) focus $ get-in tree focus
         |comp-error $ quote
           defcomp comp-error (ys)
             circle
@@ -841,29 +429,6 @@
                 :text $ format-cirru-edn ys
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
-        |comp-hint $ quote
-          defn comp-hint (states focus target)
-            let
-                cursor $ :cursor states
-                state $ or (:data states)
-                  {} $ :p1 ([] 400 -100)
-              container ({})
-                comp-drag-point (>> states :p1)
-                  {} (:hide-text? true)
-                    :position $ :p1 state
-                    :radius 8
-                    :fill $ hslx 60 90 44
-                    :on-change $ fn (position d!)
-                      d! cursor $ assoc state :p1 position
-                text $ {}
-                  :text $ .!slice
-                    format-to-lisp $ turn-quoted target
-                    , 0 200
-                  :position $ complex/add (:p1 state) ([] 12 -6)
-                  :style $ {}
-                    :fill $ hslx 200 40 50
-                    :font-size 10
-                    :font-family "|Roboto Mono, manospace"
         |handle-expr-event $ quote
           defn handle-expr-event (focus e d!)
             let
@@ -908,7 +473,7 @@
                   d! :call-cirru-edit $ [] :command-paste focus
                 true $ do (;nil js/console.log "\"unknown event:" e)
         |handle-leaf-event $ quote
-          defn handle-leaf-event (store focus token e d!)
+          defn handle-leaf-event (focus token editor files pkg e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -947,11 +512,9 @@
                     d! :call-cirru-edit $ [] :fold-node focus
                 (= key "\"d")
                   if-let
-                    next-def-path $ let
-                        editor $ :editor store
-                      lookup-target-def (strip-at token) (:files store)
-                        get-in editor $ [] :stack (:pointer editor)
-                        :package store
+                    next-def-path $ lookup-target-def (strip-at token) files
+                      get-in editor $ [] :stack (:pointer editor)
+                      , pkg
                     d! :def-path next-def-path
                     d! :warn $ str "\"not found: " token
                 (and meta? (= "\"v" key))
@@ -960,12 +523,6 @@
                   d! :call-cirru-edit $ [] :update-token
                     [] focus $ str token (char-keymap key)
                 true $ do (;nil js/console.warn "\"unknown event:" e)
-        |head-in-list $ quote
-          defn head-in-list (xs)
-            if
-              some? $ first xs
-              list? $ first xs
-              , false
         |is-linear? $ quote
           defn is-linear? (xs)
             cond
@@ -1030,9 +587,6 @@
         |style-shadow-line $ quote
           def style-shadow-line $ {} (:width 1) (:alpha 0.7)
             :color $ hslx 200 70 54
-        |turn-quoted $ quote
-          defn turn-quoted (target)
-            if (string? target) (turn-symbol target) (map target turn-quoted)
         |with-linear? $ quote
           defn with-linear? (xs)
             cond
@@ -1466,6 +1020,462 @@
                     &max y-stack $ :y-stack info
                     inc idx
       :ns $ quote
+        ns app.comp.editor $ :require
+          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+          phlox.comp.button :refer $ comp-button
+          phlox.comp.drag-point :refer $ comp-drag-point
+          phlox.comp.slider :refer $ comp-slider
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+          app.comp.deps-tree :refer $ comp-deps-tree
+          app.analyze :refer $ lookup-target-def strip-at
+          phlox.util :refer $ measure-text-width!
+    |app.comp.key-event $ {}
+      :defs $ {}
+        |comp-key-event $ quote
+          defcomp comp-key-event (on-event)
+            [] (effect-listen-keyboard)
+              span $ {}
+                :on-keydown $ fn (e d!) (on-event e d!)
+        |effect-listen-keyboard $ quote
+          defeffect effect-listen-keyboard () (action el at?)
+            let
+                handler $ or (aget el "\"_dirtyEventListener")
+                  fn (event)
+                    if
+                      and
+                        or
+                          = "\"p" $ .-key event
+                          = "\"s" $ .-key event
+                          = "\"d" $ .-key event
+                          = "\"i" $ .-key event
+                        or (.-ctrlKey event) (.-metaKey event)
+                      .!preventDefault event
+                    .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
+              aset el "\"_dirtyEventListener" handler
+              case-default action nil
+                :mount $ js/window.addEventListener "\"keydown" handler
+                :unmount $ js/window.removeEventListener "\"keydown" handler
+      :ns $ quote
+        ns app.comp.key-event $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev? api-host
+    |app.comp.nav $ {}
+      :defs $ {}
+        |comp-files-entry $ quote
+          defcomp comp-files-entry (cursor state files on-close)
+            div
+              {} $ :style (merge ui/expand ui/row)
+              list->
+                {} $ :style ui/expand
+                -> (keys files) .to-list sort $ map
+                  fn (ns)
+                    [] ns $ div
+                      {} (:class-name "\"hover-entry")
+                        :style $ merge
+                          {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                          if
+                            = ns $ :ns state
+                            {} $ :background-color (hsl 0 0 100 0.3)
+                        :on-click $ fn (e d!)
+                          d! cursor $ assoc state :ns ns
+                      <> ns
+              =< 8 nil
+              if-let
+                ns $ :ns state
+                if-let
+                  file $ get files ns
+                  div
+                    {} $ :style ui/expand
+                    div
+                      {}
+                        :style $ {} (:cursor :pointer)
+                        :on-click $ fn (e d!)
+                          d! :def-path $ [] ns :ns
+                      <> ns $ {} (:font-family ui/font-code)
+                    =< nil 8
+                    list-> ({})
+                      -> files (get ns) (get :defs) keys .to-list sort $ map
+                        fn (def-name)
+                          [] def-name $ div
+                            {} (:class-name "\"hover-entry")
+                              :style $ merge
+                                {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+                              :on-click $ fn (e d!)
+                                d! :def-path $ [] ns :defs def-name
+                                on-close d!
+                            <> def-name
+        |comp-menu $ quote
+          defcomp comp-menu (states files def-path on-close)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} (:ns nil) (:query "\"") (:select-idx 0)
+                queries $ .split (:query state) "\" "
+                entries $ -> files .to-list
+                  mapcat $ fn (entry)
+                    let[] (ns file) entry $ flipped prepend ([] ns :ns)
+                      -> (:defs file) keys .to-list $ .map
+                        fn (def-name) ([] ns :defs def-name)
+                  filter $ fn (entry)
+                    every? queries $ fn (x)
+                      .includes? (str entry) x
+              [] (effect-focus "\"#query-box")
+                div
+                  {} $ :style
+                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0") (:z-index 100)
+                      :border $ str "\"1px solid " (hsl 0 0 30)
+                      :background-color $ hsl 0 0 20 0.4
+                  div
+                    {} $ :style ui/row-parted
+                    input $ {} (:id "\"query-box")
+                      :style $ merge ui/input
+                        {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
+                      :value $ :query state
+                      :on-input $ fn (e d!)
+                        d! cursor $ assoc state :query (:value e) :select-idx 0
+                      :autofocus true
+                      :autocomplete "\"off"
+                      :on-keydown $ fn (e d!)
+                        case-default (:key e) (;nil js/console.log e)
+                          "\"ArrowDown" $ d! cursor
+                            update state :select-idx $ fn (idx)
+                              if
+                                >= (inc idx) (count entries)
+                                , idx $ inc idx
+                          "\"ArrowUp" $ d! cursor
+                            update state :select-idx $ fn (idx)
+                              if (> idx 0) (dec idx) 0
+                          "\"Enter" $ if-let
+                            target $ get entries (:select-idx state)
+                            do (d! :def-path target) (on-close d!)
+                              d! cursor $ assoc state :query "\""
+                          "\"Escape" $ on-close d!
+                    a $ {} (:inner-text "\"×")
+                      :style $ merge ui/link
+                        {} (:font-size 24) (:font-weight 100) (:text-decoration :none)
+                          :color $ hsl 0 100 30
+                      :on-click $ fn (e d!) (on-close d!)
+                  =< nil 8
+                  if
+                    blank? $ :query state
+                    comp-files-entry cursor state files on-close
+                    comp-search-entry cursor state entries (:select-idx state)
+                      fn (idx d!)
+                        d! cursor $ assoc state :select-idx idx
+                      , on-close
+        |comp-navbar $ quote
+          defcomp comp-navbar (store states)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :menu? false
+                command-plugin $ use-prompt (>> states :command)
+                  {} (:text "\"command")
+                    :input-style $ {} (:font-family ui/font-code)
+                editor $ :editor store
+                def-path $ get-in editor
+                  [] :stack $ :pointer editor
+              div ({})
+                div
+                  {} $ :style (merge ui/row-parted style-navbar)
+                  span $ {} (:class-name "\"hover-entry")
+                    :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
+                      :color $ hsl 200 80 70
+                    :inner-text "\"Hovernia"
+                    :on-click $ fn (e d!)
+                      d! cursor $ assoc state :menu? true
+                      d! :router $ {} (:name :editor)
+                      .!preventDefault $ :event e
+                  div ({})
+                    a $ {} (:inner-text "\"Save") (:style ui/link)
+                      :on-click $ fn (e d!)
+                        on-save (:files store) (:saved-files store) d!
+                    =< 8 nil
+                    a $ {} (:inner-text "\"Command") (:style ui/link)
+                      :on-click $ fn (e d!)
+                        .show command-plugin d! $ fn (content)
+                          let
+                              code $ first (parse-cirru content)
+                            if (list? code) (run-command code store d!)
+                              d! :warn $ str "\"invalid command:" code
+                if (:menu? state)
+                  comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
+                    d! cursor $ assoc state :menu? false
+                div
+                  {} $ :style style-error
+                  <> $ or (:warning store) "\""
+                comp-stack (:stack editor) (:pointer editor) (:package store)
+                if (:picker-mode? editor) (comp-picker-mode)
+                comp-key-event $ fn (e d!)
+                  cond
+                      and
+                        or (:meta? e) (:ctrl? e)
+                        = "\"p" $ :key e
+                      if (:shift? e)
+                        .show command-plugin d! $ fn (content)
+                          let
+                              code $ first (parse-cirru content)
+                            if (list? code) (run-command code store d!)
+                              d! :warn $ str "\"invalid command:" code
+                        d! cursor $ update state :menu? not
+                    (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
+                      on-save (:files store) (:saved-files store) d!
+                    true nil
+                .render command-plugin
+        |comp-picker-mode $ quote
+          defcomp comp-picker-mode () $ div
+            {} (:title "\"Click to disable")
+              :style $ {} (:position :absolute) (:top 16) (:left 16) (:font-size 20) (:padding "\"8px 16px") (:font-family ui/font-fancy) (:border-radius "\"8px") (:cursor :pointer)
+                :border $ str "\"2px solid " (hsl 180 30 60)
+                :background-color $ hsl 120 80 80 0.8
+              :on-click $ fn (e d!) (d! :picker-mode false)
+            <> "\"Picker Mode"
+            comp-key-event $ fn (e d!)
+              if
+                = "\"Escape" $ :key e
+                d! :picker-mode false
+        |comp-search-entry $ quote
+          defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
+            let () $ list->
+              {} $ :style (merge ui/expand)
+              -> entries $ map-indexed
+                fn (idx entry)
+                  [] (str entry)
+                    div
+                      {} (:class-name "\"hover-entry")
+                        :style $ merge
+                          {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
+                          if (= idx selected-idx)
+                            {} $ :background-color (hsl 0 0 100 0.3)
+                        :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
+                          d! cursor $ assoc state :query "\""
+                      if
+                        = 2 $ count entry
+                        <> $ str (first entry) "\" :ns"
+                        div ({})
+                          <>
+                            str (first entry) "\"/"
+                            {} (:font-size 10)
+                              :color $ hsl 0 0 70
+                          =< 8 nil
+                          <> $ last entry
+        |effect-focus $ quote
+          defeffect effect-focus (query) (action el at?)
+            .!select $ js/document.querySelector query
+        |on-save $ quote
+          defn on-save (files saved-files d!)
+            let
+                removed-entries $ difference (keys saved-files) (keys files)
+                common-ns $ intersection (keys files) (keys saved-files)
+                new-entries $ ->
+                  difference (keys files) (keys saved-files)
+                  .to-list
+                  map $ fn (ns)
+                    [] ns $ get files ns
+                  pairs-map
+                changed-entries $ -> common-ns
+                  map $ fn (ns)
+                    [] ns $ let
+                        file $ get files ns
+                        saved-file $ get saved-files ns
+                      if (= file saved-file) nil $ let
+                          defs $ :defs file
+                          saved-defs $ :defs saved-file
+                          common-defs $ intersection (keys saved-defs) (keys defs)
+                          new-defs $ difference (keys defs) (keys saved-defs)
+                        {}
+                          :ns $ if
+                            = (:ns file) (:ns saved-file)
+                            , nil (:ns file)
+                          :added-defs $ -> new-defs
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                          :removed-defs $ difference (keys saved-defs) (keys defs)
+                          :changed-defs $ -> common-defs
+                            filter $ fn (def-name)
+                              not= (get defs def-name) (get saved-defs def-name)
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                  filter $ fn (pair)
+                    some? $ nth pair 1
+                  pairs-map
+                content $ format-cirru-edn
+                  {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
+              ; js/console.log changed-entries
+              ; println $ format-cirru-edn changed-entries
+              ->
+                js/fetch (str api-host "\"/compact-inc")
+                  js-object (:method "\"PUT") (:body content)
+                .!then $ fn (res) (d! :ok nil)
+                .!catch $ fn (e)
+                  d! :warn $ str e
+        |run-command $ quote
+          defn run-command (code store d!)
+            let
+                p1 $ get code 1
+              case-default (first code)
+                d! :warn $ str "\"invalid command: " code
+                "\"add-ns" $ d! :add-ns p1
+                "\"rm-ns" $ d! :rm-ns p1
+                "\"add-def" $ d! :add-def
+                  [] p1 $ nth code 2
+                "\"rm-def" $ d! :rm-def
+                  [] p1 $ nth code 2
+                "\"mv-ns" $ d! :mv-ns
+                  [] p1 $ nth code 2
+                "\"mv-def" $ d! :mv-def
+                  [] p1 $ nth code 2
+                "\"load" $ load-files! d!
+                "\"save" $ on-save (:files store) (:saved-files store) d!
+                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
+                "\"deps-tree" $ do
+                  d! :router $ {} (:name :deps-tree)
+                  d! :deps-tree $ wo-js-log
+                    analyze-deps $ :files store
+        |style-error $ quote
+          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
+            :color $ hsl 0 90 70
+            :background-color $ hsl 0 0 0 0.7
+        |style-navbar $ quote
+          def style-navbar $ {} (:padding "\"0px 8px") (:position :absolute) (:top 16) (:left 0) (:width "\"100%") (:height 0)
+      :ns $ quote
+        ns app.comp.nav $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev? api-host
+          app.widget :as widget
+          respo-alerts.core :refer $ use-prompt
+          app.comp.key-event :refer $ comp-key-event
+          app.fetch :refer $ load-files!
+          app.analyze :refer $ analyze-deps
+          app.comp.stack :refer $ comp-stack
+    |app.comp.stack $ {}
+      :defs $ {}
+        |comp-stack $ quote
+          defcomp comp-stack (stack pointer pkg)
+            div ({})
+              list->
+                {} $ :style
+                  merge ui/column $ {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start)
+                -> stack $ map-indexed
+                  fn (idx frame)
+                    [] idx $ div
+                      {}
+                        :on-click $ fn (e d!) (d! :stack-pointer idx)
+                        :style $ merge
+                          {} (:cursor :pointer) (:padding "\"4px 8px")
+                          if (= idx pointer)
+                            {} $ :background-color (hsl 0 0 30)
+                      case-default (nth frame 1)
+                        <> (str "\"Err: " frame)
+                          {} $ :color :red
+                        :ns $ <>
+                          str $ nth frame 0
+                        :defs $ div
+                          {} $ :style (merge ui/column)
+                          <>
+                            str (nth frame 0) "\"/"
+                            {} (:font-size 10) (:line-height 1)
+                              :color $ hsl 0 0 60
+                          div ({})
+                            <> (nth frame 2)
+                              {} $ :color (hsl 0 0 100)
+              comp-key-event $ fn (e d!)
+                cond
+                    and
+                      or (:meta? e) (:ctrl? e)
+                      = "\"k" $ :key e
+                    d! :pointer-shrink pointer
+                  (and (or (:meta? e) (:ctrl? e)) (= "\"j" (:key e)))
+                    d! :pointer-down pointer
+                  (and (or (:meta? e) (:ctrl? e)) (= "\"i" (:key e)))
+                    d! :pointer-up pointer
+                  true nil
+      :ns $ quote
+        ns app.comp.stack $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.widget :as widget
+          app.comp.key-event :refer $ comp-key-event
+          app.analyze :refer $ analyze-deps
+    |app.config $ {}
+      :defs $ {}
+        |api-host $ quote
+          def api-host $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6101")
+        |code-font $ quote (def code-font "\"Roboto Mono, monospace")
+        |cors-headers $ quote
+          def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
+        |dot-radius $ quote (def dot-radius 4)
+        |leaf-gap $ quote (def leaf-gap 16)
+        |leaf-height $ quote (def leaf-height 24)
+        |line-height $ quote (def line-height 32)
+        |site $ quote
+          def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
+        |twist-distance $ quote
+          def twist-distance $ * 0.8 js/window.innerWidth
+      :ns $ quote
+        ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
+    |app.container $ {}
+      :defs $ {}
+        |comp-container $ quote
+          defcomp comp-container (store)
+            let
+                states $ :states store
+                cursor $ []
+                state $ or (:data states)
+                  {} (:selected-ns nil) (:def-target nil)
+                editor $ :editor store
+                focus $ :focus editor
+                files $ :files store
+                router $ :router store
+              case-default (:name router)
+                text $ {}
+                  :text $ str "\"Unknown router: " router
+                  :position $ [] 1 1
+                  :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                :editor $ comp-editor editor files focus (:package store)
+                :deps-tree $ if
+                  nil? $ :deps-tree store
+                  text $ {} (:text "\"tree is empty")
+                    :position $ [] 1 1
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                  comp-deps-tree (:deps-tree store) (-> store :configs :init-fn) (:package store)
+        |comp-hint $ quote
+          defn comp-hint (states focus target)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :p1 ([] 400 -100)
+              container ({})
+                comp-drag-point (>> states :p1)
+                  {} (:hide-text? true)
+                    :position $ :p1 state
+                    :radius 8
+                    :fill $ hslx 60 90 44
+                    :on-change $ fn (position d!)
+                      d! cursor $ assoc state :p1 position
+                text $ {}
+                  :text $ .!slice
+                    format-to-lisp $ turn-quoted target
+                    , 0 200
+                  :position $ complex/add (:p1 state) ([] 12 -6)
+                  :style $ {}
+                    :fill $ hslx 200 40 50
+                    :font-size 10
+                    :font-family "|Roboto Mono, manospace"
+        |turn-quoted $ quote
+          defn turn-quoted (target)
+            if (string? target) (turn-symbol target) (map target turn-quoted)
+      :ns $ quote
         ns app.container $ :require
           phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
           phlox.comp.button :refer $ comp-button
@@ -1478,6 +1488,7 @@
           app.comp.deps-tree :refer $ comp-deps-tree
           app.analyze :refer $ lookup-target-def strip-at
           phlox.util :refer $ measure-text-width!
+          app.comp.editor :refer $ comp-editor
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
