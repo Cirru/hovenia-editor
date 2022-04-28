@@ -1941,7 +1941,8 @@
                       assoc-in def-path $ :: 'quote (:tree result)
                       assoc-in ([] :editor :focus)
                         or (:focus result) (:focus editor)
-                      assoc :warning (:warning result) :clipboard $ :clipboard result
+                      assoc-in ([] :editor :clipboard) (:clipboard result)
+                      assoc :warning $ :warning result
                   assoc store :warning $ str "\"target not found at:" def-path
               :cirru-edit-node $ let-sugar
                     [] focus code
