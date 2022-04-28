@@ -495,7 +495,7 @@
           defn char-keymap (key)
             case-default key key ("\":" "\";") ("\";" "\":") ("\"\\" "\"|") ("\"|" "\"\\")
         |comp-editor $ quote
-          defn comp-editor (code focus pkg)
+          defn comp-editor (code focus def-path pkg)
             container
               {} $ :on-keyboard
                 {} $ :down
@@ -514,9 +514,9 @@
                           target $ get-in code focus
                         cond
                             list? target
-                            handle-expr-event focus (dissoc e :event) d!
+                            handle-expr-event focus def-path (dissoc e :event) d!
                           (string? target)
-                            handle-leaf-event focus target (dissoc e :event) d!
+                            handle-leaf-event focus def-path target (dissoc e :event) d!
                           (nil? nil) nil
                           true $ js/console.error "\"unknown target" target
               :tree $ let
@@ -544,7 +544,7 @@
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
         |handle-expr-event $ quote
-          defn handle-expr-event (focus e d!)
+          defn handle-expr-event (focus def-path e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -585,9 +585,12 @@
                   d! :call-cirru-edit $ [] :command-cut focus
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
+                (and meta? (= "\"e" key))
+                  d! :def-path $ w-log
+                    [] (first def-path) :ns
                 true $ do (;nil js/console.log "\"unknown event:" e)
         |handle-leaf-event $ quote
-          defn handle-leaf-event (focus token e d!)
+          defn handle-leaf-event (focus def-path token e d!)
             let
                 key $ :key e
                 code $ :key-code e
@@ -628,6 +631,9 @@
                   d! :effect-goto-def $ strip-at token
                 (and meta? (= "\"v" key))
                   d! :call-cirru-edit $ [] :command-paste focus
+                (and meta? (= "\"e" key))
+                  d! :def-path $ w-log
+                    [] (first def-path) :ns
                 (and (= 1 (count key)) (not meta?))
                   d! :call-cirru-edit $ [] :update-token
                     [] focus $ str token (char-keymap key)
@@ -1224,14 +1230,24 @@
                 state $ or (:data states)
                   {} (:ns nil) (:query "\"") (:select-idx 0)
                 queries $ .split (:query state) "\" "
-                entries $ -> files .to-list
+                all-entries $ -> files .to-list
                   mapcat $ fn (entry)
                     let[] (ns file) entry $ flipped prepend ([] ns :ns)
                       -> (:defs file) keys .to-list $ .map
                         fn (def-name) ([] ns :defs def-name)
+                def-entries $ -> all-entries
                   filter $ fn (entry)
-                    every? queries $ fn (x)
-                      .includes? (str entry) x
+                    and
+                      = :defs $ nth entry 1
+                      every? queries $ fn (x)
+                        .includes? (nth entry 2) x
+                ns-entries $ -> all-entries
+                  filter $ fn (entry)
+                    and
+                      = :ns $ nth entry 1
+                      every? queries $ fn (x)
+                        .includes? (nth entry 0) x
+                entries $ concat def-entries ns-entries
               [] (effect-focus "\"#query-box")
                 div
                   {} $ :style
@@ -1301,11 +1317,17 @@
                       d! :router $ {} (:name :editor)
                       .!preventDefault $ :event e
                   div ({})
-                    a $ {} (:inner-text "\"Save") (:style ui/link)
-                      :on-click $ fn (e d!)
-                        on-save (:files store) (:saved-files store) d!
+                    if
+                      not $ identical? (:files store) (:saved-files store)
+                      a $ {} (:inner-text "\"Save")
+                        :style $ merge ui/link
+                          {} $ :font-family ui/font-fancy
+                        :on-click $ fn (e d!)
+                          on-save (:files store) (:saved-files store) d!
                     =< 8 nil
-                    a $ {} (:inner-text "\"Command") (:style ui/link)
+                    a $ {} (:inner-text "\"Command")
+                      :style $ merge ui/link
+                        {} $ :font-family ui/font-fancy
                       :on-click $ fn (e d!)
                         .show command-plugin d! $ fn (content)
                           let
@@ -1371,12 +1393,11 @@
                         = 2 $ count entry
                         <> $ str (first entry) "\" :ns"
                         div ({})
-                          <>
-                            str (first entry) "\"/"
+                          <> $ last entry
+                          =< 8 nil
+                          <> (first entry)
                             {} (:font-size 10)
                               :color $ hsl 0 0 70
-                          =< 8 nil
-                          <> $ last entry
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
@@ -1562,16 +1583,15 @@
                   :position $ [] 1 1
                   :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                 :editor $ let
-                    code $ -> files
-                      get-in $ either
-                        get-in editor $ [] :stack (:pointer editor)
-                        []
-                      get 1
+                    def-path $ either
+                      get-in editor $ [] :stack (:pointer editor)
+                      []
+                    code $ -> files (get-in def-path) (get 1)
                   if (nil? code)
                     text $ {} (:text "\"No code selected")
                       :position $ [] -60 0
                       :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
-                    memof1-call comp-editor code focus $ :package store
+                    memof1-call comp-editor code focus def-path $ :package store
                 :deps-tree $ if
                   nil? $ :deps-tree store
                   text $ {} (:text "\"tree is empty")
