@@ -183,6 +183,24 @@
       :ns $ quote (ns app.analyze)
     |app.comp.deps-of $ {}
       :defs $ {}
+        |comp-curves $ quote
+          defn comp-curves (connections)
+            graphics $ {}
+              :ops $ concat &
+                -> connections $ map-indexed
+                  fn (idx pair)
+                    let
+                        from $ nth pair 0
+                        p1 $ nth pair 1
+                        p2 $ nth pair 2
+                        to $ nth pair 3
+                      []
+                        g :line-style $ {} (:width 2) (:alpha 1)
+                          :color $ hclx
+                            .rem (* 37 idx) 360
+                            , 100 60
+                        g :move-to from
+                        g :bezier-to $ {} (:p1 p1) (:p2 p2) (:to-p to)
         |comp-deps-of $ quote
           defn comp-deps-of (deps-tree entry pkg) (; js/console.log deps-tree entry)
             if (contains? deps-tree entry)
@@ -201,13 +219,31 @@
                           = (nth entry 0) (nth piece 0)
                           = (nth entry 1) (nth piece 1)
                     keys
-                container ({})
-                  comp-button $ {}
-                    :text $ str (nth entry 0) "\"/" (nth entry 1)
+                  mid-text $ str (nth entry 0) "\"/" (nth entry 1)
+                  button-width $ + 16 (measure-text-width! mid-text 14 "\"Josefin Sans")
+                  connections $ concat
+                    -> dependants .to-list $ map-indexed
+                      fn (idx item)
+                        let
+                            to $ [] -200
+                              + 16 $ * (dec idx) 40
+                            p2 $ complex/add to ([] 100 0)
+                          [] ([] 0 16) ([] -100 16) p2 to
+                    -> internal-deps $ map-indexed
+                      fn (idx item)
+                        let
+                            to $ [] 320
+                              + 16 $ * (dec idx) 40
+                            p2 $ complex/add to ([] -100 0)
+                          [] ([] button-width 16)
+                            [] (+ 100 button-width) 16
+                            , p2 to
+                container ({}) (comp-curves connections)
+                  comp-button $ {} (:text mid-text)
                     :position $ [] 0 0
                     :align-right? false
                   create-list :container
-                    {} $ :position ([] -320 -40)
+                    {} $ :position ([] -200 -40)
                     -> dependants .to-list $ map-indexed
                       fn (idx item)
                         [] idx $ comp-button
@@ -215,11 +251,18 @@
                             :text $ str (nth item 0) "\"/" (nth item 1) "\"  "
                               count $ get deps-tree (take item 2)
                             :position $ [] 0 (* idx 40)
-                            :align-right? false
+                            :align-right? true
                             :on $ {}
                               :pointertap $ fn (e d!)
-                                d! :router $ {} (:name :deps-of)
-                                  :data $ take item 2
+                                let
+                                    event $ -> e .-data .-originalEvent
+                                  if
+                                    or (.-metaKey event) (.-ctrlKey event)
+                                    do
+                                      d! :def-path $ [] (nth item 0) :defs (nth item 1)
+                                      d! :router $ {} (:name :editor)
+                                    d! :router $ {} (:name :deps-of)
+                                      :data $ take item 2
                   create-list :container
                     {} $ :position ([] 320 -40)
                     -> internal-deps $ map-indexed
@@ -235,15 +278,22 @@
                             :align-right? false
                             :on $ {}
                               :pointertap $ fn (e d!)
-                                d! :router $ {} (:name :deps-of)
-                                  :data $ take item 2
+                                let
+                                    event $ -> e .-data .-originalEvent
+                                  if
+                                    or (.-metaKey event) (.-ctrlKey event)
+                                    do
+                                      d! :def-path $ [] (nth item 0) :defs (nth item 1)
+                                      d! :router $ {} (:name :editor)
+                                    d! :router $ {} (:name :deps-of)
+                                      :data $ take item 2
               text $ {}
                 :text $ str "\"not found: " entry
                 :position $ [] 1 1
                 :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
       :ns $ quote
         ns app.comp.deps-of $ :require
-          phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+          phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline
           phlox.comp.button :refer $ comp-button
           app.math :refer $ divide-path multiply-path
           app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
@@ -1402,7 +1452,12 @@
                 "\"deps-of" $ do
                   d! :deps-tree $ analyze-deps (:files store)
                   d! :router $ {} (:name :deps-of)
-                    :data $ [] p1 p2
+                    :data $ if (some? p2) ([] p1 p2)
+                      let
+                          editor $ :editor store
+                          def-path $ get-in editor
+                            [] :stack $ :pointer editor
+                        [] (nth def-path 0) (nth def-path 2)
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -1428,7 +1483,7 @@
             div ({})
               list->
                 {} $ :style
-                  merge ui/column $ {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start)
+                  merge ui/column $ {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
                 -> stack $ map-indexed
                   fn (idx frame)
                     [] idx $ div
