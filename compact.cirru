@@ -1189,7 +1189,7 @@
                 -> (keys files) .to-list sort $ map
                   fn (ns)
                     [] ns $ div
-                      {} (:class-name "\"hover-entry")
+                      {} (:class-name css-hover-entry)
                         :style $ merge
                           {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
                           if
@@ -1216,7 +1216,7 @@
                       -> files (get ns) (get :defs) keys .to-list sort $ map
                         fn (def-name)
                           [] def-name $ div
-                            {} (:class-name "\"hover-entry")
+                            {} (:class-name css-hover-entry)
                               :style $ merge
                                 {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
                               :on-click $ fn (e d!)
@@ -1308,7 +1308,7 @@
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
-                  span $ {} (:class-name "\"hover-entry")
+                  span $ {} (:class-name css-hover-entry)
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
                       :color $ hsl 200 80 70
                     :inner-text "\"Hovernia"
@@ -1382,7 +1382,7 @@
                 fn (idx entry)
                   [] (str entry)
                     div
-                      {} (:class-name "\"hover-entry")
+                      {} (:class-name css-hover-entry)
                         :style $ merge
                           {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
                           if (= idx selected-idx)
@@ -1497,6 +1497,7 @@
           app.fetch :refer $ load-files!
           app.analyze :refer $ analyze-deps
           app.comp.stack :refer $ comp-stack
+          app.style :refer $ css-hover-entry
     |app.comp.stack $ {}
       :defs $ {}
         |comp-stack $ quote
@@ -1508,7 +1509,7 @@
                 -> stack $ map-indexed
                   fn (idx frame)
                     [] idx $ div
-                      {}
+                      {} (:class-name css-hover-entry)
                         :on-click $ fn (e d!) (d! :stack-pointer idx)
                         :style $ merge
                           {} (:cursor :pointer) (:padding "\"4px 8px") (:border-radius "\"6px")
@@ -1547,6 +1548,7 @@
           app.widget :as widget
           app.comp.key-event :refer $ comp-key-event
           app.analyze :refer $ analyze-deps
+          app.style :refer $ css-hover-entry
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -1896,6 +1898,17 @@
         ns app.server $ :require
           http.core :refer $ serve-http!
           app.config :refer $ cors-headers
+    |app.style $ {}
+      :defs $ {}
+        |css-hover-entry $ quote
+          defstyle css-hover-entry $ {}
+            "\"$0" $ {} (:cursor :pointer)
+            "\"$0:hover" $ {}
+              :background-color $ hsl 0 0 100 0.2
+      :ns $ quote
+        ns app.style $ :require
+          respo.css :refer $ defstyle
+          respo-ui.core :refer $ hsl
     |app.updater $ {}
       :defs $ {}
         |splice-after $ quote
@@ -2022,7 +2035,13 @@
                   contains-in? store $ [] :files from
                   update store :files $ fn (files)
                     -> files (dissoc from)
-                      assoc to $ get files from
+                      assoc to $ -> (get files from)
+                        update-in ([] :ns 1)
+                          fn (code)
+                            if
+                              string? $ get code 1
+                              assoc code 1 to
+                              do (js/console.warn "\"ns name not found in:" code) code
                   assoc store :warning $ str "\"unknown ns: " from
               :mv-def $ let-sugar
                     [] from to
@@ -2039,7 +2058,13 @@
                       -> files
                         dissoc-in $ [] from-ns :defs from-def
                         assoc-in ([] to-ns :defs to-def)
-                          get-in files $ [] from-ns :defs from-def
+                          ->
+                            get-in files $ [] from-ns :defs from-def
+                            update 1 $ fn (code)
+                              if
+                                string? $ get code 1
+                                assoc code 1 to-def
+                                do (js/console.warn "\"def not found in:" code) code
                     assoc :warning nil
                   assoc store :warning $ str "\"unknown ns/def: " from
               :picker-mode $ assoc-in store ([] :editor :picker-mode?) op-data
