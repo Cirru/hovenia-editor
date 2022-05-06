@@ -181,6 +181,171 @@
               .!slice token 1
               , token
       :ns $ quote (ns app.analyze)
+    |app.comp.command $ {}
+      :defs $ {}
+        |comp-command $ quote
+          defcomp comp-command (states store on-close)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :content "\""
+                editor $ :editor store
+                def-path $ get-in editor
+                  [] :stack $ :pointer editor
+              [] (effect-focus)
+                div
+                  {} $ :style
+                    merge ui/column $ {} (:padding 16)
+                  div ({})
+                    input $ {} (:placeholder "\"Command...") (:autofocus true) (:id "\"command-box") (:spellcheck false) (:autocomplete "\"off")
+                      :class-name $ str-spaced css/input css-command-box
+                      :style $ {} (:width "\"100%")
+                      :value $ :content state
+                      :on-input $ fn (e d!)
+                        d! cursor $ assoc state :content (:value e)
+                      :on-keydown $ fn (e d!)
+                        cond
+                            = 13 $ :keycode e
+                            let
+                                code $ first
+                                  parse-cirru $ :content state
+                              if (list? code) (run-command code store d!)
+                                d! :warn $ str "\"invalid command:" code
+                              on-close d!
+                          (= "\"Escape" (:key e))
+                            on-close d!
+                  =< nil 16
+                  if (list? def-path)
+                    list->
+                      {} $ :style
+                        {} $ :line-height "\"20px"
+                      -> def-path $ map-indexed
+                        fn (idx piece)
+                          [] idx $ span
+                            {} (:class-name css-path-tag)
+                              :inner-text $ str piece
+                              :on-click $ fn (e d!)
+                                let
+                                    box $ -> "\"#command-box" js/document.querySelector
+                                  set! (.-value box)
+                                    str (.-value box) (str piece)
+                                  .!focus box
+                  =< nil 16
+                  div
+                    {} $ :style ui/row-middle
+                    button $ {} (:class-name css/button) (:inner-text "\"Run")
+                      :on-click $ fn (e d!)
+                        let
+                            code $ first
+                              parse-cirru $ :content state
+                          if (list? code) (run-command code store d!)
+                            d! :warn $ str "\"invalid command:" code
+                          on-close d!
+                    =< 16 nil
+                    a $ {} (:inner-text "\"Available Commands") (:class-name css/link) (:href "\"https://github.com/Cirru/hovenia-editor#commands") (:target "\"_blank")
+        |css-command-box $ quote
+          defstyle css-command-box $ {}
+            "\"$0" $ {} (:font-family ui/font-code) (:line-height "\"40px") (:height "\"40px")
+        |css-path-tag $ quote
+          defstyle css-path-tag $ {}
+            "\"$0" $ {} (:font-family ui/font-code) (:display :inline-block) (:white-space :pre-line) (:padding "\"0 6px") (:margin-right "\"4px") (:margin-bottom "\"4px") (:border-radius "\"6px") (:cursor :pointer) (:color :white)
+              :background-color $ hsl 200 50 70
+            "\"$0:hover" $ {}
+              :background-color $ hsl 200 50 60
+        |effect-focus $ quote
+          defeffect effect-focus () (action el at?)
+            if (= :mount action)
+              .!select $ .!querySelector el "\"input"
+        |on-save $ quote
+          defn on-save (files saved-files d!)
+            let
+                removed-entries $ difference (keys saved-files) (keys files)
+                common-ns $ intersection (keys files) (keys saved-files)
+                new-entries $ ->
+                  difference (keys files) (keys saved-files)
+                  .to-list
+                  map $ fn (ns)
+                    [] ns $ get files ns
+                  pairs-map
+                changed-entries $ -> common-ns
+                  map $ fn (ns)
+                    [] ns $ let
+                        file $ get files ns
+                        saved-file $ get saved-files ns
+                      if (= file saved-file) nil $ let
+                          defs $ :defs file
+                          saved-defs $ :defs saved-file
+                          common-defs $ intersection (keys saved-defs) (keys defs)
+                          new-defs $ difference (keys defs) (keys saved-defs)
+                        {}
+                          :ns $ if
+                            = (:ns file) (:ns saved-file)
+                            , nil (:ns file)
+                          :added-defs $ -> new-defs
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                          :removed-defs $ difference (keys saved-defs) (keys defs)
+                          :changed-defs $ -> common-defs
+                            filter $ fn (def-name)
+                              not= (get defs def-name) (get saved-defs def-name)
+                            map $ fn (def-name)
+                              [] def-name $ get defs def-name
+                            pairs-map
+                  filter $ fn (pair)
+                    some? $ nth pair 1
+                  pairs-map
+                content $ format-cirru-edn
+                  {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
+              ; js/console.log changed-entries
+              ; println $ format-cirru-edn changed-entries
+              ->
+                js/fetch (str api-host "\"/compact-inc")
+                  js-object (:method "\"PUT") (:body content)
+                .!then $ fn (res) (d! :ok nil)
+                .!catch $ fn (e)
+                  d! :warn $ str e
+        |run-command $ quote
+          defn run-command (code store d!)
+            let
+                p1 $ get code 1
+                p2 $ get code 2
+              case-default (first code)
+                d! :warn $ str "\"invalid command: " code
+                "\"add-ns" $ d! :add-ns p1
+                "\"rm-ns" $ d! :rm-ns p1
+                "\"add-def" $ d! :add-def ([] p1 p2)
+                "\"rm-def" $ d! :rm-def ([] p1 p2)
+                "\"mv-ns" $ d! :mv-ns ([] p1 p2)
+                "\"mv-def" $ d! :mv-def ([] p1 p2)
+                "\"load" $ load-files! d!
+                "\"save" $ on-save (:files store) (:saved-files store) d!
+                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
+                "\"deps-tree" $ do
+                  d! :deps-tree $ wo-js-log
+                    analyze-deps $ :files store
+                  d! :router $ {} (:name :deps-tree)
+                "\"deps-of" $ do
+                  d! :deps-tree $ analyze-deps (:files store)
+                  d! :router $ {} (:name :deps-of)
+                    :data $ if (some? p2) ([] p1 p2)
+                      let
+                          editor $ :editor store
+                          def-path $ get-in editor
+                            [] :stack $ :pointer editor
+                        [] (nth def-path 0) (nth def-path 2)
+      :ns $ quote
+        ns app.comp.command $ :require (respo-ui.core :as ui)
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
+          respo.comp.space :refer $ =<
+          app.config :refer $ dev? api-host
+          app.widget :as widget
+          app.fetch :refer $ load-files!
+          app.style :refer $ css-hover-entry
+          app.analyze :refer $ analyze-deps
+          respo-ui.css :as css
+          respo.css :refer $ defstyle
     |app.comp.deps-of $ {}
       :defs $ {}
         |comp-curves $ quote
@@ -1189,7 +1354,7 @@
                 -> (keys files) .to-list sort $ map
                   fn (ns)
                     [] ns $ div
-                      {} (:class-name "\"hover-entry")
+                      {} (:class-name css-hover-entry)
                         :style $ merge
                           {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
                           if
@@ -1216,7 +1381,7 @@
                       -> files (get ns) (get :defs) keys .to-list sort $ map
                         fn (def-name)
                           [] def-name $ div
-                            {} (:class-name "\"hover-entry")
+                            {} (:class-name css-hover-entry)
                               :style $ merge
                                 {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
                               :on-click $ fn (e d!)
@@ -1298,9 +1463,16 @@
                 cursor $ :cursor states
                 state $ or (:data states)
                   {} $ :menu? false
-                command-plugin $ use-prompt (>> states :command)
+                ; command-plugin $ use-prompt (>> states :command)
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
+                command-plugin $ use-modal (>> states :command-modal)
+                  {}
+                    :style $ {} (:max-width "\"80vw")
+                    :container-style $ {}
+                    :backdrop-style $ {}
+                    :render $ fn (on-close)
+                      comp-command (>> states :command) store on-close
                 editor $ :editor store
                 router $ :router store
                 def-path $ get-in editor
@@ -1308,7 +1480,7 @@
               div ({})
                 div
                   {} $ :style (merge ui/row-parted style-navbar)
-                  span $ {} (:class-name "\"hover-entry")
+                  span $ {} (:class-name css-hover-entry)
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
                       :color $ hsl 200 80 70
                     :inner-text "\"Hovernia"
@@ -1328,14 +1500,9 @@
                     a $ {} (:inner-text "\"Command")
                       :style $ merge ui/link
                         {} $ :font-family ui/font-fancy
-                      :on-click $ fn (e d!)
-                        .show command-plugin d! $ fn (content)
-                          let
-                              code $ first (parse-cirru content)
-                            if (list? code) (run-command code store d!)
-                              d! :warn $ str "\"invalid command:" code
+                      :on-click $ fn (e d!) (.show command-plugin d!)
                 if (:menu? state)
-                  comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
+                  memof1-call comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
                     d! cursor $ assoc state :menu? false
                 div
                   {} $ :style style-error
@@ -1351,12 +1518,7 @@
                       and
                         or (:meta? e) (:ctrl? e)
                         = "\"p" $ :key e
-                      if (:shift? e)
-                        .show command-plugin d! $ fn (content)
-                          let
-                              code $ first (parse-cirru content)
-                            if (list? code) (run-command code store d!)
-                              d! :warn $ str "\"invalid command:" code
+                      if (:shift? e) (.show command-plugin d!)
                         d! cursor $ update state :menu? not
                     (and (or (:meta? e) (:ctrl? e)) (= "\"s" (:key e)))
                       on-save (:files store) (:saved-files store) d!
@@ -1382,7 +1544,7 @@
                 fn (idx entry)
                   [] (str entry)
                     div
-                      {} (:class-name "\"hover-entry")
+                      {} (:class-name css-hover-entry)
                         :style $ merge
                           {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "\"0 8px")
                           if (= idx selected-idx)
@@ -1401,84 +1563,6 @@
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
-        |on-save $ quote
-          defn on-save (files saved-files d!)
-            let
-                removed-entries $ difference (keys saved-files) (keys files)
-                common-ns $ intersection (keys files) (keys saved-files)
-                new-entries $ ->
-                  difference (keys files) (keys saved-files)
-                  .to-list
-                  map $ fn (ns)
-                    [] ns $ get files ns
-                  pairs-map
-                changed-entries $ -> common-ns
-                  map $ fn (ns)
-                    [] ns $ let
-                        file $ get files ns
-                        saved-file $ get saved-files ns
-                      if (= file saved-file) nil $ let
-                          defs $ :defs file
-                          saved-defs $ :defs saved-file
-                          common-defs $ intersection (keys saved-defs) (keys defs)
-                          new-defs $ difference (keys defs) (keys saved-defs)
-                        {}
-                          :ns $ if
-                            = (:ns file) (:ns saved-file)
-                            , nil (:ns file)
-                          :added-defs $ -> new-defs
-                            map $ fn (def-name)
-                              [] def-name $ get defs def-name
-                            pairs-map
-                          :removed-defs $ difference (keys saved-defs) (keys defs)
-                          :changed-defs $ -> common-defs
-                            filter $ fn (def-name)
-                              not= (get defs def-name) (get saved-defs def-name)
-                            map $ fn (def-name)
-                              [] def-name $ get defs def-name
-                            pairs-map
-                  filter $ fn (pair)
-                    some? $ nth pair 1
-                  pairs-map
-                content $ format-cirru-edn
-                  {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
-              ; js/console.log changed-entries
-              ; println $ format-cirru-edn changed-entries
-              ->
-                js/fetch (str api-host "\"/compact-inc")
-                  js-object (:method "\"PUT") (:body content)
-                .!then $ fn (res) (d! :ok nil)
-                .!catch $ fn (e)
-                  d! :warn $ str e
-        |run-command $ quote
-          defn run-command (code store d!)
-            let
-                p1 $ get code 1
-                p2 $ get code 2
-              case-default (first code)
-                d! :warn $ str "\"invalid command: " code
-                "\"add-ns" $ d! :add-ns p1
-                "\"rm-ns" $ d! :rm-ns p1
-                "\"add-def" $ d! :add-def ([] p1 p2)
-                "\"rm-def" $ d! :rm-def ([] p1 p2)
-                "\"mv-ns" $ d! :mv-ns ([] p1 p2)
-                "\"mv-def" $ d! :mv-def ([] p1 p2)
-                "\"load" $ load-files! d!
-                "\"save" $ on-save (:files store) (:saved-files store) d!
-                "\"pick" $ if (= p1 "\"off") (d! :picker-mode false) (d! :picker-mode true)
-                "\"deps-tree" $ do
-                  d! :deps-tree $ wo-js-log
-                    analyze-deps $ :files store
-                  d! :router $ {} (:name :deps-tree)
-                "\"deps-of" $ do
-                  d! :deps-tree $ analyze-deps (:files store)
-                  d! :router $ {} (:name :deps-of)
-                    :data $ if (some? p2) ([] p1 p2)
-                      let
-                          editor $ :editor store
-                          def-path $ get-in editor
-                            [] :stack $ :pointer editor
-                        [] (nth def-path 0) (nth def-path 2)
         |style-error $ quote
           def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
             :color $ hsl 0 90 70
@@ -1492,11 +1576,13 @@
           respo.comp.space :refer $ =<
           app.config :refer $ dev? api-host
           app.widget :as widget
-          respo-alerts.core :refer $ use-prompt
+          respo-alerts.core :refer $ use-prompt use-modal
           app.comp.key-event :refer $ comp-key-event
           app.fetch :refer $ load-files!
-          app.analyze :refer $ analyze-deps
           app.comp.stack :refer $ comp-stack
+          app.style :refer $ css-hover-entry
+          app.comp.command :refer $ comp-command on-save run-command
+          memof.once :refer $ memof1-call
     |app.comp.stack $ {}
       :defs $ {}
         |comp-stack $ quote
@@ -1508,7 +1594,7 @@
                 -> stack $ map-indexed
                   fn (idx frame)
                     [] idx $ div
-                      {}
+                      {} (:class-name css-hover-entry)
                         :on-click $ fn (e d!) (d! :stack-pointer idx)
                         :style $ merge
                           {} (:cursor :pointer) (:padding "\"4px 8px") (:border-radius "\"6px")
@@ -1547,6 +1633,7 @@
           app.widget :as widget
           app.comp.key-event :refer $ comp-key-event
           app.analyze :refer $ analyze-deps
+          app.style :refer $ css-hover-entry
     |app.config $ {}
       :defs $ {}
         |api-host $ quote
@@ -1896,6 +1983,21 @@
         ns app.server $ :require
           http.core :refer $ serve-http!
           app.config :refer $ cors-headers
+    |app.style $ {}
+      :defs $ {}
+        |button $ quote
+          def button $ merge ui/button
+            {} $ :background :black
+        |css-hover-entry $ quote
+          defstyle css-hover-entry $ {}
+            "\"$0" $ {} (:cursor :pointer)
+            "\"$0:hover" $ {}
+              :background-color $ hsl 0 0 100 0.2
+      :ns $ quote
+        ns app.style $ :require
+          respo.css :refer $ defstyle
+          respo-ui.core :refer $ hsl
+          respo-ui.core :as ui
     |app.updater $ {}
       :defs $ {}
         |splice-after $ quote
@@ -1982,12 +2084,15 @@
                   let
                       pointer $ :pointer editor
                       stack $ :stack editor
-                    merge editor $ if (empty? stack)
-                      {} (:pointer 0)
-                        :stack $ [] op-data
-                      {}
-                        :stack $ .assoc-after stack pointer op-data
-                        :pointer $ inc pointer
+                    if
+                      = op-data $ get stack (inc pointer)
+                      update editor :pointer inc
+                      merge editor $ if (empty? stack)
+                        {} (:pointer 0)
+                          :stack $ [] op-data
+                        {}
+                          :stack $ .assoc-after stack pointer op-data
+                          :pointer $ inc pointer
               :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
@@ -2022,7 +2127,13 @@
                   contains-in? store $ [] :files from
                   update store :files $ fn (files)
                     -> files (dissoc from)
-                      assoc to $ get files from
+                      assoc to $ -> (get files from)
+                        update-in ([] :ns 1)
+                          fn (code)
+                            if
+                              string? $ get code 1
+                              assoc code 1 to
+                              do (js/console.warn "\"ns name not found in:" code) code
                   assoc store :warning $ str "\"unknown ns: " from
               :mv-def $ let-sugar
                     [] from to
@@ -2039,7 +2150,13 @@
                       -> files
                         dissoc-in $ [] from-ns :defs from-def
                         assoc-in ([] to-ns :defs to-def)
-                          get-in files $ [] from-ns :defs from-def
+                          ->
+                            get-in files $ [] from-ns :defs from-def
+                            update 1 $ fn (code)
+                              if
+                                string? $ get code 1
+                                assoc code 1 to-def
+                                do (js/console.warn "\"def not found in:" code) code
                     assoc :warning nil
                   assoc store :warning $ str "\"unknown ns/def: " from
               :picker-mode $ assoc-in store ([] :editor :picker-mode?) op-data
@@ -2064,10 +2181,3 @@
         ns app.updater $ :require
           phlox.cursor :refer $ update-states
           cirru-editor.core :refer $ cirru-edit
-    |app.widget $ {}
-      :defs $ {}
-        |button $ quote
-          def button $ merge ui/button
-            {} $ :background :black
-      :ns $ quote
-        ns app.widget $ :require (respo-ui.core :as ui)
