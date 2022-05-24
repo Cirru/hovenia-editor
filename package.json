@@ -14,11 +14,12 @@
     "vite": "^2.9.9"
   },
   "dependencies": {
-    "@calcit/procs": "^0.5.44-a3",
+    "@calcit/procs": "^0.5.44-a4",
     "@quamolit/phlox-utils": "^0.0.2",
     "@quamolit/touch-control": "^0.0.8",
     "bottom-tip": "^0.1.3",
     "fontfaceobserver-es": "^3.3.3",
+    "hsluv": "^0.1.0",
     "mobile-detect": "^1.4.5",
     "pixi.js": "6.3.2",
     "shortid": "^2.2.16"

@@ -181,6 +181,125 @@
               .!slice token 1
               , token
       :ns $ quote (ns app.analyze)
+    |app.comp.call-tree $ {}
+      :defs $ {}
+        |build-call-tree $ quote
+          defn build-call-tree (deps-tree entry parents)
+            let
+                ret $ if (.includes? parents entry)
+                  {} (:entry entry) (:looped? true)
+                    :children $ []
+                  {} (:entry entry) (:looped? false)
+                    :children $ let
+                        child-deps $ get deps-tree entry
+                      if (empty? child-deps) ([])
+                        -> child-deps
+                          map $ fn (entry3)
+                            let
+                                child-entry $ take entry3 2
+                              if (contains? deps-tree child-entry)
+                                build-call-tree deps-tree child-entry $ .include parents entry
+                                , nil
+                          filter some?
+              assoc ret :size $ count-tree ret
+        |comp-call-tree $ quote
+          defn comp-call-tree (deps-tree router pkg)
+            let
+                call-tree $ build-call-tree deps-tree ([] "\"app.main" "\"main!") (#{})
+              js/console.log call-tree
+              container ({})
+                ; w-js-log $ comp-curve 200 0.1 0.7 (hsluvx 20 100 60) 40
+                comp-sector call-tree (:base-radius sector-configs) 0
+                  *
+                    - 2 $ :gap-radian sector-configs
+                    , &PI
+                  , 0
+        |comp-sector $ quote
+          defn comp-sector (call-tree radius start-radian radian-size idx)
+            container ({})
+              create-list :container ({})
+                loop
+                    acc $ []
+                    xs $ :children call-tree
+                    a0 start-radian
+                  if (empty? xs) acc $ let
+                      child $ first xs
+                      delta $ *
+                        - radian-size $ :gap-radian sector-configs
+                        / (:size child) (:size call-tree)
+                    recur
+                      conj acc $ let
+                          index $ count acc
+                        [] index $ comp-sector child
+                          + radius $ :radius-step sector-configs
+                          , a0 delta index
+                      rest xs
+                      + a0 delta
+              comp-sector-curve radius start-radian radian-size
+                hslx
+                  .rem (* idx 77) 360
+                  , 100 66
+                :thickness sector-configs
+              text $ {}
+                :text $ nth (:entry call-tree) 1
+                :position $ []
+                  * radius $ cos start-radian
+                  * radius $ sin start-radian
+                :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
+        |comp-sector-curve $ quote
+          defn comp-sector-curve (radius start-radian radian-size color thickness)
+            let
+                r-extend $ + radius thickness
+                start $ []
+                  * radius $ cos start-radian
+                  * radius $ sin start-radian
+                end $ []
+                  * radius $ cos (+ start-radian radian-size)
+                  * radius $ sin (+ start-radian radian-size)
+                start-extend $ []
+                  * r-extend $ cos start-radian
+                  * r-extend $ sin start-radian
+                end-extend $ []
+                  * r-extend $ cos (+ start-radian radian-size)
+                  * r-extend $ sin (+ start-radian radian-size)
+              graphics $ {}
+                :ops $ []
+                  g :begin-fill $ {} (:color color) (:alpha 0.9)
+                  ; g :line-style $ {} (:color color) (:width 1) (:alpha 0.8)
+                  g :move-to start
+                  g :line-to start-extend
+                  ; g :arc-to $ {} (:p1 start-extend) (:p2 end-extend) (:radius r-extend)
+                  g :arc $ {}
+                    :center $ [] 0 0
+                    :radian $ [] start-radian (+ start-radian radian-size)
+                    :radius r-extend
+                  g :line-to end
+                  ; g :arc-to $ {} (:p1 end) (:p2 start) (:radius radius)
+                  g :arc $ {}
+                    :center $ [] 0 0
+                    :radian $ [] (+ start-radian radian-size) start-radian
+                    :radius radius
+                    :anticlockwise? true
+                  g :close-path nil
+                  g :end-fill
+        |count-tree $ quote
+          defn count-tree (tree)
+            inc $ -> (:children tree) (map count-tree) (foldl 0 &+)
+        |sector-configs $ quote
+          def sector-configs $ {} (:base-radius 40) (:thickness 80) (:radius-step 100) (:gap-radian 0.01)
+      :ns $ quote
+        ns app.comp.call-tree $ :require
+          phlox.core :refer $ defcomp >> hslx hclx hsluvx rect circle text container graphics create-list g polyline
+          phlox.comp.button :refer $ comp-button
+          app.math :refer $ divide-path multiply-path
+          app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
+          phlox.complex :as complex
+          pointed-prompt.core :refer $ prompt-at!
+          app.comp.deps-tree :refer $ comp-deps-tree
+          app.analyze :refer $ lookup-target-def strip-at
+          phlox.util :refer $ measure-text-width!
+          app.comp.editor :refer $ comp-editor
+          memof.once :refer $ memof1-call
     |app.comp.command $ {}
       :defs $ {}
         |comp-command $ quote
@@ -328,6 +447,15 @@
                 "\"deps-of" $ do
                   d! :deps-tree $ analyze-deps (:files store)
                   d! :router $ {} (:name :deps-of)
+                    :data $ if (some? p2) ([] p1 p2)
+                      let
+                          editor $ :editor store
+                          def-path $ get-in editor
+                            [] :stack $ :pointer editor
+                        [] (nth def-path 0) (nth def-path 2)
+                "\"call-tree" $ do
+                  d! :deps-tree $ analyze-deps (:files store)
+                  d! :router $ {} (:name :call-tree)
                     :data $ if (some? p2) ([] p1 p2)
                       let
                           editor $ :editor store
@@ -1691,6 +1819,12 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-of (:deps-tree store) (:data router) (:package store)
+                :call-tree $ if
+                  nil? $ :deps-tree store
+                  text $ {} (:text "\"tree is empty")
+                    :position $ [] 1 1
+                    :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
+                  comp-call-tree (:deps-tree store) (:data router) (:package store)
         |comp-hint $ quote
           defn comp-hint (states focus target)
             let
@@ -1733,6 +1867,7 @@
           app.comp.editor :refer $ comp-editor
           memof.once :refer $ memof1-call
           app.comp.deps-of :refer $ comp-deps-of
+          app.comp.call-tree :refer $ comp-call-tree
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
