@@ -203,49 +203,63 @@
                           filter some?
               assoc ret :size $ count-tree ret
         |comp-call-tree $ quote
-          defn comp-call-tree (deps-tree router pkg)
+          defn comp-call-tree ( states deps-tree router pkg)
             let
-                call-tree $ build-call-tree deps-tree ([] "\"app.main" "\"main!") (#{})
-              js/console.log call-tree
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {}
+                    :spin-pos $ [] 600 200
+                    :spin 0
+                call-tree $ build-call-tree deps-tree router (#{})
               container ({})
                 ; w-js-log $ comp-curve 200 0.1 0.7 (hsluvx 20 100 60) 40
-                comp-sector call-tree (:base-radius sector-configs) 0
-                  *
-                    - 2 $ :gap-radian sector-configs
-                    , &PI
-                  , 0
+                comp-sector call-tree 40 (:spin state) (* 2 &PI) 0
+                comp-spin-slider (>> states :c)
+                  {} (:unit 0.4)
+                    :position $ :spin-pos state
+                    :fill $ hslx 50 90 70
+                    :color $ hslx 200 90 30
+                    :value $ :spin state
+                    :fraction 1
+                    :on-change $ fn (value d!)
+                      d! cursor $ assoc state :spin value
+                    :on-move $ fn (pos d!)
+                      d! cursor $ assoc state :spin-pos pos
         |comp-sector $ quote
           defn comp-sector (call-tree radius start-radian radian-size idx)
-            container ({})
-              create-list :container ({})
-                loop
-                    acc $ []
-                    xs $ :children call-tree
-                    a0 start-radian
-                  if (empty? xs) acc $ let
-                      child $ first xs
-                      delta $ *
-                        - radian-size $ :gap-radian sector-configs
-                        / (:size child) (:size call-tree)
-                    recur
-                      conj acc $ let
-                          index $ count acc
-                        [] index $ comp-sector child
-                          + radius $ :radius-step sector-configs
-                          , a0 delta index
-                      rest xs
-                      + a0 delta
-              comp-sector-curve radius start-radian radian-size
-                hslx
-                  .rem (* idx 77) 360
-                  , 100 66
-                :thickness sector-configs
-              text $ {}
-                :text $ nth (:entry call-tree) 1
-                :position $ []
-                  * radius $ cos start-radian
-                  * radius $ sin start-radian
-                :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
+            let
+                thickness $ + 10 (js/Math.pow radius 0.7)
+                  * 2 $ count (:children call-tree)
+              container ({})
+                create-list :container ({})
+                  loop
+                      acc $ []
+                      xs $ :children call-tree
+                      a0 start-radian
+                    if (empty? xs) acc $ let
+                        child $ first xs
+                        delta $ * (- radian-size 0.01)
+                          / (:size child) (:size call-tree)
+                      recur
+                        conj acc $ let
+                            index $ count acc
+                          [] index $ comp-sector child (+ radius thickness 20 ) a0 delta index
+                        rest xs
+                        + a0 delta
+                comp-sector-curve radius start-radian radian-size
+                  hslx
+                    .rem
+                      + radius $ * idx 77
+                      , 360
+                    , 100 50
+                  , thickness
+                text $ {}
+                  :text $ nth (:entry call-tree) 1
+                  :position $ []
+                    * radius $ cos start-radian
+                    * radius $ sin start-radian
+                  :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
+                  :rotation start-radian
         |comp-sector-curve $ quote
           defn comp-sector-curve (radius start-radian radian-size color thickness)
             let
@@ -264,8 +278,8 @@
                   * r-extend $ sin (+ start-radian radian-size)
               graphics $ {}
                 :ops $ []
-                  g :begin-fill $ {} (:color color) (:alpha 0.9)
-                  ; g :line-style $ {} (:color color) (:width 1) (:alpha 0.8)
+                  g :begin-fill $ {} (:color color) (:alpha 0.8)
+                  ; g :line-style $ {} (:color color) (:width 1) (:alpha 0.6)
                   g :move-to start
                   g :line-to start-extend
                   ; g :arc-to $ {} (:p1 start-extend) (:p2 end-extend) (:radius r-extend)
@@ -285,8 +299,6 @@
         |count-tree $ quote
           defn count-tree (tree)
             inc $ -> (:children tree) (map count-tree) (foldl 0 &+)
-        |sector-configs $ quote
-          def sector-configs $ {} (:base-radius 40) (:thickness 80) (:radius-step 100) (:gap-radian 0.01)
       :ns $ quote
         ns app.comp.call-tree $ :require
           phlox.core :refer $ defcomp >> hslx hclx hsluvx rect circle text container graphics create-list g polyline
@@ -300,6 +312,7 @@
           phlox.util :refer $ measure-text-width!
           app.comp.editor :refer $ comp-editor
           memof.once :refer $ memof1-call
+          phlox.comp.slider :refer $ comp-spin-slider
     |app.comp.command $ {}
       :defs $ {}
         |comp-command $ quote
@@ -1824,7 +1837,7 @@
                   text $ {} (:text "\"tree is empty")
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
-                  comp-call-tree (:deps-tree store) (:data router) (:package store)
+                  comp-call-tree (>> states :call-tree) (:deps-tree store) (:data router) (:package store)
         |comp-hint $ quote
           defn comp-hint (states focus target)
             let
