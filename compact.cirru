@@ -1787,7 +1787,7 @@
             -> (new FontFaceObserver "\"Roboto Mono") (.!load)
               .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
             add-watch *store :change $ fn (store prev) (render-app!)
-            when true (render-control!) (start-control-loop! 8 on-control-event)
+            when mobile? (render-control!) (start-control-loop! 8 on-control-event)
             load-files! dispatch!
             ; handle-global-keys
             println "\"App Started"
@@ -1798,7 +1798,7 @@
             do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
               add-watch *store :change $ fn (store prev) (render-app!)
               render-app!
-              when true $ replace-control-loop! 8 on-control-event
+              when mobile? $ replace-control-loop! 8 on-control-event
               hud! "\"ok~" "\"Ok"
               load-files! dispatch!
             hud! "\"error" build-errors
@@ -2084,15 +2084,17 @@
                   let
                       pointer $ :pointer editor
                       stack $ :stack editor
+                      next-pointer $ inc pointer
                     if
-                      = op-data $ get stack (inc pointer)
+                      and (contains? stack next-pointer)
+                        = op-data $ get stack next-pointer
                       update editor :pointer inc
                       merge editor $ if (empty? stack)
                         {} (:pointer 0)
                           :stack $ [] op-data
                         {}
                           :stack $ .assoc-after stack pointer op-data
-                          :pointer $ inc pointer
+                          :pointer next-pointer
               :focus $ assoc-in store ([] :editor :focus) op-data
               :warn $ assoc store :warning op-data
               :ok $ assoc store :warning nil
