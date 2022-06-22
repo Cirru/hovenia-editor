@@ -43,6 +43,8 @@ In the command box:
 - `mv-def from/a to/b`
 - `pick` or `pick off` for turning on/off picker mode
 - `deps-tree` for loading dependency graph
+- `deps-of` for deps of a single definition
+- `call-tree` for a sunburst graph for deps
 
 ### Workflow
 

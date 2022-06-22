@@ -1517,6 +1517,14 @@
                                 :data $ {}
                                   |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:unit) (:type :leaf)
                                   |b $ {} (:at 1653385948128) (:by |rJG4IHzWf) (:text |0.4) (:type :leaf)
+                              |l $ {} (:at 1655915711768) (:by |rJG4IHzWf) (:type :expr)
+                                :data $ {}
+                                  |T $ {} (:at 1655915711768) (:by |rJG4IHzWf) (:text |:label) (:type :leaf)
+                                  |b $ {} (:at 1655915711768) (:by |rJG4IHzWf) (:text "|\"spin") (:type :leaf)
+                              |n $ {} (:at 1655915714270) (:by |rJG4IHzWf) (:type :expr)
+                                :data $ {}
+                                  |T $ {} (:at 1655915714270) (:by |rJG4IHzWf) (:text |:fraction) (:type :leaf)
+                                  |b $ {} (:at 1655915714270) (:by |rJG4IHzWf) (:text |1) (:type :leaf)
                               |q $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
                                 :data $ {}
                                   |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:position) (:type :leaf)
@@ -1524,24 +1532,6 @@
                                     :data $ {}
                                       |T $ {} (:at 1653385674970) (:by |rJG4IHzWf) (:text |:spin-pos) (:type :leaf)
                                       |b $ {} (:at 1653385682045) (:by |rJG4IHzWf) (:text |state) (:type :leaf)
-                              |s $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
-                                :data $ {}
-                                  |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:fill) (:type :leaf)
-                                  |b $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
-                                    :data $ {}
-                                      |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |hslx) (:type :leaf)
-                                      |b $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |50) (:type :leaf)
-                                      |h $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |90) (:type :leaf)
-                                      |l $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |70) (:type :leaf)
-                              |t $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
-                                :data $ {}
-                                  |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:color) (:type :leaf)
-                                  |b $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
-                                    :data $ {}
-                                      |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |hslx) (:type :leaf)
-                                      |b $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |200) (:type :leaf)
-                                      |h $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |90) (:type :leaf)
-                                      |l $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |30) (:type :leaf)
                               |tT $ {} (:at 1653385621597) (:by |rJG4IHzWf) (:type :expr)
                                 :data $ {}
                                   |T $ {} (:at 1653385621597) (:by |rJG4IHzWf) (:text |:value) (:type :leaf)
@@ -1549,10 +1539,6 @@
                                     :data $ {}
                                       |T $ {} (:at 1653385621597) (:by |rJG4IHzWf) (:text |:spin) (:type :leaf)
                                       |b $ {} (:at 1653385621597) (:by |rJG4IHzWf) (:text |state) (:type :leaf)
-                              |u $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
-                                :data $ {}
-                                  |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:fraction) (:type :leaf)
-                                  |b $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |1) (:type :leaf)
                               |v $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:type :expr)
                                 :data $ {}
                                   |T $ {} (:at 1653385606851) (:by |rJG4IHzWf) (:text |:on-change) (:type :leaf)

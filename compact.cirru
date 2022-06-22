@@ -215,12 +215,9 @@
                 ; w-js-log $ comp-curve 200 0.1 0.7 (hsluvx 20 100 60) 40
                 comp-sector call-tree 40 (:spin state) (* 2 &PI) 0
                 comp-spin-slider (>> states :c)
-                  {} (:unit 0.4)
+                  {} (:unit 0.4) (:label "\"spin") (:fraction 1)
                     :position $ :spin-pos state
-                    :fill $ hslx 50 90 70
-                    :color $ hslx 200 90 30
                     :value $ :spin state
-                    :fraction 1
                     :on-change $ fn (value d!)
                       d! cursor $ assoc state :spin value
                     :on-move $ fn (pos d!)
