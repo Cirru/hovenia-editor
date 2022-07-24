@@ -14,7 +14,7 @@
                 ns-deps-dict $ -> files
                   map-kv $ fn (ns file)
                     [] ns $ parse-import-dict
-                      get-in file $ [] :ns 1
+                      &cirru-quote:to-list $ get-in file ([] :ns)
                 defs-deps-dict $ -> files .to-list
                   mapcat $ fn (pair)
                     let
@@ -24,7 +24,7 @@
                         map $ fn (pair)
                           let
                               def-name $ nth pair 0
-                              code $ -> pair (nth 1) (nth 1)
+                              code $ -> pair (nth 1) &cirru-quote:to-list
                             [] ([] ns def-name)
                               lookup-body-deps (slice code 2) (get ns-deps-dict ns) ns def-name $ keys defs
                   pairs-map
@@ -337,7 +337,7 @@
                             = 13 $ :keycode e
                             let
                                 code $ first
-                                  parse-cirru $ :content state
+                                  parse-cirru-list $ :content state
                               if (list? code) (run-command code store d!)
                                 d! :warn $ str "\"invalid command:" code
                               on-close d!
@@ -970,7 +970,7 @@
                     :style $ {} (:font-family code-font)
                   fn (content)
                     d! :cirru-edit-node $ [] coord
-                      first $ parse-cirru content
+                      first $ parse-cirru-list content
                 d! :focus-or-pick coord
         |pattern-number $ quote
           def pattern-number $ new js/RegExp "\"^-?\\d+(\\.\\d+)?$"
@@ -1811,7 +1811,10 @@
                     def-path $ either
                       get-in editor $ [] :stack (:pointer editor)
                       []
-                    code $ -> files (get-in def-path) (get 1)
+                    code $ if-not (empty? def-path)
+                      if-let
+                        expr $ get-in files def-path
+                        &cirru-quote:to-list expr
                   if (nil? code)
                     text $ {} (:text "\"No code selected")
                       :position $ [] -60 0

@@ -20,7 +20,7 @@ jobs:
     - name: add cr
       run: |
         mkdir -p $GITHUB_WORKSPACE/bin
-        wget -O $GITHUB_WORKSPACE/bin/cr http://repo.calcit-lang.org/binaries/linux/cr
+        wget -O $GITHUB_WORKSPACE/bin/cr https://github.com/calcit-lang/calcit/releases/download/0.6.0/cr
         chmod +x $GITHUB_WORKSPACE/bin/cr
         echo "::add-path::$GITHUB_WORKSPACE/bin"
 
@@ -31,7 +31,7 @@ jobs:
         && git clone https://github.com/calcit-lang/memof.git
         && git clone https://github.com/Respo/respo.calcit.git
         && git clone https://github.com/Respo/respo-ui.calcit.git
-        && git clone https://github.com/Phlox-GL/phlox.git --branch 0.4.45
+        && git clone https://github.com/Phlox-GL/phlox.git
         && git clone https://github.com/Quatrefoil-GL/touch-control.git
         && git clone https://github.com/mvc-works/pointed-prompt.git
         && git clone https://github.com/Respo/alerts.calcit.git
