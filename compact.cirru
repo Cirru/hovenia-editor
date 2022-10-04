@@ -14,7 +14,9 @@
                 ns-deps-dict $ -> files
                   map-kv $ fn (ns file)
                     [] ns $ parse-import-dict
-                      &cirru-quote:to-list $ get-in file ([] :ns)
+                      nth
+                        get-in file $ [] :ns
+                        , 1
                 defs-deps-dict $ -> files .to-list
                   mapcat $ fn (pair)
                     let
@@ -24,7 +26,7 @@
                         map $ fn (pair)
                           let
                               def-name $ nth pair 0
-                              code $ -> pair (nth 1) &cirru-quote:to-list
+                              code $ -> pair (nth 1) (nth 1)
                             [] ([] ns def-name)
                               lookup-body-deps (slice code 2) (get ns-deps-dict ns) ns def-name $ keys defs
                   pairs-map
@@ -1812,9 +1814,7 @@
                       get-in editor $ [] :stack (:pointer editor)
                       []
                     code $ if-not (empty? def-path)
-                      if-let
-                        expr $ get-in files def-path
-                        &cirru-quote:to-list expr
+                      nth (get-in files def-path) 1
                   if (nil? code)
                     text $ {} (:text "\"No code selected")
                       :position $ [] -60 0
@@ -1891,10 +1891,22 @@
                 let
                     compact-files $ parse-cirru-edn text
                   if (some? compact-files)
-                    do (d! :load-files compact-files) (d! :ok nil)
+                    do
+                      d! :load-files $ transform-cirru-quoted compact-files
+                      d! :ok nil
                     do (js/console.log "\"unknown data:" compact-files) (d! :warn "\"unknown data")
               .!catch $ fn (err)
                 d! :warn $ str err
+        |transform-cirru-quoted $ quote
+          defn transform-cirru-quoted (compact-files)
+            update compact-files :files $ fn (files)
+              map-kv files $ fn (k v)
+                [] k $ -> v
+                  update :ns $ fn (q)
+                    :: 'quote $ &cirru-quote:to-list q
+                  update :defs $ fn (d)
+                    map-kv d $ fn (k v)
+                      [] k $ :: 'quote (&cirru-quote:to-list v)
       :ns $ quote
         ns app.fetch $ :require
           app.config :refer $ api-host
