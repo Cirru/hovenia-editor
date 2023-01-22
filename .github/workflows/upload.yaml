@@ -8,10 +8,15 @@ on:
 
 jobs:
   test:
-    # runs-on: ubuntu-20.04
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    # runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
 
     - name: ACTIONS_ALLOW_UNSECURE_COMMANDS
       id: ACTIONS_ALLOW_UNSECURE_COMMANDS
@@ -20,7 +25,7 @@ jobs:
     - name: add cr
       run: |
         mkdir -p $GITHUB_WORKSPACE/bin
-        wget -O $GITHUB_WORKSPACE/bin/cr https://github.com/calcit-lang/calcit/releases/download/0.6.0/cr
+        wget -O $GITHUB_WORKSPACE/bin/cr https://github.com/calcit-lang/calcit/releases/download/0.6.20/cr
         chmod +x $GITHUB_WORKSPACE/bin/cr
         echo "::add-path::$GITHUB_WORKSPACE/bin"
 
@@ -44,7 +49,7 @@ jobs:
 
     - name: Deploy to server
       id: deploy
-      uses: Pendect/action-rsyncer@v1.1.0
+      uses: Pendect/action-rsyncer@v2.0.0
       env:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
       with:
