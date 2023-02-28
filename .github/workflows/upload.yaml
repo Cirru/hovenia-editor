@@ -15,36 +15,24 @@ jobs:
 
     - uses: actions/setup-node@v3
       with:
-        node-version: 16
+        node-version: 18
         cache: 'yarn'
 
-    - name: ACTIONS_ALLOW_UNSECURE_COMMANDS
-      id: ACTIONS_ALLOW_UNSECURE_COMMANDS
-      run: echo 'ACTIONS_ALLOW_UNSECURE_COMMANDS=true' >> $GITHUB_ENV
+    - uses: supplypike/setup-bin@v3
+      with:
+        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.6.23/cr'
+        name: 'cr'
+        version: '0.6.23'
 
-    - name: add cr
-      run: |
-        mkdir -p $GITHUB_WORKSPACE/bin
-        wget -O $GITHUB_WORKSPACE/bin/cr https://github.com/calcit-lang/calcit/releases/download/0.6.20/cr
-        chmod +x $GITHUB_WORKSPACE/bin/cr
-        echo "::add-path::$GITHUB_WORKSPACE/bin"
-
-    - name: "prepare modules"
-      run: >
-        mkdir -p ~/.config/calcit/modules/ && cd ~/.config/calcit/modules/
-        && git clone https://github.com/calcit-lang/lilac.git
-        && git clone https://github.com/calcit-lang/memof.git
-        && git clone https://github.com/Respo/respo.calcit.git
-        && git clone https://github.com/Respo/respo-ui.calcit.git
-        && git clone https://github.com/Phlox-GL/phlox.git
-        && git clone https://github.com/Quatrefoil-GL/touch-control.git
-        && git clone https://github.com/mvc-works/pointed-prompt.git
-        && git clone https://github.com/Respo/alerts.calcit.git
-        && git clone https://github.com/Cirru/respo-cirru-editor.git
+    - uses: supplypike/setup-bin@v3
+      with:
+        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.6.23/caps'
+        name: 'caps'
+        version: '0.6.23'
 
     - name: "compiles to js"
       run: >
-        dev=false cr --emit-js --once
+        caps --ci && dev=false cr --emit-js --once
         && yarn && yarn vite build --base=./
 
     - name: Deploy to server
