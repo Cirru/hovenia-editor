@@ -205,7 +205,7 @@
                           filter some?
               assoc ret :size $ count-tree ret
         |comp-call-tree $ quote
-          defn comp-call-tree ( states deps-tree router pkg)
+          defn comp-call-tree (states deps-tree router pkg)
             let
                 cursor $ :cursor states
                 state $ or (:data states)

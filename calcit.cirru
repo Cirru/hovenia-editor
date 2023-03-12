@@ -1414,7 +1414,6 @@
               |b $ {} (:at 1653374416950) (:by |rJG4IHzWf) (:text |comp-call-tree) (:type :leaf)
               |h $ {} (:at 1653374416950) (:by |rJG4IHzWf) (:type :expr)
                 :data $ {}
-                  |D $ {} (:at 1653385573472) (:by |rJG4IHzWf) (:text |) (:type :leaf)
                   |L $ {} (:at 1653385574341) (:by |rJG4IHzWf) (:text |states) (:type :leaf)
                   |T $ {} (:at 1653374462168) (:by |rJG4IHzWf) (:text |deps-tree) (:type :leaf)
                   |b $ {} (:at 1653374468136) (:by |rJG4IHzWf) (:text |router) (:type :leaf)

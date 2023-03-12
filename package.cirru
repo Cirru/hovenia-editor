@@ -5,7 +5,7 @@
     |calcit-lang/memof |main
     |Respo/respo.calcit |main
     |Respo/respo-ui.calcit |main
-    |Phlox-GL/phlox |main
+    |Phlox-GL/phlox |0.4.47
     |Quatrefoil-GL/touch-control |main
     |mvc-works/pointed-prompt |main
     |Respo/alerts.calcit |main
