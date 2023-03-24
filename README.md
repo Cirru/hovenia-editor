@@ -5,6 +5,8 @@
 - Explainations for demo https://www.bilibili.com/video/BV1z3411J76p
 - Demos https://www.bilibili.com/video/BV1tq4y1a7bB https://www.bilibili.com/video/BV16a411i7aq
 
+Mocked example(with fake API) http://repo.cirru.org/hovenia-editor/?mocked=true .
+
 ![demo of hovenia-editor](./assets/demo.png)
 
 ### Usage
