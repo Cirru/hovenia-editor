@@ -430,12 +430,13 @@
                   {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
               ; js/console.log changed-entries
               ; println $ format-cirru-edn changed-entries
-              ->
-                js/fetch (str api-host "\"/compact-inc")
-                  js-object (:method "\"PUT") (:body content)
-                .!then $ fn (res) (d! :ok nil)
-                .!catch $ fn (e)
-                  d! :warn $ str e
+              if mocked? (js/alert "\"Data is mocked, nothing to save.")
+                ->
+                  js/fetch (str api-host "\"/compact-inc")
+                    js-object (:method "\"PUT") (:body content)
+                  .!then $ fn (res) (d! :ok nil)
+                  .!catch $ fn (e)
+                    d! :warn $ str e
         |run-command $ quote
           defn run-command (code store d!)
             let
@@ -479,7 +480,7 @@
           respo-ui.core :refer $ hsl
           respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
           respo.comp.space :refer $ =<
-          app.config :refer $ dev? api-host
+          app.config :refer $ dev? api-host mocked?
           app.widget :as widget
           app.fetch :refer $ load-files!
           app.style :refer $ css-hover-entry
@@ -1785,6 +1786,8 @@
         |leaf-gap $ quote (def leaf-gap 16)
         |leaf-height $ quote (def leaf-height 24)
         |line-height $ quote (def line-height 32)
+        |mocked? $ quote
+          def mocked? $ &= "\"true" (get-env "\"mocked" "\"false")
         |site $ quote
           def site $ {} (:title "\"Phlox") (:icon "\"http://cdn.tiye.me/logo/quamolit.png") (:storage-key "\"phlox-workflow")
         |twist-distance $ quote
@@ -1885,7 +1888,9 @@
       :defs $ {}
         |load-files! $ quote
           defn load-files! (d!)
-            -> (str api-host "\"/compact-data") (js/fetch)
+            ->
+              if mocked? "\"//cors.cirru.org/compact.cirru" $ str api-host "\"/compact-data"
+              js/fetch
               .!then $ fn (res) (.!text res)
               .!then $ fn (text)
                 let
@@ -1909,7 +1914,7 @@
                       [] k $ :: 'quote (&cirru-quote:to-list v)
       :ns $ quote
         ns app.fetch $ :require
-          app.config :refer $ api-host
+          app.config :refer $ api-host mocked?
     |app.main $ {}
       :defs $ {}
         |*store $ quote (defatom *store schema/store)

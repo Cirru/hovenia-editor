@@ -11,17 +11,17 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^4.1.4"
+    "vite": "^4.2.1"
   },
   "dependencies": {
-    "@calcit/procs": "^0.6.24",
+    "@calcit/procs": "^0.6.26",
     "@quamolit/phlox-utils": "^0.0.2",
     "@quamolit/touch-control": "^0.0.13",
-    "bottom-tip": "^0.1.4",
+    "bottom-tip": "^0.1.5",
     "fontfaceobserver-es": "^3.3.3",
     "hsluv": "^1.0.0",
     "mobile-detect": "^1.4.5",
-    "pixi.js": "7.1.4",
+    "pixi.js": "7.2.2",
     "shortid": "^2.2.16"
   }
 }
