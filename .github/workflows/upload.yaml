@@ -20,15 +20,15 @@ jobs:
 
     - uses: supplypike/setup-bin@v3
       with:
-        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.6.26/cr'
+        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.7.0-a5/cr'
         name: 'cr'
-        version: '0.6.26'
+        version: '0.7.0-a5'
 
     - uses: supplypike/setup-bin@v3
       with:
-        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.6.26/caps'
+        uri: 'https://github.com/calcit-lang/calcit/releases/download/0.7.0-a5/caps'
         name: 'caps'
-        version: '0.6.26'
+        version: '0.7.0-a5'
 
     - name: "compiles to js"
       run: >
