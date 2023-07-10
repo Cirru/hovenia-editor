@@ -1897,11 +1897,12 @@
                     compact-files $ parse-cirru-edn text
                   if (some? compact-files)
                     do
-                      d! :load-files $ transform-cirru-quoted compact-files
-                      d! :ok nil
-                    do (js/console.log "\"unknown data:" compact-files) (d! :warn "\"unknown data")
+                      d! $ :: :load-files (transform-cirru-quoted compact-files)
+                      d! $ :: :ok
+                    do (js/console.log "\"unknown data:" compact-files)
+                      d! $ :: :warn "\"unknown data"
               .!catch $ fn (err)
-                d! :warn $ str err
+                d! $ :: :warn (str err)
         |transform-cirru-quoted $ quote
           defn transform-cirru-quoted (compact-files)
             update compact-files :files $ fn (files)
@@ -1919,28 +1920,26 @@
       :defs $ {}
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
-          defn dispatch! (op op-data)
-            cond
-                list? op
-                dispatch! :states $ [] op op-data
-              (= op :effect-goto-def)
+          defn dispatch! (op)
+            tag-match op
+                :effect-goto-def data
                 let
                     files $ :files @*store
                     editor $ :editor @*store
                   if-let
-                    next-def-path $ lookup-target-def op-data files
+                    next-def-path $ lookup-target-def data files
                       get-in editor $ [] :stack (:pointer editor)
                       :package @*store
                     dispatch! :def-path next-def-path
-                    dispatch! :warn $ str "\"not found: " op-data
-              true $ do
+                    dispatch! :warn $ str "\"not found: " data
+              _ $ do
                 when
-                  and dev? $ not= op :states
+                  and dev? $ not= (nth op 0) :states
                   println "\"dispatch!" op
                 let
                     op-id $ shortid/generate
                     op-time $ js/Date.now
-                  reset! *store $ updater @*store op op-data op-id op-time
+                  reset! *store $ updater @*store op op-id op-time
         |handle-global-keys $ quote
           defn handle-global-keys () $ js/window.addEventListener "\"keydown"
             fn (event)
@@ -2174,123 +2173,133 @@
                 &list:assoc-after acc i $ first data
                 rest data
         |updater $ quote
-          defn updater (store op op-data op-id op-time)
-            case-default op
-              do (eprintln "\"unknown op" op op-data) store
-              :states $ update-states store op-data
-              :load-files $ -> store
-                assoc :package $ :package op-data
-                assoc :configs $ :configs op-data
-                assoc :files $ :files op-data
-                assoc :saved-files $ :files op-data
-              :router $ assoc store :router op-data
-              :stack-pointer $ assoc-in store ([] :editor :pointer) op-data
-              :pointer-down $ update store :editor
-                fn (editor)
+          defn updater (store op op-id op-time)
+            tag-match op
+                :states cursor s
+                update-states store cursor s
+              (:load-files data)
+                -> store
+                  assoc :package $ :package data
+                  assoc :configs $ :configs data
+                  assoc :files $ :files data
+                  assoc :saved-files $ :files data
+              (:router r) (assoc store :router r)
+              (:stack-pointer p)
+                assoc-in store ([] :editor :pointer) p
+              (:pointer-down idx)
+                update store :editor $ fn (editor)
                   let
                       size $ count (:stack editor)
                     if
-                      >= op-data $ dec size
+                      >= idx $ dec size
                       , editor $ update editor :pointer inc
-              :pointer-up $ update store :editor
-                fn (editor)
+              (:pointer-up idx)
+                update store :editor $ fn (editor)
                   let
                       size $ count (:stack editor)
-                    if (= 0 op-data) editor $ update editor :pointer dec
-              :pointer-shrink $ update store :editor
-                fn (editor)
+                    if (= 0 idx) editor $ update editor :pointer dec
+              (:pointer-shrink idx)
+                update store :editor $ fn (editor)
                   if
                     contains? (:stack editor) (:pointer editor)
                     -> editor
                       update :pointer $ fn (idx)
                         if (= 0 idx) 0 $ dec idx
-                      update :stack $ fn (xs) (dissoc xs op-data)
+                      update :stack $ fn (xs) (dissoc xs idx)
                     , editor
-              :call-cirru-edit $ let
-                  editor $ :editor store
-                  def-path $ prepend
-                    get-in editor $ [] :stack (:pointer editor)
-                    , :files
-                  def-target $ -> store (get-in def-path)
-                if (tuple? def-target)
-                  let
-                      result $ cirru-edit
-                        {}
-                          :tree $ nth def-target 1
-                          :clipboard $ :clipboard editor
-                        nth op-data 0
-                        nth op-data 1
-                    ; js/console.log op-data result
-                    if-let
-                      warning $ :warning result
-                      js/console.warn warning
-                    -> store
-                      assoc-in def-path $ :: 'quote (:tree result)
-                      assoc-in ([] :editor :focus)
-                        or (:focus result) (:focus editor)
-                      assoc-in ([] :editor :clipboard) (:clipboard result)
-                      assoc :warning $ :warning result
-                  assoc store :warning $ str "\"target not found at:" def-path
-              :cirru-edit-node $ let-sugar
-                    [] focus code
-                    , op-data
-                  editor $ :editor store
-                  def-path $ prepend
-                    get-in editor $ [] :stack (:pointer editor)
-                    , :files
-                  def-target $ -> store (get-in def-path)
-                if (tuple? def-target)
-                  assoc-in store def-path $ :: 'quote
-                    assoc-in (nth def-target 1) focus code
-                  assoc store :warning $ str "\"target not found at:" def-path
-              :def-path $ -> store
-                assoc :router $ {} (:name :editor)
-                update :editor $ fn (editor)
-                  let
-                      pointer $ :pointer editor
-                      stack $ :stack editor
-                      next-pointer $ inc pointer
-                    if
-                      and (contains? stack next-pointer)
-                        = op-data $ get stack next-pointer
-                      update editor :pointer inc
-                      merge editor $ if (empty? stack)
-                        {} (:pointer 0)
-                          :stack $ [] op-data
-                        {}
-                          :stack $ .assoc-after stack pointer op-data
-                          :pointer next-pointer
-              :focus $ assoc-in store ([] :editor :focus) op-data
-              :warn $ assoc store :warning op-data
-              :ok $ assoc store :warning nil
-              :add-ns $ let
-                  ns $ or op-data "\"TODO_NS"
-                assoc-in store ([] :files ns)
-                  {}
-                    :ns $ :: 'quote ([] "\"ns" ns)
-                    :defs $ {}
-              :rm-ns $ if (some? op-data)
-                dissoc-in store $ [] :files op-data
-                , store
-              :add-def $ let[] (ns def-name)
-                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
-                update store :files $ fn (files)
-                  if (contains? files ns)
-                    update-in files ([] ns :defs)
-                      fn (defs)
-                        if (contains? defs def-name) defs $ assoc defs def-name
-                          :: 'quote $ [] "\"defn" def-name ([])
-                    , files
-              :rm-def $ let[] (ns def-name)
-                or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
-                update store :files $ fn (files)
-                  if (contains? files ns)
-                    update-in files ([] ns :defs)
-                      fn (defs)
-                        if (contains? defs def-name) (dissoc defs def-name) defs
-                    , files
-              :mv-ns $ let[] (from to) op-data
-                if
+              (:call-cirru-edit op-data)
+                let
+                    editor $ :editor store
+                    def-path $ prepend
+                      get-in editor $ [] :stack (:pointer editor)
+                      , :files
+                    def-target $ -> store (get-in def-path)
+                  if (tuple? def-target)
+                    let
+                        result $ cirru-edit
+                          {}
+                            :tree $ nth def-target 1
+                            :clipboard $ :clipboard editor
+                          nth op-data 0
+                          nth op-data 1
+                      ; js/console.log op-data result
+                      if-let
+                        warning $ :warning result
+                        js/console.warn warning
+                      -> store
+                        assoc-in def-path $ :: 'quote (:tree result)
+                        assoc-in ([] :editor :focus)
+                          or (:focus result) (:focus editor)
+                        assoc-in ([] :editor :clipboard) (:clipboard result)
+                        assoc :warning $ :warning result
+                    assoc store :warning $ str "\"target not found at:" def-path
+              (:cirru-edit-node op-data)
+                let-sugar
+                      [] focus code
+                      , op-data
+                    editor $ :editor store
+                    def-path $ prepend
+                      get-in editor $ [] :stack (:pointer editor)
+                      , :files
+                    def-target $ -> store (get-in def-path)
+                  if (tuple? def-target)
+                    assoc-in store def-path $ :: 'quote
+                      assoc-in (nth def-target 1) focus code
+                    assoc store :warning $ str "\"target not found at:" def-path
+              (:def-path op-data)
+                -> store
+                  assoc :router $ {} (:name :editor)
+                  update :editor $ fn (editor)
+                    let
+                        pointer $ :pointer editor
+                        stack $ :stack editor
+                        next-pointer $ inc pointer
+                      if
+                        and (contains? stack next-pointer)
+                          = op-data $ get stack next-pointer
+                        update editor :pointer inc
+                        merge editor $ if (empty? stack)
+                          {} (:pointer 0)
+                            :stack $ [] op-data
+                          {}
+                            :stack $ .assoc-after stack pointer op-data
+                            :pointer next-pointer
+              (:focus op-data)
+                assoc-in store ([] :editor :focus) op-data
+              (:warn op-data) (assoc store :warning op-data)
+              (:ok) (assoc store :warning nil)
+              (:add-ns op-data)
+                let
+                    ns $ or op-data "\"TODO_NS"
+                  assoc-in store ([] :files ns)
+                    {}
+                      :ns $ :: 'quote ([] "\"ns" ns)
+                      :defs $ {}
+              (:rm-ns op-data)
+                if (some? op-data)
+                  dissoc-in store $ [] :files op-data
+                  , store
+              (:add-def op-data)
+                let[] (ns def-name)
+                  or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                  update store :files $ fn (files)
+                    if (contains? files ns)
+                      update-in files ([] ns :defs)
+                        fn (defs)
+                          if (contains? defs def-name) defs $ assoc defs def-name
+                            :: 'quote $ [] "\"defn" def-name ([])
+                      , files
+              (:rm-def op-data)
+                let[] (ns def-name)
+                  or op-data $ [] "\"TODO_NS" "\"TODO_DEF"
+                  update store :files $ fn (files)
+                    if (contains? files ns)
+                      update-in files ([] ns :defs)
+                        fn (defs)
+                          if (contains? defs def-name) (dissoc defs def-name) defs
+                      , files
+              (:mv-ns op-data)
+                let[] (from to) op-data $ if
                   contains-in? store $ [] :files from
                   update store :files $ fn (files)
                     -> files (dissoc from)
@@ -2302,48 +2311,52 @@
                               assoc code 1 to
                               do (js/console.warn "\"ns name not found in:" code) code
                   assoc store :warning $ str "\"unknown ns: " from
-              :mv-def $ let-sugar
-                    [] from to
-                    , op-data
-                  ([] from-ns from-def) (.split from "\"/")
-                  ([] to-ns to-def) (.split to "\"/")
+              (:mv-def op-data)
+                let-sugar
+                      [] from to
+                      , op-data
+                    ([] from-ns from-def) (.split from "\"/")
+                    ([] to-ns to-def) (.split to "\"/")
+                  if
+                    and
+                      contains-in? store $ [] :files from-ns :defs from-def
+                      contains-in? store $ [] :files to-ns
+                      not $ blank? to-def
+                    -> store
+                      update :files $ fn (files)
+                        -> files
+                          dissoc-in $ [] from-ns :defs from-def
+                          assoc-in ([] to-ns :defs to-def)
+                            ->
+                              get-in files $ [] from-ns :defs from-def
+                              update 1 $ fn (code)
+                                if
+                                  string? $ get code 1
+                                  assoc code 1 to-def
+                                  do (js/console.warn "\"def not found in:" code) code
+                      assoc :warning nil
+                    assoc store :warning $ str "\"unknown ns/def: " from
+              (:picker-mode op-data)
+                assoc-in store ([] :editor :picker-mode?) op-data
+              (:focus-or-pick op-data)
                 if
-                  and
-                    contains-in? store $ [] :files from-ns :defs from-def
-                    contains-in? store $ [] :files to-ns
-                    not $ blank? to-def
-                  -> store
-                    update :files $ fn (files)
-                      -> files
-                        dissoc-in $ [] from-ns :defs from-def
-                        assoc-in ([] to-ns :defs to-def)
-                          ->
-                            get-in files $ [] from-ns :defs from-def
-                            update 1 $ fn (code)
-                              if
-                                string? $ get code 1
-                                assoc code 1 to-def
-                                do (js/console.warn "\"def not found in:" code) code
-                    assoc :warning nil
-                  assoc store :warning $ str "\"unknown ns/def: " from
-              :picker-mode $ assoc-in store ([] :editor :picker-mode?) op-data
-              :focus-or-pick $ if
-                :picker-mode? $ :editor store
-                let
-                    editor $ :editor store
-                    def-path $ get-in editor
-                      [] :stack $ :pointer editor
-                    item $ get-in store
-                      concat ([] :files) def-path ([] 1) op-data
-                  -> store
-                    update-in
-                      concat ([] :files) def-path
-                      fn (pair)
-                        :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
-                    assoc-in ([] :editor :picker-mode?) false
-                assoc-in store ([] :editor :focus) op-data
-              :deps-tree $ assoc store :deps-tree op-data
-              :hydrate-storage op-data
+                  :picker-mode? $ :editor store
+                  let
+                      editor $ :editor store
+                      def-path $ get-in editor
+                        [] :stack $ :pointer editor
+                      item $ get-in store
+                        concat ([] :files) def-path ([] 1) op-data
+                    -> store
+                      update-in
+                        concat ([] :files) def-path
+                        fn (pair)
+                          :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
+                      assoc-in ([] :editor :picker-mode?) false
+                  assoc-in store ([] :editor :focus) op-data
+              (:deps-tree op-data) (assoc store :deps-tree op-data)
+              (:hydrate-storage op-data) op-data
+              _ $ do (eprintln "\"unknown op" op) store
       :ns $ quote
         ns app.updater $ :require
           phlox.cursor :refer $ update-states
