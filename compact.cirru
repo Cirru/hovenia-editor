@@ -1489,15 +1489,14 @@
         |comp-files-entry $ quote
           defcomp comp-files-entry (cursor state files on-close)
             div
-              {} $ :style (merge ui/expand ui/row)
+              {} $ :class-name (str-spaced css/expand css/row)
               list->
-                {} $ :style ui/expand
+                {} $ :class-name css/expand
                 -> (keys files) .to-list sort $ map
                   fn (ns)
                     [] ns $ div
                       {} (:class-name css-hover-entry)
                         :style $ merge
-                          {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
                           if
                             = ns $ :ns state
                             {} $ :background-color (hsl 0 0 100 0.3)
@@ -1510,7 +1509,7 @@
                 if-let
                   file $ get files ns
                   div
-                    {} $ :style ui/expand
+                    {} $ :class-name css/expand
                     div
                       {}
                         :style $ {} (:cursor :pointer)
@@ -1556,15 +1555,10 @@
                 entries $ concat def-entries ns-entries
               [] (effect-focus "\"#query-box")
                 div
-                  {} $ :style
-                    merge ui/column $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0") (:z-index 100)
-                      :border $ str "\"1px solid " (hsl 0 0 30)
-                      :background-color $ hsl 0 0 20 0.4
+                  {} $ :class-name (str-spaced css/column css-menu)
                   div
-                    {} $ :style ui/row-parted
-                    input $ {} (:id "\"query-box")
-                      :style $ merge ui/input
-                        {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
+                    {} $ :class-name css/row-parted
+                    input $ {} (:id "\"query-box") (:class-name css-query-box)
                       :value $ :query state
                       :on-input $ fn (e d!)
                         d! cursor $ assoc state :query (:value e) :select-idx 0
@@ -1620,7 +1614,7 @@
                   [] :stack $ :pointer editor
               div ({})
                 div
-                  {} $ :style (merge ui/row-parted style-navbar)
+                  {} $ :class-name (str-spaced css/row-parted css-navbar)
                   span $ {} (:class-name css-hover-entry)
                     :style $ {} (:cursor :pointer) (:padding "\"4px 8px") (:font-family "\"Josefin Sans")
                       :color $ hsl 200 80 70
@@ -1633,21 +1627,26 @@
                     if
                       not $ identical? (:files store) (:saved-files store)
                       a $ {} (:inner-text "\"Save")
-                        :style $ merge ui/link
-                          {} $ :font-family ui/font-fancy
+                        :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!)
                           on-save (:files store) (:saved-files store) d!
                     =< 8 nil
                     a $ {} (:inner-text "\"Command")
-                      :style $ merge ui/link
-                        {} $ :font-family ui/font-fancy
+                      :class-name $ str-spaced css/link css/font-fancy
                       :on-click $ fn (e d!) (.show command-plugin d!)
                 if (:menu? state)
                   memof1-call comp-menu (>> states :menu) (:files store) def-path $ fn (d!)
                     d! cursor $ assoc state :menu? false
-                div
-                  {} $ :style style-error
-                  <> $ or (:warning store) "\""
+                if
+                  not $ blank? (:warning store)
+                  div
+                    {} $ :class-name (str-spaced css/row-middle css-notice-area)
+                    div
+                      {} $ :style style-error
+                      <> $ :warning store
+                    =< 16 nil
+                    a $ {} (:class-name css/link) (:inner-text "\"Try 6011")
+                      :on-click $ fn (e d!) (load-files! d! true)
                 if
                   and
                     = :editor $ :name router
@@ -1701,15 +1700,28 @@
                           <> (first entry)
                             {} (:font-size 10)
                               :color $ hsl 0 0 70
+        |css-menu $ quote
+          defstyle css-menu $ {}
+            "\"&" $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height "\"88vh") ("\"×" 100) (:backdrop-filter "\"blur(1.5px)") (:border-radius "\"6px") (:padding 8) (:border-width "\"0 1px 1px 0") (:z-index 100)
+              :border $ str "\"1px solid " (hsl 0 0 30)
+              :background-color $ hsl 0 0 20 0.4
+        |css-navbar $ quote
+          defstyle css-navbar $ {}
+            "\"&" $ {} (:padding "\"0px 8px") (:position :absolute) (:top 16) (:left 0) (:width "\"100%") (:height 0)
+        |css-notice-area $ quote
+          defstyle css-notice-area $ {}
+            "\"&" $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
+              :background-color $ hsl 0 0 0 0.7
+        |css-query-box $ quote
+          defstyle css-query-box $ {}
+            "\"&" $ merge ui/input
+              {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
         |effect-focus $ quote
           defeffect effect-focus (query) (action el at?)
             .!select $ js/document.querySelector query
         |style-error $ quote
-          def style-error $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "\"8px 16px")
+          def style-error $ {}
             :color $ hsl 0 90 70
-            :background-color $ hsl 0 0 0 0.7
-        |style-navbar $ quote
-          def style-navbar $ {} (:padding "\"0px 8px") (:position :absolute) (:top 16) (:left 0) (:width "\"100%") (:height 0)
       :ns $ quote
         ns app.comp.nav $ :require (respo-ui.core :as ui)
           respo-ui.core :refer $ hsl
@@ -1724,6 +1736,8 @@
           app.style :refer $ css-hover-entry
           app.comp.command :refer $ comp-command on-save run-command
           memof.once :refer $ memof1-call
+          respo.css :refer $ defstyle
+          respo-ui.css :as css
     |app.comp.stack $ {}
       :defs $ {}
         |comp-stack $ quote
@@ -1779,6 +1793,8 @@
       :defs $ {}
         |api-host $ quote
           def api-host $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6101")
+        |api-host-6011 $ quote
+          def api-host-6011 $ str "\"http://" (get-env "\"host" "\"localhost") "\":" (get-env "\"port" "\"6011")
         |code-font $ quote (def code-font "\"Roboto Mono, monospace")
         |cors-headers $ quote
           def cors-headers $ {} (:Content-Type "\"data/cirru-edn") (:Access-Control-Allow-Origin "\"*") (:Access-Control-Allow-Methods "\"*")
@@ -1887,9 +1903,9 @@
     |app.fetch $ {}
       :defs $ {}
         |load-files! $ quote
-          defn load-files! (d!)
+          defn load-files! (d! ? shared-editor?)
             ->
-              if mocked? "\"//cors.cirru.org/compact.cirru" $ str api-host "\"/compact-data"
+              if mocked? "\"//cors.cirru.org/compact.cirru" $ str (if shared-editor? api-host-6011 api-host) "\"/compact-data"
               js/fetch
               .!then $ fn (res) (.!text res)
               .!then $ fn (text)
@@ -1915,7 +1931,7 @@
                       [] k $ :: 'quote (&cirru-quote:to-list v)
       :ns $ quote
         ns app.fetch $ :require
-          app.config :refer $ api-host mocked?
+          app.config :refer $ api-host api-host-6011 mocked?
     |app.main $ {}
       :defs $ {}
         |*store $ quote (defatom *store schema/store)
@@ -2154,7 +2170,7 @@
             {} $ :background :black
         |css-hover-entry $ quote
           defstyle css-hover-entry $ {}
-            "\"$0" $ {} (:cursor :pointer)
+            "\"$0" $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
             "\"$0:hover" $ {}
               :background-color $ hsl 0 0 100 0.2
       :ns $ quote
