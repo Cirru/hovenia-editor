@@ -129,7 +129,7 @@
                   :npm-defaults $ {}
                   :npm-defs $ {}
                   :npm-namespaces $ {}
-                rules $ rest (nth ns-form 2 )
+                rules $ rest (nth ns-form 2)
               if (empty? rules) dict $ let
                   rule $ regularize-rule (first rules)
                   method $ nth rule 1
@@ -152,18 +152,20 @@
                           loop
                               d dict
                               defs defs-list
-                            if (empty? d) dict $ let
-                                d0 $ first defs
-                              recur (assoc d d0 target) (rest defs)
+                            list-match defs
+                              () d
+                              (d0 ds)
+                                recur (assoc d d0 target) ds
                         rest rules
                       recur
                         update dict :defs $ fn (dict)
                           loop
                               d dict
                               defs defs-list
-                            if (empty? defs) d $ let
-                                d0 $ first defs
-                              recur (assoc d d0 target) (rest defs)
+                            list-match defs
+                              () d
+                              (d0 ds)
+                                recur (assoc d d0 target) ds
                         rest rules
                   "\":default" $ recur
                     assoc-in dict
@@ -235,16 +237,17 @@
                       acc $ []
                       xs $ :children call-tree
                       a0 start-radian
-                    if (empty? xs) acc $ let
-                        child $ first xs
-                        delta $ * (- radian-size 0.01)
-                          / (:size child) (:size call-tree)
-                      recur
-                        conj acc $ let
-                            index $ count acc
-                          [] index $ comp-sector child (+ radius thickness 20 ) a0 delta index
-                        rest xs
-                        + a0 delta
+                    list-match xs
+                      () acc
+                      (x0 xss)
+                        let
+                            delta $ * (- radian-size 0.01)
+                              / (:size x0) (:size call-tree)
+                          recur
+                            conj acc $ let
+                                index $ count acc
+                              [] index $ comp-sector x0 (+ radius thickness 20) a0 delta index
+                            , xss $ + a0 delta
                 comp-sector-curve radius start-radian radian-size
                   hslx
                     .rem
@@ -1936,26 +1939,28 @@
       :defs $ {}
         |*store $ quote (defatom *store schema/store)
         |dispatch! $ quote
-          defn dispatch! (op)
-            tag-match op
-                :effect-goto-def data
-                let
-                    files $ :files @*store
-                    editor $ :editor @*store
-                  if-let
-                    next-def-path $ lookup-target-def data files
-                      get-in editor $ [] :stack (:pointer editor)
-                      :package @*store
-                    dispatch! :def-path next-def-path
-                    dispatch! :warn $ str "\"not found: " data
-              _ $ do
-                when
-                  and dev? $ not= (nth op 0) :states
-                  println "\"dispatch!" op
-                let
-                    op-id $ shortid/generate
-                    op-time $ js/Date.now
-                  reset! *store $ updater @*store op op-id op-time
+          defn dispatch! (op ? data)
+            if (tag? op)
+              recur $ :: op data
+              tag-match op
+                  :effect-goto-def data
+                  let
+                      files $ :files @*store
+                      editor $ :editor @*store
+                    if-let
+                      next-def-path $ lookup-target-def data files
+                        get-in editor $ [] :stack (:pointer editor)
+                        :package @*store
+                      dispatch! :def-path next-def-path
+                      dispatch! :warn $ str "\"not found: " data
+                _ $ do
+                  when
+                    and dev? $ not= (nth op 0) :states
+                    println "\"dispatch!" op
+                  let
+                      op-id $ shortid/generate
+                      op-time $ js/Date.now
+                    reset! *store $ updater @*store op op-id op-time
         |handle-global-keys $ quote
           defn handle-global-keys () $ js/window.addEventListener "\"keydown"
             fn (event)
@@ -2136,22 +2141,24 @@
                   loop
                       files-data c1
                       changes $ .to-list changed
-                    if (empty? changes) files-data $ let
-                        pair $ first changes
-                        target-ns $ nth pair 0
-                        target $ nth pair 1
-                        removed-defs $ :removed-defs target
-                        added-defs $ :added-defs target
-                        changed-defs $ :changed-defs target
-                        ns-change $ :ns target
-                        next $ update files-data target-ns
-                          fn (file)
-                            -> file
-                              update :ns $ fn (ns)
-                                if (some? ns-change) ns-change ns
-                              update :defs $ fn (defs)
-                                -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
-                      recur next $ rest changes
+                    list-match changes
+                      () files-data
+                      (c0 xs)
+                        let
+                            target-ns $ nth c0 0
+                            target $ nth c0 1
+                            removed-defs $ :removed-defs target
+                            added-defs $ :added-defs target
+                            changed-defs $ :changed-defs target
+                            ns-change $ :ns target
+                            next $ update files-data target-ns
+                              fn (file)
+                                -> file
+                                  update :ns $ fn (ns)
+                                    if (some? ns-change) ns-change ns
+                                  update :defs $ fn (defs)
+                                    -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
+                          recur next cs
         |reload! $ quote
           defn reload! () $ println "\"reload..."
         |start-server! $ quote
