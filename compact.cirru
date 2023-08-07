@@ -2243,8 +2243,7 @@
                           {}
                             :tree $ nth def-target 1
                             :clipboard $ :clipboard editor
-                          nth op-data 0
-                          nth op-data 1
+                          :: & op-data
                       ; js/console.log op-data result
                       if-let
                         warning $ :warning result
