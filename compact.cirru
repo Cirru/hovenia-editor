@@ -317,6 +317,20 @@
           phlox.comp.slider :refer $ comp-spin-slider
     |app.comp.command $ {}
       :defs $ {}
+        |commands $ quote
+          def commands $ []
+            {} (:tip "\"add-ns <ns>") (:fill "\"add-ns ")
+            {} (:tip "\"rm-ns <ns>") (:fill "\"rm-ns ")
+            {} (:tip "\"add-def <ns> <def>") (:fill "\"add-def ")
+            {} (:tip "\"rm-def <ns> <def>") (:fill "\"rm-def ")
+            {} (:tip "\"load") (:comment "\"load data")
+            {} (:tip "\"save") (:comment "\"save all files")
+            {} (:tip "\"mv-ns <from> <to>") (:fill "\"mv-ns ")
+            {} (:tip "\"move-def <from>/<a> <to>/<b>") (:fill "\"move-def ")
+            {} (:tip "\"pick [off]") (:fill "\"pick") (:comment "\"pick mode on/off")
+            {} (:tip "\"deps-tree") (:fill "\"deps-tree") (:comment "\"call")
+            {} (:tip "\"deps-of") (:fill "\"deps-of") (:comment "\"current dependency")
+            {} (:tip "\"call-tree") (:fill "\"call-tree") (:comment "\"sunburst graph of current function")
         |comp-command $ quote
           defcomp comp-command (states store on-close)
             let
@@ -326,10 +340,17 @@
                 editor $ :editor store
                 def-path $ get-in editor
                   [] :stack $ :pointer editor
+                set-box-text! $ fn (v d!)
+                  let
+                      box $ -> "\"#command-box" js/document.querySelector
+                      next $ str (.-value box) v
+                    set! (.-value box) next
+                    .!focus box
+                    d! cursor $ assoc state :content next
               [] (effect-focus)
                 div
-                  {} $ :style
-                    merge ui/column $ {} (:padding 16)
+                  {} (:class-name css/column)
+                    :style $ {} (:padding 16)
                   div ({})
                     input $ {} (:placeholder "\"Command...") (:autofocus true) (:id "\"command-box") (:spellcheck false) (:autocomplete "\"off")
                       :class-name $ str-spaced css/input css-command-box
@@ -349,34 +370,45 @@
                           (= "\"Escape" (:key e))
                             on-close d!
                   =< nil 16
-                  if (list? def-path)
-                    list->
-                      {} $ :style
-                        {} $ :line-height "\"20px"
-                      -> def-path $ map-indexed
-                        fn (idx piece)
-                          [] idx $ span
-                            {} (:class-name css-path-tag)
-                              :inner-text $ str piece
-                              :on-click $ fn (e d!)
-                                let
-                                    box $ -> "\"#command-box" js/document.querySelector
-                                  set! (.-value box)
-                                    str (.-value box) (str piece)
-                                  .!focus box
-                  =< nil 16
                   div
                     {} $ :style ui/row-middle
                     button $ {} (:class-name css/button) (:inner-text "\"Run")
                       :on-click $ fn (e d!)
                         let
                             code $ first
-                              parse-cirru $ :content state
+                              parse-cirru-list $ :content state
                           if (list? code) (run-command code store d!)
                             d! :warn $ str "\"invalid command:" code
                           on-close d!
                     =< 16 nil
-                    a $ {} (:inner-text "\"Available Commands") (:class-name css/link) (:href "\"https://github.com/Cirru/hovenia-editor#commands") (:target "\"_blank")
+                    if (list? def-path)
+                      list->
+                        {} $ :style
+                          {} $ :line-height "\"20px"
+                        -> def-path $ map-indexed
+                          fn (idx piece)
+                            [] idx $ span
+                              {} (:class-name css-path-tag)
+                                :inner-text $ str piece
+                                :on-click $ fn (e d!)
+                                  set-box-text! (str piece) d!
+                  =< nil 8
+                  comp-command-tips $ fn (v d!) (set-box-text! v d!)
+        |comp-command-tips $ quote
+          defcomp comp-command-tips (set-text!)
+            div ({})
+              list->
+                {} (:class-name css/row)
+                  :style $ {} (:flex-wrap :wrap) (:gap "\"8px")
+                -> commands $ map-indexed
+                  fn (idx info)
+                    [] idx $ div
+                      {} $ :style ({})
+                      span
+                        {} $ :on-click
+                          fn (e d!)
+                            set-text! (:fill info) d!
+                        <> (:tip info) css-tip
         |css-command-box $ quote
           defstyle css-command-box $ {}
             "\"$0" $ {} (:font-family ui/font-code) (:line-height "\"40px") (:height "\"40px")
@@ -386,6 +418,12 @@
               :background-color $ hsl 200 50 70
             "\"$0:hover" $ {}
               :background-color $ hsl 200 50 60
+        |css-tip $ quote
+          defstyle css-tip $ {}
+            "\"&" $ {} (:padding "\"2px 8px") (:border-radius "\"4px") (:opacity 0.8)
+              :background-color $ hsl 0 0 90
+              :cursor :pointer
+            "\"&:hover" $ {} (:opacity 1)
         |effect-focus $ quote
           defeffect effect-focus () (action el at?)
             if (= :mount action)
@@ -1600,7 +1638,7 @@
             let
                 cursor $ :cursor states
                 state $ or (:data states)
-                  {} $ :menu? false
+                  {} $ :menu? true
                 ; command-plugin $ use-prompt (>> states :command)
                   {} (:text "\"command")
                     :input-style $ {} (:font-family ui/font-code)
@@ -1645,7 +1683,8 @@
                   div
                     {} $ :class-name (str-spaced css/row-middle css-notice-area)
                     div
-                      {} $ :style style-error
+                      {} (:style style-error)
+                        :on-click $ fn (e d!) (d! :warn nil)
                       <> $ :warning store
                     =< 16 nil
                     a $ {} (:class-name css/link) (:inner-text "\"Try 6011")
@@ -1970,7 +2009,7 @@
           defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
             -> (new FontFaceObserver "\"Roboto Mono") (.!load)
-              .!then $ fn (event) (render-app!) ("js/window._phloxTree. renderer.plugins.accessibility.destroy")
+              .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
             add-watch *store :change $ fn (store prev) (render-app!)
             when mobile? (render-control!) (start-control-loop! 8 on-control-event)
             load-files! dispatch!
@@ -1985,7 +2024,7 @@
               render-app!
               when mobile? $ replace-control-loop! 8 on-control-event
               hud! "\"ok~" "\"Ok"
-              load-files! dispatch!
+              ; load-files! dispatch!
             hud! "\"error" build-errors
         |render-app! $ quote
           defn render-app! ()
@@ -2192,9 +2231,10 @@
             loop
                 acc xs
                 data $ reverse ys
-              if (empty? data) acc $ recur
-                &list:assoc-after acc i $ first data
-                rest data
+              list-match data
+                () acc
+                (d0 ds)
+                  recur (&list:assoc-after acc i d0) ds
         |updater $ quote
           defn updater (store op op-id op-time)
             tag-match op
