@@ -6,7 +6,7 @@
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
       :modules $ [] |calcit-http/
   :files $ {}
-    |app.analyze $ {}
+    |app.analyze $ %{} :FileEntry
       :defs $ {}
         |analyze-deps $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -193,7 +193,7 @@
                 , token
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote (ns app.analyze)
-    |app.comp.call-tree $ {}
+    |app.comp.call-tree $ %{} :FileEntry
       :defs $ {}
         |build-call-tree $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -329,7 +329,7 @@
             app.comp.editor :refer $ comp-editor
             memof.once :refer $ memof1-call
             phlox.comp.slider :refer $ comp-spin-slider
-    |app.comp.command $ {}
+    |app.comp.command $ %{} :FileEntry
       :defs $ {}
         |commands $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -554,7 +554,7 @@
             app.analyze :refer $ analyze-deps
             respo-ui.css :as css
             respo.css :refer $ defstyle
-    |app.comp.deps-of $ {}
+    |app.comp.deps-of $ %{} :FileEntry
       :defs $ {}
         |comp-curves $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -680,7 +680,7 @@
             phlox.util :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
             memof.once :refer $ memof1-call
-    |app.comp.deps-tree $ {}
+    |app.comp.deps-tree $ %{} :FileEntry
       :defs $ {}
         |*defs-layout-stack $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -870,7 +870,7 @@
             phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
             phlox.util :refer $ measure-text-width!
-    |app.comp.editor $ {}
+    |app.comp.editor $ %{} :FileEntry
       :defs $ {}
         |all-block? $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -1553,7 +1553,7 @@
             app.comp.deps-tree :refer $ comp-deps-tree
             app.analyze :refer $ lookup-target-def strip-at
             phlox.util :refer $ measure-text-width!
-    |app.comp.key-event $ {}
+    |app.comp.key-event $ %{} :FileEntry
       :defs $ {}
         |comp-key-event $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -1588,7 +1588,7 @@
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
             respo.comp.space :refer $ =<
             app.config :refer $ dev? api-host
-    |app.comp.nav $ {}
+    |app.comp.nav $ %{} :FileEntry
       :defs $ {}
         |comp-files-entry $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -1855,7 +1855,7 @@
             memof.once :refer $ memof1-call
             respo.css :refer $ defstyle
             respo-ui.css :as css
-    |app.comp.stack $ {}
+    |app.comp.stack $ %{} :FileEntry
       :defs $ {}
         |comp-stack $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -1908,7 +1908,7 @@
             app.comp.key-event :refer $ comp-key-event
             app.analyze :refer $ analyze-deps
             app.style :refer $ css-hover-entry
-    |app.config $ {}
+    |app.config $ %{} :FileEntry
       :defs $ {}
         |api-host $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -1941,7 +1941,7 @@
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote
           ns app.config $ :require ("\"mobile-detect" :default mobile-detect)
-    |app.container $ {}
+    |app.container $ %{} :FileEntry
       :defs $ {}
         |comp-container $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -2034,7 +2034,7 @@
             memof.once :refer $ memof1-call
             app.comp.deps-of :refer $ comp-deps-of
             app.comp.call-tree :refer $ comp-call-tree
-    |app.fetch $ {}
+    |app.fetch $ %{} :FileEntry
       :defs $ {}
         |load-files! $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -2046,7 +2046,7 @@
                 .!then $ fn (text)
                   let
                       compact-files $ parse-cirru-edn text
-                        {} $ :CodeEntry schema/CodeEntry
+                        {} (:CodeEntry schema/CodeEntry) (:FileEntry schema/FileEntry)
                     if (some? compact-files)
                       do
                         d! $ :: :load-files (transform-cirru-quoted compact-files)
@@ -2074,7 +2074,7 @@
           ns app.fetch $ :require
             app.config :refer $ api-host api-host-6011 mocked?
             app.schema :as schema
-    |app.main $ {}
+    |app.main $ %{} :FileEntry
       :defs $ {}
         |*store $ %{} :CodeEntry (:doc |)
           :code $ quote (defatom *store schema/store)
@@ -2157,7 +2157,7 @@
             respo.comp.space :refer $ =<
             app.fetch :refer $ load-files!
             app.analyze :refer $ lookup-target-def
-    |app.math $ {}
+    |app.math $ %{} :FileEntry
       :defs $ {}
         |add-path $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -2224,11 +2224,14 @@
               [] (- a x) (- b y)
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote (ns app.math)
-    |app.schema $ {}
+    |app.schema $ %{} :FileEntry
       :defs $ {}
         |CodeEntry $ %{} :CodeEntry (:doc |)
           :code $ quote
             def CodeEntry $ new-record :CodeEntry :doc :code
+        |FileEntry $ %{} :CodeEntry (:doc |)
+          :code $ quote
+            def FileEntry $ new-record :FileEntry :ns :defs
         |inline $ %{} :CodeEntry (:doc |)
           :code $ quote
             defmacro inline (path)
@@ -2255,7 +2258,7 @@
               :deps-tree nil
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote (ns app.schema)
-    |app.server $ {}
+    |app.server $ %{} :FileEntry
       :defs $ {}
         |*app-server $ %{} :CodeEntry (:doc |)
           :code $ quote (defatom *app-server nil)
@@ -2340,7 +2343,7 @@
           ns app.server $ :require
             http.core :refer $ serve-http!
             app.config :refer $ cors-headers
-    |app.style $ {}
+    |app.style $ %{} :FileEntry
       :defs $ {}
         |button $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -2358,7 +2361,7 @@
             respo.css :refer $ defstyle
             respo-ui.core :refer $ hsl
             respo-ui.core :as ui
-    |app.updater $ {}
+    |app.updater $ %{} :FileEntry
       :defs $ {}
         |splice-after $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -2475,7 +2478,7 @@
                   let
                       ns $ or op-data "\"TODO_NS"
                     assoc-in store ([] :files ns)
-                      {}
+                      %{} schema/FileEntry
                         :ns $ %{} schema/CodeEntry (:doc "\"")
                           :code $ :: 'quote ([] "\"ns" ns)
                         :defs $ {}
