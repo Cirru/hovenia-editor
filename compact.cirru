@@ -102,7 +102,7 @@
             defn lookup-target-def (token files def-path pkg)
               let
                   ns $ first def-path
-                  imports-form $ get-in files ([] ns :ns 1)
+                  imports-form $ get-in files ([] ns :ns :code 1)
                   dict $ parse-import-dict imports-form
                 if
                   contains-in? files $ [] ns :defs token
