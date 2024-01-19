@@ -2099,7 +2099,7 @@
                       and dev? $ not= (nth op 0) :states
                       js/console.log "\"dispatch!" op
                     let
-                        op-id $ shortid/generate
+                        op-id $ nanoid
                         op-time $ js/Date.now
                       reset! *store $ updater @*store op op-id op-time
         |handle-global-keys $ %{} :CodeEntry (:doc |)
@@ -2141,7 +2141,8 @@
                 , dispatch!
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote
-          ns app.main $ :require ("\"pixi.js" :as PIXI) ("\"shortid" :as shortid)
+          ns app.main $ :require ("\"pixi.js" :as PIXI)
+            "\"nanoid" :refer $ nanoid
             phlox.core :refer $ render! clear-phlox-caches! on-control-event
             app.container :refer $ comp-container
             app.schema :as schema
