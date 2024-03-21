@@ -2353,7 +2353,7 @@
         |css-hover-entry $ %{} :CodeEntry (:doc |)
           :code $ quote
             defstyle css-hover-entry $ {}
-              "\"$0" $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "\"0 8px")
+              "\"$0" $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height "\"2") (:padding "\"0 8px")
               "\"$0:hover" $ {}
                 :background-color $ hsl 0 0 100 0.2
       :ns $ %{} :CodeEntry (:doc |)
