@@ -11,11 +11,11 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "devDependencies": {
-    "nanoid": "^5.0.9",
-    "vite": "^5.4.6"
+    "nanoid": "^5.1.5",
+    "vite": "^6.3.4"
   },
   "dependencies": {
-    "@calcit/procs": "^0.9.5",
+    "@calcit/procs": "^0.9.11",
     "@quamolit/phlox-utils": "^0.0.2",
     "@quamolit/touch-control": "^0.0.13",
     "bottom-tip": "^0.1.5",
