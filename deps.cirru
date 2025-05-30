@@ -1,6 +1,6 @@
 
 {}
-  :calcit-version |0.9.11
+  :calcit-version |0.9.12
   :dependencies $ {}
     |calcit-lang/lilac |main
     |calcit-lang/memof |main
@@ -11,4 +11,4 @@
     |mvc-works/pointed-prompt |main
     |Respo/alerts.calcit |main
     |Cirru/respo-cirru-editor |main
-    |calcit-lang/calcit-http |main
+    |calcit-lang/calcit-http |0.1.4
