@@ -18,12 +18,10 @@ jobs:
         cache: 'yarn'
 
     - uses: calcit-lang/setup-cr@0.0.8
-      with:
-        bundler: false
 
     - name: "compiles to js"
       run: >
-        caps --ci && dev=false cr --once js
+        caps --ci && cr compact.cirru js
         && yarn && yarn vite build --base=./
 
     - name: Deploy to server
