@@ -2274,7 +2274,7 @@
             defn divide-x (point x)
               []
                 / (first point) x
-                / (peek point) x
+                / (last point) x
           :examples $ []
         |invert-y $ %{} :CodeEntry (:doc |) (:schema nil)
           :code $ quote
@@ -2297,17 +2297,16 @@
           :examples $ []
         |rand-point $ %{} :CodeEntry (:doc |) (:schema nil)
           :code $ quote
-            defn$ rand-point
-                n
-                rand-point n n
-              (n m)
+            defn rand-point (n ? m)
+              let
+                  m0 $ either m n
                 []
                   -
                     js/Math.round $ * 0.2 n
                     rand-int n
                   -
-                    js/Math.round $ * 0.2 m
-                    rand-int m
+                    js/Math.round $ * 0.2 m0
+                    rand-int m0
           :examples $ []
         |rough-size $ %{} :CodeEntry (:doc |) (:schema nil)
           :code $ quote
@@ -2323,7 +2322,9 @@
               [] (- a x) (- b y)
           :examples $ []
       :ns $ %{} :NsEntry (:doc |)
-        :code $ quote (ns app.math)
+        :code $ quote
+          ns app.math $ :require
+            [] "@calcit/std" :refer $ rand-int
     |app.schema $ %{} :FileEntry
       :defs $ {}
         |CodeEntry $ %{} :CodeEntry (:doc |) (:schema nil)

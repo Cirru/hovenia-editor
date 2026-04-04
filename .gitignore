@@ -6,6 +6,12 @@ js-out/
 node_modules/
 dist/
 
+.pnp.*
+.yarn/cache
+install-state.gz
+
 sandbox/
 
 .DS_Store
+
+.calcit-snippets/
