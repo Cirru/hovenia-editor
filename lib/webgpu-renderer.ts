@@ -131,6 +131,10 @@ export class WebGPURenderer {
   private frameCount = 0;
   private initialized = false;
 
+  // Reusable vertex data buffer to avoid per-frame allocation
+  private vertData: Float32Array | null = null;
+  private vertDataCapacity = 0;
+
   async initialize(config: RendererConfig): Promise<boolean> {
     if (this.initialized) return true;
     this.canvas = config.canvas;
@@ -251,41 +255,61 @@ export class WebGPURenderer {
     if (!this.device || !this.context || !this.pipeline) return;
     const count = this.commands.length;
 
-    if (count === 0) { this.presentEmptyFrame(); return; }
+    if (count === 0) { return; }
 
     if (count > this.maxQuads) {
       this.allocateBuffers(Math.ceil(count * 1.5));
     }
 
-    const vertData = new Float32Array(count * VERTS_PER_QUAD * 9);
+    // Reuse vertex data buffer: grow when needed, never shrink
+    const floatsNeeded = count * VERTS_PER_QUAD * 9;
+    if (!this.vertData || floatsNeeded > this.vertDataCapacity) {
+      this.vertDataCapacity = Math.ceil(floatsNeeded * 1.5);
+      this.vertData = new Float32Array(this.vertDataCapacity);
+    }
+    const vertData = this.vertData!;
     let off = 0;
 
     for (let i = 0; i < count; i++) {
       const cmd = this.commands[i];
       const hw = cmd.w / 2, hh = cmd.h / 2;
       const cx = cmd.x + hw, cy = cmd.y + hh;
-      const cr = Math.cos(cmd.r), sr = Math.sin(cmd.r);
       const kind = cmd.kind === 'circle' ? 1.0 : 0.0;
 
-      const local = [
-        [-hw, -hh, 0, 0], [hw, -hh, 1, 0],
-        [hw,  hh, 1, 1], [-hw,  hh, 0, 1],
-      ];
+      // Skip trig for non-rotated shapes
+      let cr = 1, sr = 0;
+      if (cmd.r !== 0) { cr = Math.cos(cmd.r); sr = Math.sin(cmd.r); }
 
-      for (const [lx, ly, u, v] of local) {
-        vertData[off++] = lx * cr - ly * sr + cx;
-        vertData[off++] = lx * sr + ly * cr + cy;
-        vertData[off++] = u;
-        vertData[off++] = v;
-        vertData[off++] = cmd.color[0];
-        vertData[off++] = cmd.color[1];
-        vertData[off++] = cmd.color[2];
-        vertData[off++] = cmd.color[3];
-        vertData[off++] = kind;
-      }
+      const c0 = cmd.color[0], c1 = cmd.color[1], c2 = cmd.color[2], c3 = cmd.color[3];
+
+      // Unrolled quad vertices (4 corners) to avoid per-command array allocation
+      // Corner 0: top-left
+      vertData[off++] = -hw * cr - (-hh) * sr + cx;
+      vertData[off++] = -hw * sr + (-hh) * cr + cy;
+      vertData[off++] = 0; vertData[off++] = 0;
+      vertData[off++] = c0; vertData[off++] = c1; vertData[off++] = c2; vertData[off++] = c3;
+      vertData[off++] = kind;
+      // Corner 1: top-right
+      vertData[off++] = hw * cr - (-hh) * sr + cx;
+      vertData[off++] = hw * sr + (-hh) * cr + cy;
+      vertData[off++] = 1; vertData[off++] = 0;
+      vertData[off++] = c0; vertData[off++] = c1; vertData[off++] = c2; vertData[off++] = c3;
+      vertData[off++] = kind;
+      // Corner 2: bottom-right
+      vertData[off++] = hw * cr - hh * sr + cx;
+      vertData[off++] = hw * sr + hh * cr + cy;
+      vertData[off++] = 1; vertData[off++] = 1;
+      vertData[off++] = c0; vertData[off++] = c1; vertData[off++] = c2; vertData[off++] = c3;
+      vertData[off++] = kind;
+      // Corner 3: bottom-left
+      vertData[off++] = -hw * cr - hh * sr + cx;
+      vertData[off++] = -hw * sr + hh * cr + cy;
+      vertData[off++] = 0; vertData[off++] = 1;
+      vertData[off++] = c0; vertData[off++] = c1; vertData[off++] = c2; vertData[off++] = c3;
+      vertData[off++] = kind;
     }
 
-    this.device.queue.writeBuffer(this.vertexBuffer!, 0, vertData);
+    this.device.queue.writeBuffer(this.vertexBuffer!, 0, vertData.subarray(0, off));
     this.device.queue.writeBuffer(this.uniformBuffer!, 0, this.projection);
 
     const encoder = this.device.createCommandEncoder();
@@ -306,20 +330,6 @@ export class WebGPURenderer {
     this.device.queue.submit([encoder.finish()]);
     this.commands.length = 0;
     this.frameCount++;
-  }
-
-  private presentEmptyFrame(): void {
-    if (!this.device || !this.context) return;
-    const encoder = this.device.createCommandEncoder();
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(),
-        loadOp: 'clear', storeOp: 'store',
-        clearValue: { r: 0, g: 0, b: 0, a: 1 },
-      }],
-    });
-    pass.end();
-    this.device.queue.submit([encoder.finish()]);
   }
 
   resize(width: number, height: number): void {
