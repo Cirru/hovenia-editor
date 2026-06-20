@@ -24,12 +24,14 @@ const camera = { x: 200, y: 60, scale: 1 };
 let canvasRef: HTMLCanvasElement | null = null;
 let _panZoomSetup = false;
 let _clickSetupDone = false;
+let _keySetupDone = false;
 
 // --- Hit-testing for interactive elements ---
 
 interface HitTarget {
   bx: number; by: number; bw: number; bh: number; // screen-space (CSS px) bounds
-  handler: (e: MouseEvent, dispatch: unknown) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (e: any, dispatch: unknown) => void;
   dispatch: unknown;
 }
 
@@ -38,7 +40,8 @@ let _hitTargets: HitTarget[] = [];
 function recordHitTarget(
   ctx: CanvasRenderingContext2D,
   localBounds: { x: number; y: number; w: number; h: number },
-  handler: (e: MouseEvent, dispatch: unknown) => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (e: any, dispatch: unknown) => void,
   dispatch: unknown,
 ): void {
   const t = ctx.getTransform();
@@ -516,6 +519,10 @@ export function setupCanvas(
   canvas.style.top = "0";
   canvas.style.left = "0";
   canvas.style.zIndex = "0";
+  canvas.tabIndex = 0;
+  canvas.style.outline = "none";
+  // focus canvas when clicked (for keyboard event routing)
+  canvas.addEventListener("mousedown", () => canvas?.focus());
   // ensure Respo-rendered .app container sits above the canvas
   const appDiv = document.querySelector(".app");
   if (appDiv instanceof HTMLElement) {
@@ -533,11 +540,11 @@ export function setupCanvas(
   if (!_clickSetupDone) {
     _clickSetupDone = true;
     let _dragStartX = 0, _dragStartY = 0;
-    canvas.addEventListener("mousedown", (e: MouseEvent) => {
+    document.addEventListener("mousedown", (e: MouseEvent) => {
       _dragStartX = e.clientX;
       _dragStartY = e.clientY;
     });
-    canvas.addEventListener("click", (e: MouseEvent) => {
+    document.addEventListener("click", (e: MouseEvent) => {
       const dx = e.clientX - _dragStartX;
       const dy = e.clientY - _dragStartY;
       if (dx * dx + dy * dy > 9) return; // skip if dragged > 3px
@@ -549,11 +556,55 @@ export function setupCanvas(
         const t = _hitTargets[i];
         if (mx >= t.bx && mx <= t.bx + t.bw && my >= t.by && my <= t.by + t.bh) {
           console.log(`[hit] #${i} (${t.bx.toFixed(0)},${t.by.toFixed(0)},${t.bw.toFixed(0)}x${t.bh.toFixed(0)})`);
-          t.handler(e, t.dispatch);
+          // construct PixiJS-compatible event wrapper
+          const worldX = (e.clientX - camera.x) / camera.scale;
+          const worldY = (e.clientY - camera.y) / camera.scale;
+          const pixiEvent = {
+            data: {
+              global: { x: worldX, y: worldY },
+              originalEvent: e,
+            },
+            originalEvent: e,
+            metaKey: e.metaKey,
+            shiftKey: e.shiftKey,
+            ctrlKey: e.ctrlKey,
+            altKey: e.altKey,
+            button: e.button,
+            buttons: e.buttons,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            screenX: e.screenX,
+            screenY: e.screenY,
+            preventDefault: () => e.preventDefault(),
+            stopPropagation: () => e.stopPropagation(),
+          };
+          t.handler(pixiEvent, t.dispatch);
           return;
         }
       }
       console.log("[click] no hit");
+    });
+  }
+
+  // --- Keyboard events: forward to Calcit dispatch ---
+  if (!_keySetupDone) {
+    _keySetupDone = true;
+    window.addEventListener("keydown", (e: KeyboardEvent) => {
+      const dispatch = _lastDispatch;
+      if (typeof dispatch !== "function") return;
+      // Construct Calcit-compatible event map
+      const calEvent = {
+        key: e.key,
+        "key-code": e.keyCode,
+        "meta?": e.metaKey,
+        "ctrl?": e.ctrlKey,
+        "shift?": e.shiftKey,
+        altKey: e.altKey,
+        preventDefault: () => e.preventDefault(),
+        stopPropagation: () => e.stopPropagation(),
+      };
+      console.log(`[keydown] key=${e.key} code=${e.keyCode} meta=${e.metaKey} ctrl=${e.ctrlKey}`);
+      try { (dispatch as (action: string, data: unknown) => void)(":key-event", calEvent); } catch (_) { /* ignore */ }
     });
   }
   // apply camera offset & scale
