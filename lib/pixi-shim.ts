@@ -303,6 +303,7 @@ export class Application {
     this._displayCanvas.style.position = 'absolute';
     this._displayCanvas.style.top = '0';
     this._displayCanvas.style.left = '0';
+    this._displayCanvas.style.zIndex = '-1';
     // Pixi.js exposes app.view directly
     (this as any).view = this._displayCanvas;
 
@@ -386,6 +387,7 @@ export class Application {
 
     if (node instanceof Container) {
       ctx.translate(node.x, node.y);
+      if (node.scale.x !== 1 || node.scale.y !== 1) ctx.scale(node.scale.x, node.scale.y);
       if (node.rotation) ctx.rotate(node.rotation);
       ctx.globalAlpha *= node.alpha;
       for (const child of node.children) this._traverse(child, ctx);
