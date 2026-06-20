@@ -63,10 +63,17 @@ export class Color {
 // ---- DisplayObject ----
 
 class DisplayObject {
-  x = 0; y = 0; rotation = 0; scale = { x: 1, y: 1 }; alpha = 1;
-  angle = 0; visible = true; parent: Container | null = null;
+  x = 0; y = 0;
+  position = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
+  scale = { x: 1, y: 1, set(x: number, y: number) { this.x = x; this.y = y; } };
+  pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
+  rotation = 0; angle = 0; alpha = 1;
+  visible = true;
+  parent: Container | null = null;
   interactive = false;
   onPointerTap: ((e: any) => void) | null = null;
+  on(event: string, fn: (...args: any[]) => void): this { /* noop for Canvas 2D */ return this; }
+  off(event: string, fn?: (...args: any[]) => void): this { return this; }
   getBounds() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
 }
 
@@ -76,9 +83,12 @@ export class Container extends DisplayObject {
   children: DisplayObject[] = [];
   width = 0; height = 0;
   addChild<T extends DisplayObject>(c: T): T { this.children.push(c); c.parent = this; return c; }
+  addChildAt<T extends DisplayObject>(c: T, index: number): T { this.children.splice(index, 0, c); c.parent = this; return c; }
   removeChild<T extends DisplayObject>(c: T): T {
     const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); c.parent = null; return c;
   }
+  getChildAt(index: number): DisplayObject { return this.children[index]; }
+  removeChildAt(index: number): DisplayObject { const c = this.children.splice(index, 1)[0]; if (c) c.parent = null; return c; }
   removeChildren(): void { for (const c of this.children) c.parent = null; this.children = []; }
   destroy(): void { this.removeChildren(); }
 }
@@ -115,6 +125,7 @@ export class Graphics extends DisplayObject {
   lineTo(x: number, y: number) { this._ops.push(['lineTo', x, y]); return this; }
   drawRect(x: number, y: number, w: number, h: number) { this._ops.push(['drawRect', x, y, w, h]); return this; }
   drawCircle(x: number, y: number, r: number) { this._ops.push(['drawCircle', x, y, r]); return this; }
+  drawRoundedRect(x: number, y: number, w: number, h: number, r: number) { this._ops.push(['drawRect', x, y, w, h]); return this; }
   closePath() { this._ops.push(['closePath']); return this; }
   beginHole() { this._ops.push(['beginHole']); return this; }
   endHole() { this._ops.push(['endHole']); return this; }
@@ -294,6 +305,7 @@ export class Application {
 
     this.renderer = {
       plugins: { accessibility: { destroy() {} } },
+      render: (stage: Container) => this._renderCanvas(stage),
       resize: (w: number, h: number) => {
         this._canvas.width = w * resolution;
         this._canvas.height = h * resolution;
@@ -320,11 +332,17 @@ export class Application {
 
   /** Walk stage tree and render everything to Canvas 2D */
   render(): void {
+    this._renderCanvas(this.stage);
+  }
+
+  private _renderCanvas(stage: Container): void {
     const w = this._displayCanvas.width;
     const h = this._displayCanvas.height;
     this._ctx.clearRect(0, 0, w, h);
+    this._ctx.save();
     this._ctx.fillRect(0, 0, w, h);
-    this._traverse(this.stage);
+    this._traverse(stage);
+    this._ctx.restore();
     this._displayCanvas.getContext('2d')!.clearRect(0, 0, w, h);
     this._displayCanvas.getContext('2d')!.drawImage(this._canvas, 0, 0);
   }
