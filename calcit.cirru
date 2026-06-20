@@ -125,7 +125,8 @@
                     (if (some? rot) (.!rotate ctx rot))
                     (if (some? scl) (.!scale ctx scl scl))
                     (if (some? pivot) (.!translate ctx (- (first pivot)) (- (last pivot))))
-                    (-> children (.!forEach ctx dispatch render-element!))
+                    (map children $ fn (child)
+                      (render-element! child ctx dispatch))
                     (if (some? pos) (.!restore ctx))
                   :rect $ let
                       pos $ :position props
@@ -179,7 +180,8 @@
                     (if (some? pos) (.!restore ctx))
                   :graphics $ let
                       ops $ :ops props
-                    (-> ops (.!forEach ctx dispatch render-graphics-op!))
+                    (map ops $ fn (op-pair)
+                      (render-graphics-op! ctx op-pair))
                   :polyline $ let
                       points $ :points props
                       style $ :style props
@@ -187,7 +189,9 @@
                       line-color $ :color style
                       line-alpha $ :alpha style
                     (.!beginPath ctx)
-                    (-> points (.!forEach ctx 0 render-points-to-path!))
+                    (map points $ fn (point idx)
+                      (if (= idx 0) (.!moveTo ctx (first point) (last point))
+                        (.!lineTo ctx (first point) (last point))))
                     (if (some? line-color) (set! (.-strokeStyle ctx) line-color))
                     (if (some? line-width) (set! (.-lineWidth ctx) line-width))
                     (if (some? line-alpha) (set! (.-globalAlpha ctx) line-alpha))
@@ -235,12 +239,6 @@
                       radius $ :radius data
                       anticlockwise? $ :anticlockwise? data
                     (.!arc ctx (first center) (last center) radius (first radian) (last radian) anticlockwise?)
-          :examples $ []
-        |render-points-to-path! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn render-points-to-path! (ctx idx point)
-              (if (= idx 0) (.!moveTo ctx (first point) (last point))
-                (.!lineTo ctx (first point) (last point)))
           :examples $ []
         |on-control-event $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
