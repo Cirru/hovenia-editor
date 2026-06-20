@@ -521,7 +521,7 @@
                       js-object (:method |PUT) (:body content)
                     .!then $ fn (res)
                       d! $ :: :files-synced
-                      d! :ok nil
+                      d! :ok
                     .!catch $ fn (e)
                       d! :warn $ str e
           :examples $ []
@@ -2161,11 +2161,11 @@
             app.schema :as schema
     |app.main $ %{} :FileEntry
       :defs $ {}
-        |*store $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote (defatom *store schema/store)
-          :examples $ []
         |*initial-def $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (defatom *initial-def nil)
+          :examples $ []
+        |*store $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *store schema/store)
           :examples $ []
         |dispatch! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -2192,7 +2192,9 @@
                         op-time $ js/Date.now
                       reset! *store $ updater @*store op op-id op-time
                     when
-                      and (= (nth op 0) :ok) (some? @*initial-def)
+                      and
+                        = (nth op 0) :ok
+                        some? @*initial-def
                       let
                           pieces $ .split @*initial-def |/
                         dispatch! :def-path $ [] (nth pieces 0) :defs (nth pieces 1)
@@ -2210,10 +2212,9 @@
           :code $ quote
             defn main! ()
               let
-                  params $ new js/URLSearchParams $ .-search js/window.location
+                  params $ new js/URLSearchParams (.-search js/window.location)
                   initial $ .!get params |initial
-                if (some? initial)
-                  reset! *initial-def initial
+                if (some? initial) (reset! *initial-def initial)
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
                 .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)

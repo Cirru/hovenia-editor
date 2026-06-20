@@ -164,68 +164,118 @@ export class Graphics extends DisplayObject {
       if (x < minX) minX = x; if (y < minY) minY = y;
       if (x > maxX) maxX = x; if (y > maxY) maxY = y;
     };
+
+    let hasFill = false;
+    let hasStroke = false;
+    let pathOpen = false;
+
+    const flushPath = () => {
+      if (!pathOpen) return;
+      if (hasFill) ctx.fill();
+      if (hasStroke) ctx.stroke();
+      pathOpen = false;
+    };
+
     ctx.save();
+    // Pixi.js transform: translate → pivot → scale → rotate
     ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation + this.angle * Math.PI / 180);
+    ctx.translate(-this.pivot.x, -this.pivot.y);
     ctx.scale(this.scale.x, this.scale.y);
-    ctx.globalAlpha = this.alpha;
+    ctx.rotate(this.rotation + this.angle * Math.PI / 180);
+    ctx.globalAlpha *= this.alpha;
 
     for (const op of this._ops) {
       switch (op[0]) {
         case 'beginFill': {
+          flushPath(); // flush previous shape
           const [, c, a = 1] = op;
           const r = ((c >> 16) & 0xff) / 255, g = ((c >> 8) & 0xff) / 255, b = (c & 0xff) / 255;
           ctx.fillStyle = `rgba(${r * 255},${g * 255},${b * 255},${a})`;
+          hasFill = true;
+          ctx.beginPath();
+          pathOpen = true;
           break;
         }
-        case 'endFill': break;
+        case 'endFill': {
+          flushPath();
+          hasFill = false;
+          break;
+        }
         case 'lineStyle': {
           const [, w, c = 0xffffff, a = 1] = op;
           const r = ((c >> 16) & 0xff) / 255, g = ((c >> 8) & 0xff) / 255, b = (c & 0xff) / 255;
           ctx.strokeStyle = `rgba(${r * 255},${g * 255},${b * 255},${a})`;
           ctx.lineWidth = w;
+          hasStroke = w > 0;
           break;
         }
-        case 'moveTo': { const [, x, y] = op; ctx.beginPath(); ctx.moveTo(x, y); extend(x, y); break; }
-        case 'lineTo': { const [, x, y] = op; ctx.lineTo(x, y); extend(x, y); break; }
+        case 'moveTo': {
+          // Pixi.js: each moveTo starts a new sub-path within the current fill
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
+          const [, x, y] = op;
+          ctx.moveTo(x, y);
+          extend(x, y);
+          break;
+        }
+        case 'lineTo': {
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
+          const [, x, y] = op;
+          ctx.lineTo(x, y);
+          extend(x, y);
+          break;
+        }
         case 'drawRect': {
+          flushPath();
           const [, x, y, w, h] = op;
-          ctx.fillRect(x, y, w, h);
+          if (hasFill) ctx.fillRect(x, y, w, h);
+          if (hasStroke) ctx.strokeRect(x, y, w, h);
           extend(x, y); extend(x + w, y + h);
           break;
         }
         case 'drawCircle': {
+          flushPath();
           const [, cx, cy, r] = op;
-          ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          if (hasFill) ctx.fill();
+          if (hasStroke) ctx.stroke();
           extend(cx - r, cy - r); extend(cx + r, cy + r);
           break;
         }
-        case 'closePath': ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+        case 'closePath': {
+          ctx.closePath();
+          break;
+        }
         case 'bezierCurveTo': {
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
           const [, c1x, c1y, c2x, c2y, tox, toy] = op;
           ctx.bezierCurveTo(c1x, c1y, c2x, c2y, tox, toy);
           extend(tox, toy);
           break;
         }
         case 'quadraticCurveTo': {
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
           const [, cpx, cpy, tox, toy] = op;
           ctx.quadraticCurveTo(cpx, cpy, tox, toy);
           extend(tox, toy);
           break;
         }
         case 'arc': {
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
           const [, x, y, r, sa, ea, acw = false] = op;
           ctx.arc(x, y, r, sa, ea, acw);
           break;
         }
         case 'arcTo': {
+          if (!pathOpen) { ctx.beginPath(); pathOpen = true; }
           const [, x1, y1, x2, y2, r] = op;
           ctx.arcTo(x1, y1, x2, y2, r);
           break;
         }
       }
     }
+    // Flush any remaining open path
+    flushPath();
     ctx.restore();
     const pad = 2;
     return {
@@ -246,9 +296,11 @@ export class TextStyle {
 export class Text extends DisplayObject {
   text: string; style: TextStyle; width = 0; height = 0;
   private _dirty = true;
+  anchor: { x: number; y: number; set: (x: number, y: number) => void };
   constructor(text = '', style?: TextStyle | Partial<TextStyle>) {
     super();
     this.text = text; this.style = style instanceof TextStyle ? style : new TextStyle(style);
+    this.anchor = { x: 0, y: 0, set(x: number, y?: number) { this.x = x; if (y !== undefined) this.y = y; } };
   }
 }
 
@@ -286,6 +338,9 @@ export class Application {
   private _displayCanvas: HTMLCanvasElement;
   private _wgpu: WebGPURenderer | null = null;
   private _wgpuReady = false;
+  private _traverseCount = { g: 0, c: 0, t: 0 };
+  private _debugCount = 0;
+  private _debugLogged = false;
 
   constructor(options?: any) {
     this.stage = new Container();
@@ -366,34 +421,64 @@ export class Application {
     const h = this._canvas.height;
     this._ctx.clearRect(0, 0, w, h);
     this._ctx.fillRect(0, 0, w, h);
+    this._traverseCount = { g: 0, c: 0, t: 0 };
+    this._debugCount = 0;
+    this._debugLogged = false;
     this._traverse(stage);
+    console.log(`[render done] Graphics=${this._traverseCount.g} Container=${this._traverseCount.c} Text=${this._traverseCount.t} total=${this._traverseCount.g+this._traverseCount.c+this._traverseCount.t}`);
     const dispCtx = this._displayCanvas.getContext('2d')!;
     dispCtx.clearRect(0, 0, w, h);
     dispCtx.drawImage(this._canvas, 0, 0);
   }
 
-  private _traverse(node: DisplayObject, ctx = this._ctx): void {
+  private _traverse(node: DisplayObject, ctx = this._ctx, depth = 0): void {
     if (!node.visible) return;
+
+    if (!this._debugLogged) {
+      this._debugCount++;
+      if (this._debugCount <= 15) {
+        const type = node instanceof Graphics ? 'Graphics' : node instanceof Text ? 'Text' : node instanceof Container ? 'Container' : 'DisplayObject';
+        console.log(`[traverse #${this._debugCount}] ${type} x=${node.x} y=${node.y} pivot=(${node.pivot.x},${node.pivot.y}) scale=(${node.scale.x},${node.scale.y}) rot=${node.rotation} children=${node instanceof Container ? node.children.length : 0}`);
+      }
+      if (this._debugCount === 16) { this._debugLogged = true; console.log(`... (more nodes, total will be logged later)`); }
+    }
+
     ctx.save();
     if (node instanceof Graphics) {
+      this._traverseCount.g++;
       node.replayToCanvas(ctx);
     } else if (node instanceof Text) {
+      this._traverseCount.t++;
       ctx.font = `${node.style.fontWeight} ${node.style.fontSize}px ${node.style.fontFamily}`;
       ctx.fillStyle = typeof node.style.fill === 'number'
         ? `#${node.style.fill.toString(16).padStart(6, '0')}`
         : node.style.fill;
       ctx.textAlign = node.style.align;
+      ctx.textBaseline = 'top';
+      // Pixi.js transform for text
       ctx.translate(node.x, node.y);
+      ctx.translate(-node.pivot.x, -node.pivot.y);
+      ctx.scale(node.scale.x, node.scale.y);
       if (node.rotation) ctx.rotate(node.rotation);
-      ctx.globalAlpha = node.alpha;
-      ctx.fillText(node.text, 0, 0);
-      node.width = ctx.measureText(node.text).width;
-      node.height = node.style.fontSize;
+      ctx.globalAlpha *= node.alpha;
+      const textW = ctx.measureText(node.text).width;
+      const metrics = ctx.measureText(node.text);
+      const ascent = metrics.actualBoundingBoxAscent || 0;
+      const descent = metrics.actualBoundingBoxDescent || 0;
+      const textH = ascent + descent || node.style.fontSize;
+      const ox = -node.anchor.x * textW;
+      const oy = -node.anchor.y * textH;
+      ctx.fillText(node.text, ox, oy);
+      node.width = textW;
+      node.height = textH;
     }
 
     if (node instanceof Container) {
+      this._traverseCount.c++;
+      // Pixi.js transform: translate → pivot → scale → rotate
       ctx.translate(node.x, node.y);
-      if (node.scale.x !== 1 || node.scale.y !== 1) ctx.scale(node.scale.x, node.scale.y);
+      ctx.translate(-node.pivot.x, -node.pivot.y);
+      ctx.scale(node.scale.x, node.scale.y);
       if (node.rotation) ctx.rotate(node.rotation);
       ctx.globalAlpha *= node.alpha;
       for (const child of node.children) this._traverse(child, ctx);
