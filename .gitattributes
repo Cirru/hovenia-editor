@@ -1,5 +1,4 @@
 
-calcit.cirru -diff linguist-generated
 yarn.lock -diff linguist-generated
 
 data/* -diff linguist-generated

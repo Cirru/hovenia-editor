@@ -1052,7 +1052,7 @@
                   (= key |Enter)
                     if shift?
                       d! :call-cirru-edit $ [] :before-token focus
-                      d! :call-cirru-edit $ [] :after-after focus
+                      d! :call-cirru-edit $ [] :after-token focus
                   (= key "| ")
                     if shift?
                       d! :call-cirru-edit $ [] :update-token
@@ -2198,7 +2198,7 @@
           :examples $ []
         |main! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
-            defn main! () (; js/console.log PIXI)
+            defn main! ()
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
                 .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
@@ -2233,7 +2233,7 @@
           :examples $ []
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
-          ns app.main $ :require (|pixi.js :as PIXI)
+          ns app.main $ :require
             |nanoid :refer $ nanoid
             phlox.core :refer $ render! clear-phlox-caches! on-control-event
             app.container :refer $ comp-container

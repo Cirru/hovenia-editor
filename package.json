@@ -14,8 +14,12 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/ws": "^8",
+    "@webgpu/types": "^0.1.70",
     "nanoid": "^5.1.5",
-    "vite": "^6.4.2"
+    "typescript": "^6.0.3",
+    "vite": "^6.4.2",
+    "ws": "^8.21.0"
   },
   "dependencies": {
     "@calcit/procs": "^0.12.46",
