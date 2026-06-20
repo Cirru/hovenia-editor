@@ -73,7 +73,11 @@ class DisplayObject {
   visible = true;
   parent: Container | null = null;
   interactive = false;
-  onPointerTap: ((e: any) => void) | null = null;
+  eventMode: string | undefined;
+  buttonMode = false;
+  cursor = 'auto';
+  private _handlers: Map<string, (...args: any[]) => void> = new Map();
+  hitArea: any = null;
 
   constructor() {
     const self = this;
@@ -84,9 +88,28 @@ class DisplayObject {
     };
   }
 
-  on(event: string, fn: (...args: any[]) => void): this { /* noop */ return this; }
-  off(event: string, fn?: (...args: any[]) => void): this { return this; }
+  on(event: string, fn: (...args: any[]) => void): this {
+    this._handlers.set(event, fn);
+    if (event === 'pointertap' || event === 'pointerdown' || event === 'click') {
+      this.eventMode = 'dynamic';
+    }
+    return this;
+  }
+  off(event: string, fn?: (...args: any[]) => void): this {
+    this._handlers.delete(event);
+    if (this._handlers.size === 0) this.eventMode = undefined;
+    return this;
+  }
   getBounds() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
+  
+  /** For hit testing: fire a pointertap event on this node */
+  _firePointertap(e: any): void {
+    const h = this._handlers.get('pointertap');
+    if (h) h(e);
+  }
+  _hasHandler(event: string): boolean {
+    return this._handlers.has(event);
+  }
 }
 
 // ---- Container ----
@@ -177,11 +200,11 @@ export class Graphics extends DisplayObject {
     };
 
     ctx.save();
-    // Pixi.js transform: translate → pivot → scale → rotate
+    // Pixi.js transform: translate → rotate → scale → pivot
     ctx.translate(this.x, this.y);
-    ctx.translate(-this.pivot.x, -this.pivot.y);
-    ctx.scale(this.scale.x, this.scale.y);
     ctx.rotate(this.rotation + this.angle * Math.PI / 180);
+    ctx.scale(this.scale.x, this.scale.y);
+    ctx.translate(-this.pivot.x, -this.pivot.y);
     ctx.globalAlpha *= this.alpha;
 
     for (const op of this._ops) {
@@ -338,9 +361,13 @@ export class Application {
   private _displayCanvas: HTMLCanvasElement;
   private _wgpu: WebGPURenderer | null = null;
   private _wgpuReady = false;
+  private _dpr = window.devicePixelRatio || 1;
+  private _logicalW: number;
+  private _logicalH: number;
   private _traverseCount = { g: 0, c: 0, t: 0 };
   private _debugCount = 0;
   private _debugLogged = false;
+  private _hitTargets: Array<{ node: DisplayObject; bx: number; by: number; bw: number; bh: number }> = [];
 
   constructor(options?: any) {
     this.stage = new Container();
@@ -360,14 +387,19 @@ export class Application {
     const height = getSymVal('height', window.innerHeight);
     const bg = getSymVal('backgroundColor', 0x000000);
     const bgAlpha = getSymVal('backgroundAlpha', 1);
+    const dpr = this._dpr;
+    this._logicalW = width;
+    this._logicalH = height;
 
-    // Create the visible display canvas
+    // Create the visible display canvas (HiDPI: physical pixels = logical * dpr)
     this._displayCanvas = document.createElement('canvas');
-    this._displayCanvas.width = width;
-    this._displayCanvas.height = height;
+    this._displayCanvas.width = Math.round(width * dpr);
+    this._displayCanvas.height = Math.round(height * dpr);
     this._displayCanvas.style.position = 'absolute';
     this._displayCanvas.style.top = '0';
     this._displayCanvas.style.left = '0';
+    this._displayCanvas.style.width = width + 'px';
+    this._displayCanvas.style.height = height + 'px';
     this._displayCanvas.style.zIndex = '-1';
     // Pixi.js exposes app.view directly
     (this as any).view = this._displayCanvas;
@@ -376,11 +408,18 @@ export class Application {
       plugins: { accessibility: { destroy() {} } },
       render: (stage: Container) => this._render(stage),
       resize: (w: number, h: number) => {
-        this._canvas!.width = w;
-        this._canvas!.height = h;
-        this._displayCanvas.width = w;
-        this._displayCanvas.height = h;
-        this._wgpu?.resize(w, h);
+        this._logicalW = w;
+        this._logicalH = h;
+        const pw = Math.round(w * dpr);
+        const ph = Math.round(h * dpr);
+        this._canvas!.width = pw;
+        this._canvas!.height = ph;
+        this._displayCanvas.width = pw;
+        this._displayCanvas.height = ph;
+        this._displayCanvas.style.width = w + 'px';
+        this._displayCanvas.style.height = h + 'px';
+        this._wgpu?.resize(pw, ph);
+        this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       },
       view: this._displayCanvas,
       width,
@@ -389,9 +428,13 @@ export class Application {
 
     // Offscreen canvas for Canvas 2D rendering
     this._canvas = document.createElement('canvas');
-    this._canvas.width = width;
-    this._canvas.height = height;
+    this._canvas.width = Math.round(width * dpr);
+    this._canvas.height = Math.round(height * dpr);
+    this._canvas.style.width = width + 'px';
+    this._canvas.style.height = height + 'px';
     this._ctx = this._canvas.getContext('2d')!;
+    // Scale ctx so all drawing uses logical coordinates
+    this._ctx.scale(dpr, dpr);
 
     // Background
     const br = ((bg >> 16) & 0xff) / 255, bgc = ((bg >> 8) & 0xff) / 255, bb = (bg & 0xff) / 255;
@@ -399,6 +442,10 @@ export class Application {
 
     // Init WebGPU on a SEPARATE canvas (not _displayCanvas which must stay 2D)
     this._initWebGPU(width, height);
+
+    // Click-to-focus: intercept clicks on display canvas
+    this._displayCanvas.addEventListener('click', (e) => this._onCanvasClick(e));
+    this._displayCanvas.addEventListener('mousemove', (e) => this._onCanvasMouseMove(e));
   }
 
   private async _initWebGPU(width: number, height: number): Promise<void> {
@@ -417,18 +464,20 @@ export class Application {
   }
 
   private _render(stage: Container): void {
-    const w = this._canvas.width;
-    const h = this._canvas.height;
+    const w = this._logicalW;
+    const h = this._logicalH;
     this._ctx.clearRect(0, 0, w, h);
     this._ctx.fillRect(0, 0, w, h);
     this._traverseCount = { g: 0, c: 0, t: 0 };
     this._debugCount = 0;
     this._debugLogged = false;
+    this._hitTargets = [];
     this._traverse(stage);
     console.log(`[render done] Graphics=${this._traverseCount.g} Container=${this._traverseCount.c} Text=${this._traverseCount.t} total=${this._traverseCount.g+this._traverseCount.c+this._traverseCount.t}`);
     const dispCtx = this._displayCanvas.getContext('2d')!;
-    dispCtx.clearRect(0, 0, w, h);
-    dispCtx.drawImage(this._canvas, 0, 0);
+    // Use physical pixel dimensions for display canvas (no DPR transform needed)
+    dispCtx.clearRect(0, 0, this._displayCanvas.width, this._displayCanvas.height);
+    dispCtx.drawImage(this._canvas, 0, 0, this._displayCanvas.width, this._displayCanvas.height);
   }
 
   private _traverse(node: DisplayObject, ctx = this._ctx, depth = 0): void {
@@ -444,8 +493,18 @@ export class Application {
     }
 
     ctx.save();
+
+    // Check if this node should be recorded for hit testing
+    const isInteractive = node.eventMode === 'dynamic' || node.eventMode === 'static' || node.buttonMode;
+    let recordHitTarget = false;
+    let localBounds: { x: number; y: number; w: number; h: number } | null = null;
+
     if (node instanceof Graphics) {
       this._traverseCount.g++;
+      if (isInteractive) {
+        localBounds = this._computeGraphicsLocalBounds(node);
+        recordHitTarget = true;
+      }
       node.replayToCanvas(ctx);
     } else if (node instanceof Text) {
       this._traverseCount.t++;
@@ -455,11 +514,11 @@ export class Application {
         : node.style.fill;
       ctx.textAlign = node.style.align;
       ctx.textBaseline = 'top';
-      // Pixi.js transform for text
+      // Pixi.js transform for text: translate → rotate → scale → pivot
       ctx.translate(node.x, node.y);
-      ctx.translate(-node.pivot.x, -node.pivot.y);
-      ctx.scale(node.scale.x, node.scale.y);
       if (node.rotation) ctx.rotate(node.rotation);
+      ctx.scale(node.scale.x, node.scale.y);
+      ctx.translate(-node.pivot.x, -node.pivot.y);
       ctx.globalAlpha *= node.alpha;
       const textW = ctx.measureText(node.text).width;
       const metrics = ctx.measureText(node.text);
@@ -471,25 +530,164 @@ export class Application {
       ctx.fillText(node.text, ox, oy);
       node.width = textW;
       node.height = textH;
+      
+      if (isInteractive) {
+        localBounds = { x: -node.anchor.x * textW, y: -node.anchor.y * textH, w: textW, h: textH };
+        recordHitTarget = true;
+      }
     }
 
     if (node instanceof Container) {
       this._traverseCount.c++;
-      // Pixi.js transform: translate → pivot → scale → rotate
+      // Pixi.js transform: translate → rotate → scale → pivot
       ctx.translate(node.x, node.y);
-      ctx.translate(-node.pivot.x, -node.pivot.y);
-      ctx.scale(node.scale.x, node.scale.y);
       if (node.rotation) ctx.rotate(node.rotation);
+      ctx.scale(node.scale.x, node.scale.y);
+      ctx.translate(-node.pivot.x, -node.pivot.y);
       ctx.globalAlpha *= node.alpha;
+
+      // Record container itself as hit target if interactive
+      if (isInteractive && node.width > 0 && node.height > 0) {
+        localBounds = { x: 0, y: 0, w: node.width, h: node.height };
+        recordHitTarget = true;
+      }
+
       for (const child of node.children) this._traverse(child, ctx);
     }
+
+    // Record hit target with screen-space bounds (convert from physical to logical pixels)
+    if (recordHitTarget && localBounds && (node._hasHandler('pointertap') || node._hasHandler('pointerdown') || node._hasHandler('click'))) {
+      let t: { a: number; b: number; c: number; d: number; e: number; f: number } = ctx.getTransform();
+      // For Graphics, combine parent transform with Graphics' own transform
+      // (not applied to ctx because replayToCanvas does internal save/restore)
+      if (node instanceof Graphics) {
+        const angle = node.rotation + node.angle * Math.PI / 180;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const sx = node.scale.x;
+        const sy = node.scale.y;
+        const px = node.pivot.x;
+        const py = node.pivot.y;
+        // Graphics local matrix: T(x,y) × R(θ) × S(sx,sy) × T(-px,-py)
+        const la = cosA * sx;
+        const lb = sinA * sx;
+        const lc = -sinA * sy;
+        const ld = cosA * sy;
+        const ltx = node.x - px * la - py * lc;
+        const lty = node.y - px * lb - py * ld;
+        // Multiply parent × local
+        t = {
+          a: t.a * la + t.c * lb,
+          b: t.b * la + t.d * lb,
+          c: t.a * lc + t.c * ld,
+          d: t.b * lc + t.d * ld,
+          e: t.a * ltx + t.c * lty + t.e,
+          f: t.b * ltx + t.d * lty + t.f,
+        };
+      }
+      const dprInv = 1 / this._dpr;
+      const corners = [
+        { x: localBounds.x, y: localBounds.y },
+        { x: localBounds.x + localBounds.w, y: localBounds.y },
+        { x: localBounds.x, y: localBounds.y + localBounds.h },
+        { x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h },
+      ].map(p => ({ x: (t.a * p.x + t.c * p.y + t.e) * dprInv, y: (t.b * p.x + t.d * p.y + t.f) * dprInv }));
+      const minX = Math.min(...corners.map(p => p.x));
+      const minY = Math.min(...corners.map(p => p.y));
+      const maxX = Math.max(...corners.map(p => p.x));
+      const maxY = Math.max(...corners.map(p => p.y));
+      this._hitTargets.push({ node, bx: minX, by: minY, bw: maxX - minX, bh: maxY - minY });
+    }
+
     ctx.restore();
+  }
+
+  private _computeGraphicsLocalBounds(g: Graphics): { x: number; y: number; w: number; h: number } {
+    // Quick bounds from Graphics ops (simple version)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const op of g.ops) {
+      switch (op[0]) {
+        case 'drawRect': {
+          const [, x, y, w, h] = op;
+          if (x < minX) minX = x; if (y < minY) minY = y;
+          if (x + w > maxX) maxX = x + w; if (y + h > maxY) maxY = y + h;
+          break;
+        }
+        case 'drawCircle': {
+          const [, cx, cy, r] = op;
+          if (cx - r < minX) minX = cx - r; if (cy - r < minY) minY = cy - r;
+          if (cx + r > maxX) maxX = cx + r; if (cy + r > maxY) maxY = cy + r;
+          break;
+        }
+        case 'moveTo':
+        case 'lineTo':
+        case 'bezierCurveTo':
+        case 'quadraticCurveTo': {
+          for (let i = 1; i < op.length; i += 2) {
+            const x = op[i] as number;
+            const y = op[i + 1] as number;
+            if (x < minX) minX = x; if (y < minY) minY = y;
+            if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+          }
+          break;
+        }
+        case 'arc': {
+          const [, x, y, r] = op;
+          if (x - r < minX) minX = x - r; if (y - r < minY) minY = y - r;
+          if (x + r > maxX) maxX = x + r; if (y + r > maxY) maxY = y + r;
+          break;
+        }
+      }
+    }
+    if (minX === Infinity) { minX = 0; minY = 0; maxX = 1; maxY = 1; }
+    return { x: minX, y: minY, w: maxX - minX || 1, h: maxY - minY || 1 };
+  }
+
+  private _onCanvasClick(e: MouseEvent): void {
+    const rect = this._displayCanvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (this._logicalW / rect.width);
+    const my = (e.clientY - rect.top) * (this._logicalH / rect.height);
+    // Check hit targets in reverse order (topmost first)
+    for (let i = this._hitTargets.length - 1; i >= 0; i--) {
+      const t = this._hitTargets[i];
+      if (mx >= t.bx && mx <= t.bx + t.bw && my >= t.by && my <= t.by + t.bh) {
+        t.node._firePointertap({
+          target: t.node,
+          currentTarget: t.node,
+          data: { global: { x: mx, y: my }, originalEvent: e },
+          originalEvent: e,
+          metaKey: e.metaKey, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey,
+          button: e.button, buttons: e.buttons,
+          clientX: e.clientX, clientY: e.clientY,
+          screenX: e.screenX, screenY: e.screenY,
+          preventDefault: () => e.preventDefault(),
+          stopPropagation: () => e.stopPropagation(),
+        });
+        return;
+      }
+    }
+  }
+
+  private _onCanvasMouseMove(e: MouseEvent): void {
+    const rect = this._displayCanvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (this._logicalW / rect.width);
+    const my = (e.clientY - rect.top) * (this._logicalH / rect.height);
+    let found = false;
+    for (let i = this._hitTargets.length - 1; i >= 0; i--) {
+      const t = this._hitTargets[i];
+      if (mx >= t.bx && mx <= t.bx + t.bw && my >= t.by && my <= t.by + t.bh) {
+        if (t.node.buttonMode) { found = true; break; }
+      }
+    }
+    this._displayCanvas.style.cursor = found ? 'pointer' : 'default';
   }
 
   destroy(): void {
     this.stage.destroy();
     this.ticker.stop();
     this._wgpu?.destroy();
+    this._displayCanvas.removeEventListener('click', (e: any) => this._onCanvasClick(e));
+    this._displayCanvas.removeEventListener('mousemove', (e: any) => this._onCanvasMouseMove(e));
   }
 }
 
