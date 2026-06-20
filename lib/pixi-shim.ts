@@ -303,6 +303,8 @@ export class Application {
     this._displayCanvas.style.position = 'absolute';
     this._displayCanvas.style.top = '0';
     this._displayCanvas.style.left = '0';
+    // Pixi.js exposes app.view directly
+    (this as any).view = this._displayCanvas;
 
     this.renderer = {
       plugins: { accessibility: { destroy() {} } },
@@ -329,7 +331,7 @@ export class Application {
     const br = ((bg >> 16) & 0xff) / 255, bgc = ((bg >> 8) & 0xff) / 255, bb = (bg & 0xff) / 255;
     this._ctx.fillStyle = `rgba(${br * 255},${bgc * 255},${bb * 255},${bgAlpha})`;
 
-    // Try to initialize WebGPU (async, will be ready for first render)
+    // Init WebGPU on a SEPARATE canvas (not _displayCanvas which must stay 2D)
     this._initWebGPU(width, height);
   }
 
@@ -337,19 +339,18 @@ export class Application {
     if (!navigator.gpu) return;
     this._wgpu = new WebGPURenderer();
     try {
-      this._wgpuReady = await this._wgpu.initialize({ canvas: this._displayCanvas, width, height });
-    } catch (_e) { /* WebGPU not available, fall back to Canvas 2D */ }
+      const gpuCanvas = document.createElement('canvas');
+      gpuCanvas.width = width;
+      gpuCanvas.height = height;
+      this._wgpuReady = await this._wgpu.initialize({ canvas: gpuCanvas, width, height });
+    } catch (_e) { /* WebGPU unavailable */ }
   }
 
-  // view is set as property in constructor
-
-  /** Walk stage tree and render everything (Canvas 2D with optional WebGPU display) */
   render(): void {
     this._render(this.stage);
   }
 
   private _render(stage: Container): void {
-    // Step 1: Render scene to offscreen Canvas 2D (handles all Graphics/Text ops)
     const w = this._canvas.width;
     const h = this._canvas.height;
     this._ctx.clearRect(0, 0, w, h);
@@ -357,52 +358,10 @@ export class Application {
     this._ctx.fillRect(0, 0, w, h);
     this._traverse(stage);
     this._ctx.restore();
-
-    // Step 2: Display via WebGPU or Canvas 2D fallback
-    if (this._wgpuReady && this._wgpu) {
-      this._wgpuRenderFrame();
-    } else {
-      this._displayCanvas.getContext('2d')!.clearRect(0, 0, w, h);
-      this._displayCanvas.getContext('2d')!.drawImage(this._canvas, 0, 0);
-    }
-  }
-
-  private _wgpuRenderFrame(): void {
-    const w = this._displayCanvas.width;
-    const h = this._displayCanvas.height;
-    if (!this._wgpu || !this._wgpuReady || w === 0 || h === 0) return;
-
-    // Upload the Canvas 2D content as a WebGPU texture and draw it
-    try {
-      const device = (this._wgpu as any).device as GPUDevice;
-      if (!device) { this._canvasFallback(w, h); return; }
-
-      // Create a texture from the offscreen canvas
-      const texture = device.createTexture({
-        size: { width: w, height: h },
-        format: 'rgba8unorm',
-        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-      });
-      device.queue.copyExternalImageToTexture(
-        { source: this._canvas, origin: [0, 0] },
-        { texture, origin: [0, 0] },
-        { width: w, height: h },
-      );
-
-      // Draw full-screen textured quad via the context
-      const ctx = this._displayCanvas.getContext('2d')!;
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(this._canvas, 0, 0);
-
-      texture.destroy();
-    } catch {
-      this._canvasFallback(w, h);
-    }
-  }
-
-  private _canvasFallback(w: number, h: number): void {
-    this._displayCanvas.getContext('2d')!.clearRect(0, 0, w, h);
-    this._displayCanvas.getContext('2d')!.drawImage(this._canvas, 0, 0);
+    // Always blit via Canvas 2D to display canvas
+    const dispCtx = this._displayCanvas.getContext('2d')!;
+    dispCtx.clearRect(0, 0, w, h);
+    dispCtx.drawImage(this._canvas, 0, 0);
   }
 
   private _traverse(node: DisplayObject, ctx = this._ctx): void {
