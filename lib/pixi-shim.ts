@@ -66,7 +66,7 @@ export class Color {
 
 class DisplayObject {
   x = 0; y = 0;
-  position = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
+  position: { x: number; y: number; set: (x: number, y: number) => void };
   scale = { x: 1, y: 1, set(x: number, y: number) { this.x = x; this.y = y; } };
   pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
   rotation = 0; angle = 0; alpha = 1;
@@ -74,7 +74,17 @@ class DisplayObject {
   parent: Container | null = null;
   interactive = false;
   onPointerTap: ((e: any) => void) | null = null;
-  on(event: string, fn: (...args: any[]) => void): this { /* noop for Canvas 2D */ return this; }
+
+  constructor() {
+    const self = this;
+    this.position = {
+      get x() { return self.x; }, set x(v: number) { self.x = v; },
+      get y() { return self.y; }, set y(v: number) { self.y = v; },
+      set(x: number, y: number) { self.x = x; self.y = y; },
+    };
+  }
+
+  on(event: string, fn: (...args: any[]) => void): this { /* noop */ return this; }
   off(event: string, fn?: (...args: any[]) => void): this { return this; }
   getBounds() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
 }
@@ -355,11 +365,8 @@ export class Application {
     const w = this._canvas.width;
     const h = this._canvas.height;
     this._ctx.clearRect(0, 0, w, h);
-    this._ctx.save();
     this._ctx.fillRect(0, 0, w, h);
     this._traverse(stage);
-    this._ctx.restore();
-    // Always blit via Canvas 2D to display canvas
     const dispCtx = this._displayCanvas.getContext('2d')!;
     dispCtx.clearRect(0, 0, w, h);
     dispCtx.drawImage(this._canvas, 0, 0);
@@ -368,9 +375,8 @@ export class Application {
   private _traverse(node: DisplayObject, ctx = this._ctx): void {
     if (!node.visible) return;
     ctx.save();
-
     if (node instanceof Graphics) {
-      node.replayToCanvas(this._ctx);
+      node.replayToCanvas(ctx);
     } else if (node instanceof Text) {
       ctx.font = `${node.style.fontWeight} ${node.style.fontSize}px ${node.style.fontFamily}`;
       ctx.fillStyle = typeof node.style.fill === 'number'
