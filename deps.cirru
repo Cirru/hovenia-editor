@@ -1,7 +1,6 @@
 
 {} (:calcit-version |0.12.46)
   :dependencies $ {} (|Cirru/respo-cirru-editor |0.6.4)
-    |Phlox-GL/phlox |0.7.3
     |Quatrefoil-GL/touch-control |0.0.17
     |Respo/alerts.calcit |0.10.12
     |Respo/respo-ui.calcit |0.6.4

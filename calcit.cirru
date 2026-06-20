@@ -1,11 +1,278 @@
 
 {} (:about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `cr query` to inspect and `cr edit`/`cr tree` to modify. Run `cr docs agents --full` first. Manual edits must follow format and schema conventions, then run `cr edit format`.") (:package |app)
   :configs $ {} (:init-fn |app.main/main!) (:reload-fn |app.main/reload!) (:version |0.0.1)
-    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/
+    :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/
   :entries $ {}
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!) (:version |0.0.0)
       :modules $ [] |calcit-http/
   :files $ {}
+    |app.core $ %{} :FileEntry
+      :defs $ {}
+        |*canvas-context $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *canvas-context nil)
+          :examples $ []
+        |defcomp $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defmacro defcomp (name params & body)
+              quasiquote $ defn ~name ~params ~@body
+          :examples $ []
+        |>> $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn >> (states k)
+              let
+                  parent-cursor $ either (:cursor states) ([])
+                  branch $ either (get states k) ({})
+                assoc branch :cursor $ conj parent-cursor k
+          :examples $ []
+        |clear-phlox-caches! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defn clear-phlox-caches! () nil)
+          :examples $ []
+        |hslx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hslx (h s l)
+              str "|hsl(" h "|, " s "|%, " l "|%)"
+          :examples $ []
+        |hclx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hclx (h c l)
+              hslx h c l
+          :examples $ []
+        |hsluvx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hsluvx (h s l)
+              hslx h s l
+          :examples $ []
+        |create-element $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn create-element (tag props children)
+              {} (:name tag) (:props props) (:children children)
+          :examples $ []
+        |container $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn container (props & children)
+              create-element :container props children
+          :examples $ []
+        |rect $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn rect (props & children)
+              create-element :rect props children
+          :examples $ []
+        |circle $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn circle (props & children)
+              create-element :circle props children
+          :examples $ []
+        |text $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn text (props & children)
+              create-element :text props children
+          :examples $ []
+        |graphics $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn graphics (props & children)
+              create-element :graphics props children
+          :examples $ []
+        |create-list $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn create-list (tag props children)
+              {} (:name tag) (:props props) (:children children)
+          :examples $ []
+        |polyline $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn polyline (props & children)
+              create-element :polyline props children
+          :examples $ []
+        |line-segments $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn line-segments (props & children)
+              create-element :graphics props children
+          :examples $ []
+        |g $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn g (op ? arg)
+              let
+                  data arg
+                case-default op (js/console.warn "|not supported:" op)
+                  :move-to nil
+                  :line-to nil
+                  :line-style nil
+                  :begin-fill nil
+                  :end-fill nil
+                  :close-path nil
+                  :bezier-to nil
+                  :arc nil
+                  :arc-to nil
+                  :quadratic-to nil
+                  :begin-hole nil
+                  :end-hole nil
+                [] op data
+          :examples $ []
+        |render-element! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render-element! (el ctx dispatch)
+              let
+                  tag $ :name el
+                  props $ :props el
+                  children $ :children el
+                case-default tag (js/console.warn "|unknown tag:" tag)
+                  :container $ let
+                      pos $ :position props
+                      rot $ :rotation props
+                      scl $ :scale props
+                      pivot $ :pivot props
+                    (if (some? pos) (.!save ctx))
+                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
+                    (if (some? rot) (.!rotate ctx rot))
+                    (if (some? scl) (.!scale ctx scl scl))
+                    (if (some? pivot) (.!translate ctx (- (first pivot)) (- (last pivot))))
+                    (-> children (.!forEach ctx dispatch render-element!))
+                    (if (some? pos) (.!restore ctx))
+                  :rect $ let
+                      pos $ :position props
+                      size $ :size props
+                      fill $ :fill props
+                      line-width $ get-in props ([] :line-style :width)
+                      line-color $ get-in props ([] :line-style :color)
+                      alpha $ :alpha props
+                      angle $ :angle props
+                      pivot $ :pivot props
+                    (if (some? pos) (.!save ctx))
+                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
+                    (if (some? angle) (.!save ctx))
+                    (if (some? angle) (.!translate ctx (first pivot) (last pivot)))
+                    (if (some? angle) (.!rotate ctx $ * angle (/ &PI 180)))
+                    (if (some? angle) (.!translate ctx (- (first pivot)) (- (last pivot))))
+                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
+                    (if (some? fill) (set! (.-fillStyle ctx) fill))
+                    (if (some? fill) (.!fillRect ctx 0 0 (first size) (last size)))
+                    (if (some? line-width) (set! (.-lineWidth ctx) line-width))
+                    (if (some? line-color) (set! (.-strokeStyle ctx) line-color))
+                    (if (some? line-width) (.!strokeRect ctx 0 0 (first size) (last size)))
+                    (if (some? pos) (.!restore ctx))
+                  :circle $ let
+                      pos $ :position props
+                      radius $ :radius props
+                      fill $ :fill props
+                      alpha $ :alpha props
+                    (if (some? pos) (.!save ctx))
+                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
+                    (.!beginPath ctx)
+                    (.!arc ctx 0 0 radius 0 (* 2 &PI))
+                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
+                    (if (some? fill) (set! (.-fillStyle ctx) fill))
+                    (if (some? fill) (.!fill ctx))
+                    (if (some? pos) (.!restore ctx))
+                  :text $ let
+                      pos $ :position props
+                      txt $ :text props
+                      style $ :style props
+                      font-size $ :font-size style
+                      font-family $ :font-family style
+                      fill $ :fill style
+                      rot $ :rotation props
+                    (if (some? pos) (.!save ctx))
+                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
+                    (if (some? rot) (.!rotate ctx rot))
+                    (set! (.-font ctx) (str font-size "|px " font-family))
+                    (if (some? fill) (set! (.-fillStyle ctx) fill))
+                    (.!fillText ctx txt 0 0)
+                    (if (some? pos) (.!restore ctx))
+                  :graphics $ let
+                      ops $ :ops props
+                    (-> ops (.!forEach ctx dispatch render-graphics-op!))
+                  :polyline $ let
+                      points $ :points props
+                      style $ :style props
+                      line-width $ :width style
+                      line-color $ :color style
+                      line-alpha $ :alpha style
+                    (.!beginPath ctx)
+                    (-> points (.!forEach ctx 0 render-points-to-path!))
+                    (if (some? line-color) (set! (.-strokeStyle ctx) line-color))
+                    (if (some? line-width) (set! (.-lineWidth ctx) line-width))
+                    (if (some? line-alpha) (set! (.-globalAlpha ctx) line-alpha))
+                    (if (some? line-color) (.!stroke ctx))
+                  :line-segments nil
+          :examples $ []
+        |render-graphics-op! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render-graphics-op! (ctx op-pair)
+              let
+                  op $ nth op-pair 0
+                  data $ nth op-pair 1
+                case-default op nil
+                  :begin-fill $ let
+                      color $ :color data
+                      alpha $ :alpha data
+                    (.!beginPath ctx)
+                    (if (some? color) (set! (.-fillStyle ctx) color))
+                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
+                  :end-fill $ do (.!fill ctx)
+                  :line-style $ let
+                      color $ :color data
+                      width $ :width data
+                      alpha $ :alpha data
+                    (if (some? color) (set! (.-strokeStyle ctx) color))
+                    (if (some? width) (set! (.-lineWidth ctx) width))
+                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
+                  :move-to $ let
+                      x $ first data
+                      y $ last data
+                    (.!moveTo ctx x y)
+                  :line-to $ let
+                      x $ first data
+                      y $ last data
+                    (.!lineTo ctx x y)
+                  :close-path $ .!closePath ctx
+                  :bezier-to $ let
+                      p1 $ :p1 data
+                      p2 $ :p2 data
+                      to-p $ :to-p data
+                    (.!bezierCurveTo ctx (first p1) (last p1) (first p2) (last p2) (first to-p) (last to-p))
+                  :arc $ let
+                      center $ :center data
+                      radian $ :radian data
+                      radius $ :radius data
+                      anticlockwise? $ :anticlockwise? data
+                    (.!arc ctx (first center) (last center) radius (first radian) (last radian) anticlockwise?)
+          :examples $ []
+        |render-points-to-path! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render-points-to-path! (ctx idx point)
+              (if (= idx 0) (.!moveTo ctx (first point) (last point))
+                (.!lineTo ctx (first point) (last point)))
+          :examples $ []
+        |on-control-event $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn on-control-event (elapsed states delta) nil
+          :examples $ []
+        |render! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render! (comp-tree dispatch options)
+              let
+                  mount-target $ js/document.querySelector |.app
+                  canvas $ if (nil? (.!querySelector mount-target |canvas))
+                    let
+                        c $ js/document.createElement |canvas
+                      (.!appendChild mount-target c)
+                      , c
+                    .!querySelector mount-target |canvas
+                  ctx $ .!getContext canvas |2d
+                  dpr $ js/window.devicePixelRatio
+                  width $ .-innerWidth js/window
+                  height $ .-innerHeight js/window
+                (set! (.-width canvas) (* width dpr))
+                (set! (.-height canvas) (* height dpr))
+                (set! (.-style.width canvas) (str width "|px"))
+                (set! (.-style.height canvas) (str height "|px"))
+                (set! (.-font canvas) "|16px Josefin Sans")
+                (.!setTransform ctx dpr 0 0 dpr 0 0)
+                (.!clearRect ctx 0 0 width height)
+                (if (some? comp-tree) (render-element! comp-tree ctx dispatch))
+          :examples $ []
+      :ns $ %{} :NsEntry (:doc |)
+        :code $ quote
+          ns app.core $ :require
     |app.analyze $ %{} :FileEntry
       :defs $ {}
         |analyze-deps $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -364,7 +631,7 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.comp.call-tree $ :require
-            phlox.core :refer $ defcomp >> hslx hclx hsluvx rect circle text container graphics create-list g polyline
+            app.core :refer $ defcomp >> hslx hclx hsluvx rect circle text container graphics create-list g polyline
             app.math :refer $ divide-path multiply-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
             pointed-prompt.core :refer $ prompt-at!
@@ -755,7 +1022,7 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.comp.deps-of $ :require
-            phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline
+            app.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline
             app.math :refer $ divide-path multiply-path add-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
             pointed-prompt.core :refer $ prompt-at!
@@ -954,7 +1221,7 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.comp.deps-tree $ :require
-            phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline line-segments
+            app.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline line-segments
             app.math :refer $ divide-path multiply-path add-path subtract-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
             pointed-prompt.core :refer $ prompt-at!
@@ -1650,7 +1917,7 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.comp.editor $ :require
-            phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+            app.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
             app.math :refer $ divide-path multiply-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
             pointed-prompt.core :refer $ prompt-at!
@@ -2167,7 +2434,7 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.container $ :require
-            phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
+            app.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
             app.math :refer $ divide-path multiply-path add-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
             pointed-prompt.core :refer $ prompt-at!
@@ -2302,7 +2569,7 @@
                 if (some? target) (reset! *initial-target target)
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
-                .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
+                .!then $ fn (event) (render-app!)
               add-watch *store :change $ fn (store prev) (render-app!)
               when mobile? (render-control!) (start-control-loop! 8 on-control-event)
               load-files! dispatch!
@@ -2336,7 +2603,7 @@
         :code $ quote
           ns app.main $ :require
             |nanoid :refer $ nanoid
-            phlox.core :refer $ render! clear-phlox-caches! on-control-event
+            app.core :refer $ render! clear-phlox-caches! on-control-event
             app.container :refer $ comp-container
             app.schema :as schema
             app.config :refer $ dev? mobile?

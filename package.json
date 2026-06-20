@@ -23,12 +23,9 @@
   },
   "dependencies": {
     "@calcit/procs": "^0.12.46",
-    "@quamolit/phlox-utils": "^0.0.2",
     "@quamolit/touch-control": "^0.0.13",
     "bottom-tip": "^0.1.5",
     "fontfaceobserver-es": "^3.3.3",
-    "hsluv": "^1.0.1",
-    "mobile-detect": "^1.4.5",
-    "pixi.js": "7.x"
+    "mobile-detect": "^1.4.5"
   }
 }

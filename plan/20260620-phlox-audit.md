@@ -28,10 +28,17 @@ Commit `6993a78` — Fix text vertical centering in rects and URL quick navigati
 | 模块 | 使用 ns 数 | API |
 |------|-----------|-----|
 | `phlox.core` | 6 | `defcomp`, `>>`, `hslx/hclx/hsluvx`, `rect/circle/text/container/graphics/create-list/g/polyline/line-segments`, `render!/clear-phlox-caches!/on-control-event` |
-| `phlox.comp.button` | 5 | `comp-button` |
-| `phlox.util` | 5 | `measure-text-width!` |
-| `phlox.comp.drag-point` | 3 | `comp-drag-point` |
-| `phlox.comp.slider` | 3 | `comp-slider`, `comp-spin-slider` |
+
+#### ✅ 已清理完毕
+| 模块 | 状态 | 替换方式 |
+|------|------|----------|
+| `phlox.complex` | ✅ | 用 `app.math` 的 `add-path`/`subtract-path` 替换 |
+| `phlox.config` | ✅ | 在 `app.config` 中添加 `dev?`/`mobile?` |
+| `phlox.cursor` | ✅ | 在 `app.updater` 中添加本地 `update-states` |
+| `phlox.util` | ✅ | 在 `app.config` 中添加本地 `measure-text-width!` |
+| `phlox.comp.button` | ✅ | 在 `app.comp.deps-of` 中添加本地 `comp-button` |
+| `phlox.comp.drag-point` | ✅ | 移除（死代码） |
+| `phlox.comp.slider` | ✅ | 在 `app.comp.call-tree` 中添加本地 `comp-spin-slider` |
 
 ### 3. 已生成的 phlox JS（js-out/ — 29 个文件）
 
