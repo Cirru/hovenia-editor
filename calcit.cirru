@@ -2164,6 +2164,9 @@
         |*store $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (defatom *store schema/store)
           :examples $ []
+        |*initial-def $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *initial-def nil)
+          :examples $ []
         |dispatch! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn dispatch! (op ? data)
@@ -2188,6 +2191,13 @@
                         op-id $ nanoid
                         op-time $ js/Date.now
                       reset! *store $ updater @*store op op-id op-time
+                    when
+                      and (= (nth op 0) :ok) (some? @*initial-def)
+                      let
+                          pieces $ .split @*initial-def |/
+                        dispatch! :def-path $ [] (nth pieces 0) :defs (nth pieces 1)
+                        dispatch! $ :: :states ([] :dom) ({})
+                        reset! *initial-def nil
           :examples $ []
         |handle-global-keys $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -2199,6 +2209,11 @@
         |main! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn main! ()
+              let
+                  params $ new js/URLSearchParams $ .-search js/window.location
+                  initial $ .!get params |initial
+                if (some? initial)
+                  reset! *initial-def initial
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
                 .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
