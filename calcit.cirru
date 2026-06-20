@@ -204,6 +204,39 @@
         :code $ quote (ns app.analyze)
     |app.comp.call-tree $ %{} :FileEntry
       :defs $ {}
+        |comp-spin-slider $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn comp-spin-slider (states props)
+              let
+                  cursor $ :cursor states
+                  state $ or (:data states) ({} (:dragging? false))
+                  unit $ if (nil? (:unit props)) 1 (:unit props)
+                  value $ :value props
+                  position $ :position props
+                  on-change $ :on-change props
+                container ({} (:position position))
+                  rect $ {}
+                    :size $ [] 120 24
+                    :fill $ hslx 0 0 30
+                    :on $ {}
+                      :pointerdown $ fn (e d!)
+                        d! cursor $ assoc state :dragging? true
+                      :globalpointermove $ fn (e d!)
+                        if (:dragging? state)
+                          let
+                              x $ -> e .-data .-global .-x
+                            on-change (+ value (* unit (- x (first position)))) d!
+                      :pointerup $ fn (e d!)
+                        d! cursor $ assoc state :dragging? false
+                      :pointerupoutside $ fn (e d!)
+                        d! cursor $ assoc state :dragging? false
+                  text $ {}
+                    :text $ str value
+                    :position $ [] 4 4
+                    :style $ {}
+                      :fill $ hslx 0 0 100
+                      :font-size 12
+          :examples $ []
         |build-call-tree $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn build-call-tree (deps-tree entry parents)
@@ -332,17 +365,14 @@
         :code $ quote
           ns app.comp.call-tree $ :require
             phlox.core :refer $ defcomp >> hslx hclx hsluvx rect circle text container graphics create-list g polyline
-            phlox.comp.button :refer $ comp-button
             app.math :refer $ divide-path multiply-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
-            phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
             app.comp.deps-tree :refer $ comp-deps-tree
             app.analyze :refer $ lookup-target-def strip-at
-            phlox.util :refer $ measure-text-width!
+            app.config :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
             memof.once :refer $ memof1-call
-            phlox.comp.slider :refer $ comp-spin-slider
     |app.comp.command $ %{} :FileEntry
       :defs $ {}
         |commands $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -580,6 +610,36 @@
             respo.css :refer $ defstyle
     |app.comp.deps-of $ %{} :FileEntry
       :defs $ {}
+        |comp-button $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn comp-button (props)
+              let
+                  button-text $ if (nil? (:text props)) |BUTTON (:text props)
+                  font-size $ if (nil? (:font-size props)) 14 (:font-size props)
+                  font-family $ if (nil? (:font-family props)) "|Josefin Sans, sans-serif" (:font-family props)
+                  fill $ if (nil? (:fill props)) (hslx 0 0 20) (:fill props)
+                  color $ if (nil? (:color props)) (hslx 0 0 100) (:color props)
+                  position $ :position props
+                  text-width $ measure-text-width! button-text font-size font-family
+                  width $ + 16 text-width
+                  align-right? $ :align-right? props
+                  adjusted-position $ if align-right?
+                    [] (- (first position) width) (last position)
+                    , position
+                  on-event $ if (some? (:on props)) (:on props) nil
+                container ({} (:position adjusted-position))
+                  rect $ {}
+                    :size $ [] width 32
+                    :fill fill
+                    :on on-event
+                  text $ {}
+                    :text button-text
+                    :position $ [] 8 8
+                    :style $ {}
+                      :fill color
+                      :font-size font-size
+                      :font-family font-family
+          :examples $ []
         |comp-curves $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn comp-curves (connections)
@@ -627,14 +687,14 @@
                           let
                               to $ [] -200
                                 + 16 $ * (dec idx) 40
-                              p2 $ complex/add to ([] 100 0)
+                              p2 $ add-path to ([] 100 0)
                             [] ([] 0 16) ([] -100 16) p2 to
                       -> internal-deps $ map-indexed
                         fn (idx item)
                           let
                               to $ [] 320
                                 + 16 $ * (dec idx) 40
-                              p2 $ complex/add to ([] -100 0)
+                              p2 $ add-path to ([] -100 0)
                             [] ([] button-width 16)
                               [] (+ 100 button-width) 16
                               , p2 to
@@ -696,14 +756,12 @@
         :code $ quote
           ns app.comp.deps-of $ :require
             phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline
-            phlox.comp.button :refer $ comp-button
-            app.math :refer $ divide-path multiply-path
+            app.math :refer $ divide-path multiply-path add-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
-            phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
             app.comp.deps-tree :refer $ comp-deps-tree
             app.analyze :refer $ lookup-target-def strip-at
-            phlox.util :refer $ measure-text-width!
+            app.config :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
             memof.once :refer $ memof1-call
     |app.comp.deps-tree $ %{} :FileEntry
@@ -782,10 +840,10 @@
                                   empty? $ :scoped-defs target
                                   <= (:depth target) (:depth info)
                                 , nil $ []
-                                  complex/add base $ []
+                                  add-path base $ []
                                     + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
                                     + 10 $ * 20 (inc idx)
-                                  complex/add (expand-layout-xy target) ([] 0 10)
+                                  add-path (expand-layout-xy target) ([] 0 10)
                           filter $ fn (pair)
                             some? $ last pair
                 ; js/console.log @*defs-metrics-states
@@ -811,8 +869,8 @@
                                   , 100 60
                               g :move-to from
                               g :bezier-to $ {}
-                                :p1 $ complex/add from ([] 50 0)
-                                :p2 $ complex/minus to ([] 50 0)
+                                :p1 $ add-path from ([] 50 0)
+                                :p2 $ subtract-path to ([] 50 0)
                                 :to-p to
                   create-list :container ({})
                     -> defs-metrics $ map-indexed
@@ -830,7 +888,7 @@
                               :fill $ hslx 0 0 20
                             text $ {}
                               :text $ str-def-entry (:entry info) pkg
-                              :position $ complex/add position ([] 4 5)
+                              :position $ add-path position ([] 4 5)
                               :style $ {}
                                 :fill $ hslx 0 0 80
                                 :font-size 14
@@ -840,7 +898,7 @@
                                 map-indexed $ fn (idx def-entry)
                                   [] idx $ container ({})
                                     rect $ {}
-                                      :position $ complex/add position
+                                      :position $ add-path position
                                         [] 0 $ * 20 (inc idx)
                                       :size $ []
                                         + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
@@ -854,7 +912,7 @@
                                             d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
                                     text $ {}
                                       :text $ str-def-entry def-entry pkg
-                                      :position $ complex/add position
+                                      :position $ add-path position
                                         [] 4 $ + 5 (* 20 (inc idx))
                                       :style $ {}
                                         :fill $ hslx 180 30 40
@@ -897,14 +955,10 @@
         :code $ quote
           ns app.comp.deps-tree $ :require
             phlox.core :refer $ defcomp >> hslx hclx rect circle text container graphics create-list g polyline line-segments
-            phlox.comp.button :refer $ comp-button
-            phlox.comp.drag-point :refer $ comp-drag-point
-            phlox.comp.slider :refer $ comp-slider
-            app.math :refer $ divide-path multiply-path
+            app.math :refer $ divide-path multiply-path add-path subtract-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
-            phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
-            phlox.util :refer $ measure-text-width!
+            app.config :refer $ measure-text-width!
     |app.comp.editor $ %{} :FileEntry
       :defs $ {}
         |all-block? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -1597,16 +1651,12 @@
         :code $ quote
           ns app.comp.editor $ :require
             phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
-            phlox.comp.button :refer $ comp-button
-            phlox.comp.drag-point :refer $ comp-drag-point
-            phlox.comp.slider :refer $ comp-slider
             app.math :refer $ divide-path multiply-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
-            phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
             app.comp.deps-tree :refer $ comp-deps-tree
             app.analyze :refer $ lookup-target-def strip-at
-            phlox.util :refer $ measure-text-width!
+            app.config :refer $ measure-text-width!
     |app.comp.key-event $ %{} :FileEntry
       :defs $ {}
         |comp-key-event $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -2010,6 +2060,27 @@
           :code $ quote
             def mocked? $ &= |true (get-env |mocked |false)
           :examples $ []
+        |dev? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            def dev? $ = |dev (get-env |mode |release)
+          :examples $ []
+        |mobile? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            def mobile? $ .!mobile $ new mobile-detect (.-userAgent js/window.navigator)
+          :examples $ []
+        |*ctx-instance $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *ctx-instance nil)
+          :examples $ []
+        |measure-text-width! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn measure-text-width! (text size font-family)
+              if (nil? @*ctx-instance)
+                let
+                    el $ js/document.createElement |canvas
+                  reset! *ctx-instance $ .!getContext el |2d
+              set! (.-font @*ctx-instance) $ str size "|px " font-family
+              .-width $ .!measureText @*ctx-instance text
+          :examples $ []
         |site $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             def site $ {} (:title |Phlox) (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |phlox-workflow)
@@ -2077,18 +2148,12 @@
                   state $ or (:data states)
                     {} $ :p1 ([] 400 -100)
                 container ({})
-                  comp-drag-point (>> states :p1)
-                    {} (:hide-text? true)
-                      :position $ :p1 state
-                      :radius 8
-                      :fill $ hslx 60 90 44
-                      :on-change $ fn (position d!)
-                        d! cursor $ assoc state :p1 position
+                  ; comp-drag-point was removed (dead code)
                   text $ {}
                     :text $ .!slice
                       format-to-lisp $ turn-quoted target
                       , 0 200
-                    :position $ complex/add (:p1 state) ([] 12 -6)
+                    :position $ add-path (:p1 state) ([] 12 -6)
                     :style $ {}
                       :fill $ hslx 200 40 50
                       :font-size 10
@@ -2103,16 +2168,12 @@
         :code $ quote
           ns app.container $ :require
             phlox.core :refer $ defcomp >> hslx rect circle text container graphics create-list g polyline
-            phlox.comp.button :refer $ comp-button
-            phlox.comp.drag-point :refer $ comp-drag-point
-            phlox.comp.slider :refer $ comp-slider
-            app.math :refer $ divide-path multiply-path
+            app.math :refer $ divide-path multiply-path add-path
             app.config :refer $ leaf-gap leaf-height line-height code-font api-host dot-radius twist-distance
-            phlox.complex :as complex
             pointed-prompt.core :refer $ prompt-at!
             app.comp.deps-tree :refer $ comp-deps-tree
             app.analyze :refer $ lookup-target-def strip-at
-            phlox.util :refer $ measure-text-width!
+            app.config :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
             memof.once :refer $ memof1-call
             app.comp.deps-of :refer $ comp-deps-of
@@ -2278,7 +2339,7 @@
             phlox.core :refer $ render! clear-phlox-caches! on-control-event
             app.container :refer $ comp-container
             app.schema :as schema
-            phlox.config :refer $ dev? mobile?
+            app.config :refer $ dev? mobile?
             app.updater :refer $ updater
             |fontfaceobserver-es :default FontFaceObserver
             |./calcit.build-errors :default build-errors
@@ -2294,9 +2355,13 @@
       :defs $ {}
         |add-path $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
-            defn add-path
-              ([] a b) ([] x y)
-              [] (+ a x) (+ b y)
+            defn add-path (p q)
+              let
+                  a $ nth p 0
+                  b $ nth p 1
+                  x $ nth q 0
+                  y $ nth q 1
+                [] (+ a x) (+ b y)
           :examples $ []
         |divide-path $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -2355,9 +2420,13 @@
           :examples $ []
         |subtract-path $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
-            defn subtract-path
-              ([] a b) ([] x y)
-              [] (- a x) (- b y)
+            defn subtract-path (p q)
+              let
+                  a $ nth p 0
+                  b $ nth p 1
+                  x $ nth q 0
+                  y $ nth q 1
+                [] (- a x) (- b y)
           :examples $ []
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
@@ -2514,6 +2583,11 @@
             respo-ui.core :as ui
     |app.updater $ %{} :FileEntry
       :defs $ {}
+        |update-states $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn update-states (store cursor data)
+              assoc-in store (concat ([] :states) cursor ([] :data)) data
+          :examples $ []
         |splice-after $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn splice-after (xs i ys)
@@ -2721,6 +2795,5 @@
       :ns $ %{} :NsEntry (:doc |)
         :code $ quote
           ns app.updater $ :require
-            phlox.cursor :refer $ update-states
             cirru-editor.core :refer $ cirru-edit
             app.schema :as schema
