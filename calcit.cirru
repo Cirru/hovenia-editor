@@ -2379,7 +2379,7 @@
                   {} (:code 404)
                     :body $ str "|unkown url " (:url req)
                 |/compact-data $ let
-                    content $ read-file |compact.cirru
+                    content $ read-file |calcit.cirru
                   {} (:code 200) (:headers cors-headers) (:body content)
                 |/compact-inc $ case-default (:method req)
                   do
@@ -2392,11 +2392,11 @@
                       body $ :body req
                       changes $ parse-cirru-edn body
                       new-compact-data $ patch-compact-data
-                        parse-cirru-edn $ read-file |compact.cirru
+                        parse-cirru-edn $ read-file |calcit.cirru
                         , changes
-                    write-file |compact.cirru $ format-cirru-edn new-compact-data
+                    write-file |calcit.cirru $ format-cirru-edn new-compact-data
                     write-file |.compact-inc.cirru body
-                    println "|wrote to" |.compact-inc.cirru |and |compact.cirru
+                    println "|wrote to" |.compact-inc.cirru |and |calcit.cirru
                     ; println |data $ :body req
                     {} (:code 200) (:headers cors-headers)
                       :body $ format-cirru-edn
