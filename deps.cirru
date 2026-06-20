@@ -6,7 +6,7 @@
     |Respo/alerts.calcit |0.10.12
     |Respo/respo-ui.calcit |0.6.4
     |Respo/respo.calcit |0.16.47
-    |calcit-lang/calcit-http |0.3.2
+    |calcit-lang/calcit-http |0.3.3
     |calcit-lang/lilac |0.5.1
     |calcit-lang/memof |0.0.24
     |mvc-works/pointed-prompt |0.0.7
