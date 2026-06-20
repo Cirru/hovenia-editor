@@ -830,7 +830,7 @@
                               :fill $ hslx 0 0 20
                             text $ {}
                               :text $ str-def-entry (:entry info) pkg
-                              :position $ complex/add position ([] 4 0)
+                              :position $ complex/add position ([] 4 5)
                               :style $ {}
                                 :fill $ hslx 0 0 80
                                 :font-size 14
@@ -855,7 +855,7 @@
                                     text $ {}
                                       :text $ str-def-entry def-entry pkg
                                       :position $ complex/add position
-                                        [] 4 $ * 20 (inc idx)
+                                        [] 4 $ + 5 (* 20 (inc idx))
                                       :style $ {}
                                         :fill $ hslx 180 30 40
                                         :font-size 14
@@ -1534,7 +1534,7 @@
                           :color $ hslx 60 80 80
                           :alpha 0.8
                     text $ {} (:text s)
-                      :position $ [] 4 -8
+                      :position $ [] 4 -6
                       :style $ {}
                         :fill $ pick-leaf-color s head?
                         :font-size 14
@@ -2164,6 +2164,9 @@
         |*initial-def $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (defatom *initial-def nil)
           :examples $ []
+        |*initial-target $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *initial-target nil)
+          :examples $ []
         |*store $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (defatom *store schema/store)
           :examples $ []
@@ -2196,10 +2199,29 @@
                         = (nth op 0) :ok
                         some? @*initial-def
                       let
-                          pieces $ .split @*initial-def |/
-                        dispatch! :def-path $ [] (nth pieces 0) :defs (nth pieces 1)
-                        dispatch! $ :: :states ([] :dom) ({})
+                          view @*initial-def
+                          target @*initial-target
+                        cond
+                            = view |deps-tree
+                            do
+                              dispatch! :deps-tree $ analyze-deps (:files @*store)
+                              dispatch! :router $ {} (:name :deps-tree)
+                          (= view |deps-of)
+                            do
+                              dispatch! :deps-tree $ analyze-deps (:files @*store)
+                              dispatch! :router $ {} (:name :deps-of)
+                                :data $ if (some? target) (.split target |/) target
+                          (= view |call-tree)
+                            do
+                              dispatch! :deps-tree $ analyze-deps (:files @*store)
+                              dispatch! :router $ {} (:name :call-tree)
+                                :data $ if (some? target) (.split target |/) target
+                          true $ let
+                              pieces $ .split view |/
+                            dispatch! :def-path $ [] (nth pieces 0) :defs (nth pieces 1)
+                            dispatch! $ :: :states ([] :dom) ({})
                         reset! *initial-def nil
+                        reset! *initial-target nil
           :examples $ []
         |handle-global-keys $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -2214,7 +2236,9 @@
               let
                   params $ new js/URLSearchParams (.-search js/window.location)
                   initial $ .!get params |initial
+                  target $ .!get params |target
                 if (some? initial) (reset! *initial-def initial)
+                if (some? target) (reset! *initial-target target)
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
                 .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
@@ -2265,7 +2289,7 @@
             respo.core :as respo
             respo.comp.space :refer $ =<
             app.fetch :refer $ load-files!
-            app.analyze :refer $ lookup-target-def
+            app.analyze :refer $ lookup-target-def analyze-deps
     |app.math $ %{} :FileEntry
       :defs $ {}
         |add-path $ %{} :CodeEntry (:doc |) (:schema :dynamic)

@@ -101,7 +101,7 @@ class DisplayObject {
     return this;
   }
   getBounds() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
-  
+
   /** For hit testing: fire a pointertap event on this node */
   _firePointertap(e: any): void {
     const h = this._handlers.get('pointertap');
@@ -530,7 +530,7 @@ export class Application {
       ctx.fillText(node.text, ox, oy);
       node.width = textW;
       node.height = textH;
-      
+
       if (isInteractive) {
         localBounds = { x: -node.anchor.x * textW, y: -node.anchor.y * textH, w: textW, h: textH };
         recordHitTarget = true;
