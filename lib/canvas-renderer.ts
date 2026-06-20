@@ -23,6 +23,42 @@ const toCssColor = (c: unknown): string => {
 const camera = { x: 200, y: 60, scale: 1 };
 let canvasRef: HTMLCanvasElement | null = null;
 let _panZoomSetup = false;
+let _clickSetupDone = false;
+
+// --- Hit-testing for interactive elements ---
+
+interface HitTarget {
+  bx: number; by: number; bw: number; bh: number; // screen-space (CSS px) bounds
+  handler: (e: MouseEvent, dispatch: unknown) => void;
+  dispatch: unknown;
+}
+
+let _hitTargets: HitTarget[] = [];
+
+function recordHitTarget(
+  ctx: CanvasRenderingContext2D,
+  localBounds: { x: number; y: number; w: number; h: number },
+  handler: (e: MouseEvent, dispatch: unknown) => void,
+  dispatch: unknown,
+): void {
+  const t = ctx.getTransform();
+  const dpr = window.devicePixelRatio;
+  // Transform local-bounds corners through CTM, then to CSS pixels
+  const corners = [
+    { x: localBounds.x, y: localBounds.y },
+    { x: localBounds.x + localBounds.w, y: localBounds.y },
+    { x: localBounds.x, y: localBounds.y + localBounds.h },
+    { x: localBounds.x + localBounds.w, y: localBounds.y + localBounds.h },
+  ].map(p => ({
+    x: (t.a * p.x + t.c * p.y + t.e) / dpr,
+    y: (t.b * p.x + t.d * p.y + t.f) / dpr,
+  }));
+  const minX = Math.min(...corners.map(p => p.x));
+  const minY = Math.min(...corners.map(p => p.y));
+  const maxX = Math.max(...corners.map(p => p.x));
+  const maxY = Math.max(...corners.map(p => p.y));
+  _hitTargets.push({ bx: minX, by: minY, bw: maxX - minX, bh: maxY - minY, handler, dispatch });
+}
 
 function applyCamera(ctx: CanvasRenderingContext2D): void {
   ctx.translate(camera.x, camera.y);
@@ -254,14 +290,14 @@ function extractElementFromChild(child: unknown): unknown | null {
 export function renderElement(
   el: unknown,
   ctx: CanvasRenderingContext2D,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _dispatch: unknown,
+  dispatch: unknown,
 ): void {
   // save root element for redraw (depth 0 only, not recursive child calls)
   if (_renderDepth === 0) {
     _lastEl = el;
     _lastCtx = ctx;
-    _lastDispatch = _dispatch;
+    _lastDispatch = dispatch;
+    _hitTargets = [];
   }
   _renderDepth++;
   try {
@@ -287,7 +323,7 @@ export function renderElement(
       for (const child of children) {
         const realChild = extractElementFromChild(child);
         if (realChild == null) continue;
-        renderElement(realChild, ctx, _dispatch);
+        renderElement(realChild, ctx, dispatch);
       }
       if (pos != null) ctx.restore();
       return;
@@ -320,6 +356,12 @@ export function renderElement(
           ctx.strokeRect(-pivot[0], -pivot[1], size[0], size[1]);
           if (lineAlpha != null) ctx.globalAlpha = 1;
         }
+        // hit test recording
+        const on = props.on as Record<string, unknown> | undefined;
+        const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
+        if (pointertap && size != null) {
+          recordHitTarget(ctx, { x: -pivot[0], y: -pivot[1], w: size[0], h: size[1] }, pointertap, dispatch);
+        }
       } else {
         if (pos != null) ctx.translate(pos[0], pos[1]);
         if (alpha != null) ctx.globalAlpha = alpha;
@@ -333,6 +375,12 @@ export function renderElement(
           if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
           ctx.strokeRect(0, 0, size[0], size[1]);
           if (lineAlpha != null) ctx.globalAlpha = 1;
+        }
+        // hit test recording
+        const on = props.on as Record<string, unknown> | undefined;
+        const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
+        if (pointertap && size != null) {
+          recordHitTarget(ctx, { x: 0, y: 0, w: size[0], h: size[1] }, pointertap, dispatch);
         }
       }
       if (pos != null) ctx.restore();
@@ -363,6 +411,12 @@ export function renderElement(
         ctx.stroke();
         if (lineAlpha != null) ctx.globalAlpha = 1;
       }
+      // hit test recording
+      const on = props.on as Record<string, unknown> | undefined;
+      const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
+      if (pointertap && radius != null) {
+        recordHitTarget(ctx, { x: -radius, y: -radius, w: radius * 2, h: radius * 2 }, pointertap, dispatch);
+      }
       if (pos != null) ctx.restore();
       break;
     }
@@ -384,6 +438,13 @@ export function renderElement(
       ctx.textBaseline = "top";
       if (fill != null) ctx.fillStyle = toCssColor(fill);
       if (txt != null) ctx.fillText(txt, 0, 0);
+      // hit test recording
+      const on = props.on as Record<string, unknown> | undefined;
+      const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
+      if (pointertap && txt != null && fontSize != null) {
+        const textW = ctx.measureText(txt).width;
+        recordHitTarget(ctx, { x: 0, y: 0, w: textW, h: fontSize }, pointertap, dispatch);
+      }
       if (pos != null) ctx.restore();
       break;
     }
@@ -410,6 +471,19 @@ export function renderElement(
       if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
       if (lineColor != null) ctx.stroke();
       if (lineAlpha != null) ctx.globalAlpha = 1;
+      // hit test recording
+      const on = props.on as Record<string, unknown> | undefined;
+      const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
+      if (pointertap && points.length > 0) {
+        let minX = points[0][0], minY = points[0][1], maxX = points[0][0], maxY = points[0][1];
+        for (const p of points) {
+          if (p[0] < minX) minX = p[0];
+          if (p[1] < minY) minY = p[1];
+          if (p[0] > maxX) maxX = p[0];
+          if (p[1] > maxY) maxY = p[1];
+        }
+        recordHitTarget(ctx, { x: minX, y: minY, w: maxX - minX || 1, h: maxY - minY || 1 }, pointertap, dispatch);
+      }
       break;
     }
     case "line-segments":
@@ -454,6 +528,34 @@ export function setupCanvas(
   ctx.clearRect(0, 0, width, height);
   // setup pan & zoom event handlers
   setupPanZoom(canvas);
+
+  // --- Click-to-focus: intercept clicks for interactive elements ---
+  if (!_clickSetupDone) {
+    _clickSetupDone = true;
+    let _dragStartX = 0, _dragStartY = 0;
+    canvas.addEventListener("mousedown", (e: MouseEvent) => {
+      _dragStartX = e.clientX;
+      _dragStartY = e.clientY;
+    });
+    canvas.addEventListener("click", (e: MouseEvent) => {
+      const dx = e.clientX - _dragStartX;
+      const dy = e.clientY - _dragStartY;
+      if (dx * dx + dy * dy > 9) return; // skip if dragged > 3px
+      const mx = e.clientX;
+      const my = e.clientY;
+      console.log(`[click] (${mx.toFixed(0)},${my.toFixed(0)}) targets=${_hitTargets.length}`);
+      // check hit targets in reverse order (topmost first)
+      for (let i = _hitTargets.length - 1; i >= 0; i--) {
+        const t = _hitTargets[i];
+        if (mx >= t.bx && mx <= t.bx + t.bw && my >= t.by && my <= t.by + t.bh) {
+          console.log(`[hit] #${i} (${t.bx.toFixed(0)},${t.by.toFixed(0)},${t.bw.toFixed(0)}x${t.bh.toFixed(0)})`);
+          t.handler(e, t.dispatch);
+          return;
+        }
+      }
+      console.log("[click] no hit");
+    });
+  }
   // apply camera offset & scale
   applyCamera(ctx);
   return ctx;
