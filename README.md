@@ -48,10 +48,6 @@ In the command box:
 - `deps-of` for deps of a single definition
 - `call-tree` for a sunburst graph for deps
 
-### Workflow
-
-Workflow https://github.com/Phlox-GL/phlox-workflow
-
 ### License
 
 MIT

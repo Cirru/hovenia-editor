@@ -89,3 +89,27 @@ node -e "cdp code..."  # 不需要
 - 类型检查: `npx tsc --noEmit`
 - 测试页: `sandbox/webgpu-test.html`（通过 Vite dev server 访问 `http://localhost:8910/sandbox/webgpu-test.html`）
 - Calcit FFI 入口: `calcit/webgpu-test.cirru`
+
+### Canvas 2D 渲染器开发
+
+- TypeScript 源码: `lib/canvas-renderer.ts`
+- 类型检查: `npx tsc --noEmit`
+- Calcit FFI 入口: `calcit.cirru` → `app.core/render!`
+
+### Vite Dev Server 运行约定
+
+**Vite 常驻运行，修改代码后只需刷新浏览器页面，不要反复 kill/restart。**
+
+```bash
+# 一次性启动（用 nohup 或 & 后台常驻）
+nohup npx vite --port 5173 --host localhost > /tmp/vite-5173.log 2>&1 &
+```
+
+不要：
+- ❌ `pkill -f "vite"` 后重新启动
+- ❌ 每次改代码后重启 vite
+
+正确：
+- ✅ 启动一次后常驻
+- ✅ 修改 `canvas-renderer.ts` 后 → `npx tsc --noEmit && cr calcit.cirru js` → 浏览器刷新
+- ✅ 用 `chrome-devtools navigate_page --type reload` 刷新

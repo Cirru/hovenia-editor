@@ -6,271 +6,6 @@
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!) (:version |0.0.0)
       :modules $ [] |calcit-http/
   :files $ {}
-    |app.core $ %{} :FileEntry
-      :defs $ {}
-        |*canvas-context $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote (defatom *canvas-context nil)
-          :examples $ []
-        |defcomp $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defmacro defcomp (name params & body)
-              quasiquote $ defn ~name ~params ~@body
-          :examples $ []
-        |>> $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn >> (states k)
-              let
-                  parent-cursor $ either (:cursor states) ([])
-                  branch $ either (get states k) ({})
-                assoc branch :cursor $ conj parent-cursor k
-          :examples $ []
-        |clear-phlox-caches! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote (defn clear-phlox-caches! () nil)
-          :examples $ []
-        |hslx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn hslx (h s l)
-              str "|hsl(" h "|, " s "|%, " l "|%)"
-          :examples $ []
-        |hclx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn hclx (h c l)
-              hslx h c l
-          :examples $ []
-        |hsluvx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn hsluvx (h s l)
-              hslx h s l
-          :examples $ []
-        |create-element $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn create-element (tag props children)
-              {} (:name tag) (:props props) (:children children)
-          :examples $ []
-        |container $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn container (props & children)
-              create-element :container props children
-          :examples $ []
-        |rect $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn rect (props & children)
-              create-element :rect props children
-          :examples $ []
-        |circle $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn circle (props & children)
-              create-element :circle props children
-          :examples $ []
-        |text $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn text (props & children)
-              create-element :text props children
-          :examples $ []
-        |graphics $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn graphics (props & children)
-              create-element :graphics props children
-          :examples $ []
-        |create-list $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn create-list (tag props children)
-              {} (:name tag) (:props props) (:children children)
-          :examples $ []
-        |polyline $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn polyline (props & children)
-              create-element :polyline props children
-          :examples $ []
-        |line-segments $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn line-segments (props & children)
-              create-element :graphics props children
-          :examples $ []
-        |g $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn g (op ? arg)
-              let
-                  data arg
-                case-default op (js/console.warn "|not supported:" op)
-                  :move-to nil
-                  :line-to nil
-                  :line-style nil
-                  :begin-fill nil
-                  :end-fill nil
-                  :close-path nil
-                  :bezier-to nil
-                  :arc nil
-                  :arc-to nil
-                  :quadratic-to nil
-                  :begin-hole nil
-                  :end-hole nil
-                [] op data
-          :examples $ []
-        |render-element! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn render-element! (el ctx dispatch)
-              let
-                  tag $ :name el
-                  props $ :props el
-                  children $ :children el
-                case-default tag (js/console.warn "|unknown tag:" tag)
-                  :container $ let
-                      pos $ :position props
-                      rot $ :rotation props
-                      scl $ :scale props
-                      pivot $ :pivot props
-                    (if (some? pos) (.!save ctx))
-                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
-                    (if (some? rot) (.!rotate ctx rot))
-                    (if (some? scl) (.!scale ctx scl scl))
-                    (if (some? pivot) (.!translate ctx (- (first pivot)) (- (last pivot))))
-                    (map children $ fn (child)
-                      (render-element! child ctx dispatch))
-                    (if (some? pos) (.!restore ctx))
-                  :rect $ let
-                      pos $ :position props
-                      size $ :size props
-                      fill $ :fill props
-                      line-width $ get-in props ([] :line-style :width)
-                      line-color $ get-in props ([] :line-style :color)
-                      alpha $ :alpha props
-                      angle $ :angle props
-                      pivot $ :pivot props
-                    (if (some? pos) (.!save ctx))
-                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
-                    (if (some? angle) (.!save ctx))
-                    (if (some? angle) (.!translate ctx (first pivot) (last pivot)))
-                    (if (some? angle) (.!rotate ctx $ * angle (/ &PI 180)))
-                    (if (some? angle) (.!translate ctx (- (first pivot)) (- (last pivot))))
-                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
-                    (if (some? fill) (set! (.-fillStyle ctx) fill))
-                    (if (some? fill) (.!fillRect ctx 0 0 (first size) (last size)))
-                    (if (some? line-width) (set! (.-lineWidth ctx) line-width))
-                    (if (some? line-color) (set! (.-strokeStyle ctx) line-color))
-                    (if (some? line-width) (.!strokeRect ctx 0 0 (first size) (last size)))
-                    (if (some? pos) (.!restore ctx))
-                  :circle $ let
-                      pos $ :position props
-                      radius $ :radius props
-                      fill $ :fill props
-                      alpha $ :alpha props
-                    (if (some? pos) (.!save ctx))
-                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
-                    (.!beginPath ctx)
-                    (.!arc ctx 0 0 radius 0 (* 2 &PI))
-                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
-                    (if (some? fill) (set! (.-fillStyle ctx) fill))
-                    (if (some? fill) (.!fill ctx))
-                    (if (some? pos) (.!restore ctx))
-                  :text $ let
-                      pos $ :position props
-                      txt $ :text props
-                      style $ :style props
-                      font-size $ :font-size style
-                      font-family $ :font-family style
-                      fill $ :fill style
-                      rot $ :rotation props
-                    (if (some? pos) (.!save ctx))
-                    (if (some? pos) (.!translate ctx (first pos) (last pos)))
-                    (if (some? rot) (.!rotate ctx rot))
-                    (set! (.-font ctx) (str font-size "|px " font-family))
-                    (if (some? fill) (set! (.-fillStyle ctx) fill))
-                    (.!fillText ctx txt 0 0)
-                    (if (some? pos) (.!restore ctx))
-                  :graphics $ let
-                      ops $ :ops props
-                    (map ops $ fn (op-pair)
-                      (render-graphics-op! ctx op-pair))
-                  :polyline $ let
-                      points $ :points props
-                      style $ :style props
-                      line-width $ :width style
-                      line-color $ :color style
-                      line-alpha $ :alpha style
-                    (.!beginPath ctx)
-                    (map points $ fn (point idx)
-                      (if (= idx 0) (.!moveTo ctx (first point) (last point))
-                        (.!lineTo ctx (first point) (last point))))
-                    (if (some? line-color) (set! (.-strokeStyle ctx) line-color))
-                    (if (some? line-width) (set! (.-lineWidth ctx) line-width))
-                    (if (some? line-alpha) (set! (.-globalAlpha ctx) line-alpha))
-                    (if (some? line-color) (.!stroke ctx))
-                  :line-segments nil
-          :examples $ []
-        |render-graphics-op! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn render-graphics-op! (ctx op-pair)
-              let
-                  op $ nth op-pair 0
-                  data $ nth op-pair 1
-                case-default op nil
-                  :begin-fill $ let
-                      color $ :color data
-                      alpha $ :alpha data
-                    (.!beginPath ctx)
-                    (if (some? color) (set! (.-fillStyle ctx) color))
-                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
-                  :end-fill $ do (.!fill ctx)
-                  :line-style $ let
-                      color $ :color data
-                      width $ :width data
-                      alpha $ :alpha data
-                    (if (some? color) (set! (.-strokeStyle ctx) color))
-                    (if (some? width) (set! (.-lineWidth ctx) width))
-                    (if (some? alpha) (set! (.-globalAlpha ctx) alpha))
-                  :move-to $ let
-                      x $ first data
-                      y $ last data
-                    (.!moveTo ctx x y)
-                  :line-to $ let
-                      x $ first data
-                      y $ last data
-                    (.!lineTo ctx x y)
-                  :close-path $ .!closePath ctx
-                  :bezier-to $ let
-                      p1 $ :p1 data
-                      p2 $ :p2 data
-                      to-p $ :to-p data
-                    (.!bezierCurveTo ctx (first p1) (last p1) (first p2) (last p2) (first to-p) (last to-p))
-                  :arc $ let
-                      center $ :center data
-                      radian $ :radian data
-                      radius $ :radius data
-                      anticlockwise? $ :anticlockwise? data
-                    (.!arc ctx (first center) (last center) radius (first radian) (last radian) anticlockwise?)
-          :examples $ []
-        |on-control-event $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn on-control-event (elapsed states delta) nil
-          :examples $ []
-        |render! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn render! (comp-tree dispatch options)
-              let
-                  mount-target $ js/document.querySelector |.app
-                  canvas $ if (nil? (.!querySelector mount-target |canvas))
-                    let
-                        c $ js/document.createElement |canvas
-                      (.!appendChild mount-target c)
-                      , c
-                    .!querySelector mount-target |canvas
-                  ctx $ .!getContext canvas |2d
-                  dpr $ js/window.devicePixelRatio
-                  width $ .-innerWidth js/window
-                  height $ .-innerHeight js/window
-                (set! (.-width canvas) (* width dpr))
-                (set! (.-height canvas) (* height dpr))
-                (set! (.-style.width canvas) (str width "|px"))
-                (set! (.-style.height canvas) (str height "|px"))
-                (set! (.-font canvas) "|16px Josefin Sans")
-                (.!setTransform ctx dpr 0 0 dpr 0 0)
-                (.!clearRect ctx 0 0 width height)
-                (if (some? comp-tree) (render-element! comp-tree ctx dispatch))
-          :examples $ []
-      :ns $ %{} :NsEntry (:doc |)
-        :code $ quote
-          ns app.core $ :require
     |app.analyze $ %{} :FileEntry
       :defs $ {}
         |analyze-deps $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -469,39 +204,6 @@
         :code $ quote (ns app.analyze)
     |app.comp.call-tree $ %{} :FileEntry
       :defs $ {}
-        |comp-spin-slider $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn comp-spin-slider (states props)
-              let
-                  cursor $ :cursor states
-                  state $ or (:data states) ({} (:dragging? false))
-                  unit $ if (nil? (:unit props)) 1 (:unit props)
-                  value $ :value props
-                  position $ :position props
-                  on-change $ :on-change props
-                container ({} (:position position))
-                  rect $ {}
-                    :size $ [] 120 24
-                    :fill $ hslx 0 0 30
-                    :on $ {}
-                      :pointerdown $ fn (e d!)
-                        d! cursor $ assoc state :dragging? true
-                      :globalpointermove $ fn (e d!)
-                        if (:dragging? state)
-                          let
-                              x $ -> e .-data .-global .-x
-                            on-change (+ value (* unit (- x (first position)))) d!
-                      :pointerup $ fn (e d!)
-                        d! cursor $ assoc state :dragging? false
-                      :pointerupoutside $ fn (e d!)
-                        d! cursor $ assoc state :dragging? false
-                  text $ {}
-                    :text $ str value
-                    :position $ [] 4 4
-                    :style $ {}
-                      :fill $ hslx 0 0 100
-                      :font-size 12
-          :examples $ []
         |build-call-tree $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn build-call-tree (deps-tree entry parents)
@@ -620,6 +322,46 @@
                       :anticlockwise? true
                     g :close-path nil
                     g :end-fill
+          :examples $ []
+        |comp-spin-slider $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn comp-spin-slider (states props)
+              let
+                  cursor $ :cursor states
+                  state $ or (:data states)
+                    {} $ :dragging? false
+                  unit $ if
+                    nil? $ :unit props
+                    , 1 (:unit props)
+                  value $ :value props
+                  position $ :position props
+                  on-change $ :on-change props
+                container
+                  {} $ :position position
+                  rect $ {}
+                    :size $ [] 120 24
+                    :fill $ hslx 0 0 30
+                    :on $ {}
+                      :pointerdown $ fn (e d!)
+                        d! cursor $ assoc state :dragging? true
+                      :globalpointermove $ fn (e d!)
+                        if (:dragging? state)
+                          let
+                              x $ -> e .-data .-global .-x
+                            on-change
+                              + value $ * unit
+                                - x $ first position
+                              , d!
+                      :pointerup $ fn (e d!)
+                        d! cursor $ assoc state :dragging? false
+                      :pointerupoutside $ fn (e d!)
+                        d! cursor $ assoc state :dragging? false
+                  text $ {}
+                    :text $ str value
+                    :position $ [] 4 4
+                    :style $ {}
+                      :fill $ hslx 0 0 100
+                      :font-size 12
           :examples $ []
         |count-tree $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -879,31 +621,45 @@
           :code $ quote
             defn comp-button (props)
               let
-                  button-text $ if (nil? (:text props)) |BUTTON (:text props)
-                  font-size $ if (nil? (:font-size props)) 14 (:font-size props)
-                  font-family $ if (nil? (:font-family props)) "|Josefin Sans, sans-serif" (:font-family props)
-                  fill $ if (nil? (:fill props)) (hslx 0 0 20) (:fill props)
-                  color $ if (nil? (:color props)) (hslx 0 0 100) (:color props)
+                  button-text $ if
+                    nil? $ :text props
+                    , |BUTTON (:text props)
+                  font-size $ if
+                    nil? $ :font-size props
+                    , 14 (:font-size props)
+                  font-family $ if
+                    nil? $ :font-family props
+                    , "|Josefin Sans, sans-serif" (:font-family props)
+                  fill $ if
+                    nil? $ :fill props
+                    hslx 0 0 20
+                    :fill props
+                  color $ if
+                    nil? $ :color props
+                    hslx 0 0 100
+                    :color props
                   position $ :position props
                   text-width $ measure-text-width! button-text font-size font-family
                   width $ + 16 text-width
                   align-right? $ :align-right? props
                   adjusted-position $ if align-right?
-                    [] (- (first position) width) (last position)
+                    []
+                      - (first position) width
+                      last position
                     , position
-                  on-event $ if (some? (:on props)) (:on props) nil
-                container ({} (:position adjusted-position))
+                  on-event $ if
+                    some? $ :on props
+                    :on props
+                    , nil
+                container
+                  {} $ :position adjusted-position
                   rect $ {}
                     :size $ [] width 32
                     :fill fill
                     :on on-event
-                  text $ {}
-                    :text button-text
+                  text $ {} (:text button-text)
                     :position $ [] 8 8
-                    :style $ {}
-                      :fill color
-                      :font-size font-size
-                      :font-family font-family
+                    :style $ {} (:fill color) (:font-size font-size) (:font-family font-family)
           :examples $ []
         |comp-curves $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -1178,7 +934,8 @@
                                     text $ {}
                                       :text $ str-def-entry def-entry pkg
                                       :position $ add-path position
-                                        [] 4 $ + 5 (* 20 (inc idx))
+                                        [] 4 $ + 5
+                                          * 20 $ inc idx
                                       :style $ {}
                                         :fill $ hslx 180 30 40
                                         :font-size 14
@@ -2294,6 +2051,9 @@
             app.style :refer $ css-hover-entry
     |app.config $ %{} :FileEntry
       :defs $ {}
+        |*ctx-instance $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *ctx-instance nil)
+          :examples $ []
         |api-host $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             def api-host $ str |http:// (get-env |host |localhost) |: (get-env |port |6101)
@@ -2309,6 +2069,10 @@
           :code $ quote
             def cors-headers $ {} (:Content-Type |data/cirru-edn) (:Access-Control-Allow-Origin |*) (:Access-Control-Allow-Methods |*)
           :examples $ []
+        |dev? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            def dev? $ = |dev (get-env |mode |release)
+          :examples $ []
         |dot-radius $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (def dot-radius 4)
           :examples $ []
@@ -2321,21 +2085,6 @@
         |line-height $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote (def line-height 32)
           :examples $ []
-        |mocked? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            def mocked? $ &= |true (get-env |mocked |false)
-          :examples $ []
-        |dev? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            def dev? $ = |dev (get-env |mode |release)
-          :examples $ []
-        |mobile? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            def mobile? $ .!mobile $ new mobile-detect (.-userAgent js/window.navigator)
-          :examples $ []
-        |*ctx-instance $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote (defatom *ctx-instance nil)
-          :examples $ []
         |measure-text-width! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn measure-text-width! (text size font-family)
@@ -2343,12 +2092,21 @@
                 let
                     el $ js/document.createElement |canvas
                   reset! *ctx-instance $ .!getContext el |2d
-              set! (.-font @*ctx-instance) $ str size "|px " font-family
+              set! (.-font @*ctx-instance) (str size "|px " font-family)
               .-width $ .!measureText @*ctx-instance text
+          :examples $ []
+        |mobile? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            def mobile? $ .!mobile
+              new mobile-detect $ .-userAgent js/window.navigator
+          :examples $ []
+        |mocked? $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            def mocked? $ &= |true (get-env |mocked |false)
           :examples $ []
         |site $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
-            def site $ {} (:title |Phlox) (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |phlox-workflow)
+            def site $ {} (:title "|Hovenia Editor") (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |hovenia-editor)
           :examples $ []
         |twist-distance $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
@@ -2413,7 +2171,7 @@
                   state $ or (:data states)
                     {} $ :p1 ([] 400 -100)
                 container ({})
-                  ; comp-drag-point was removed (dead code)
+                  ; comp-drag-point was removed $ dead code
                   text $ {}
                     :text $ .!slice
                       format-to-lisp $ turn-quoted target
@@ -2443,6 +2201,111 @@
             memof.once :refer $ memof1-call
             app.comp.deps-of :refer $ comp-deps-of
             app.comp.call-tree :refer $ comp-call-tree
+    |app.core $ %{} :FileEntry
+      :defs $ {}
+        |*canvas-context $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote (defatom *canvas-context nil)
+          :examples $ []
+        |>> $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn >> (states k)
+              let
+                  parent-cursor $ either (:cursor states) ([])
+                  branch $ either (get states k) ({})
+                assoc branch :cursor $ conj parent-cursor k
+          :examples $ []
+        |circle $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn circle (props & children) (create-element :circle props children)
+          :examples $ []
+        |clear-caches! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn clear-caches! () nil
+          :examples $ []
+        |container $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn container (props & children) (create-element :container props children)
+          :examples $ []
+        |create-element $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn create-element (tag props children)
+              {} (:name tag) (:props props) (:children children)
+          :examples $ []
+        |create-list $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn create-list (tag props children)
+              {} (:name tag) (:props props) (:children children)
+          :examples $ []
+        |defcomp $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defmacro defcomp (name params & body)
+              quasiquote $ defn ~name ~params ~@body
+          :examples $ []
+        |g $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn g (op ? arg)
+              let
+                  data arg
+                case-default op (js/console.warn "|not supported:" op) (:move-to nil) (:line-to nil) (:line-style nil) (:begin-fill nil) (:end-fill nil) (:close-path nil) (:bezier-to nil) (:arc nil) (:arc-to nil) (:quadratic-to nil) (:begin-hole nil) (:end-hole nil)
+                [] op data
+          :examples $ []
+        |graphics $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn graphics (props & children) (create-element :graphics props children)
+          :examples $ []
+        |hclx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hclx (h c l) (hslx h c l)
+          :examples $ []
+        |hsluvx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hsluvx (h s l) (hslx h s l)
+          :examples $ []
+        |hslx $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn hslx (h s l) (str "|hsl(" h "|, " s "|%, " l "|%)")
+          :examples $ []
+        |line-segments $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn line-segments (props & children) (create-element :graphics props children)
+          :examples $ []
+        |on-control-event $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn on-control-event (elapsed states delta) nil
+          :examples $ []
+        |polyline $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn polyline (props & children) (create-element :polyline props children)
+          :examples $ []
+        |rect $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn rect (props & children) (create-element :rect props children)
+          :examples $ []
+        |render! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render! (comp-tree dispatch options)
+              let
+                  mount-target $ js/document.querySelector |.app
+                  ctx $ setupCanvas mount-target
+                  _ $ if (some? comp-tree) (render-element! comp-tree ctx dispatch)
+                , 0
+          :examples $ []
+        |render-element! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render-element! (el ctx dispatch) (renderElement el ctx dispatch)
+          :examples $ []
+        |render-graphics-op! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn render-graphics-op! (ctx op-pair) nil
+          :examples $ []
+        |text $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn text (props & children) (create-element :text props children)
+          :examples $ []
+      :ns $ %{} :NsEntry (:doc |)
+        :code $ quote
+          ns app.core $ :require
+            |../lib/canvas-renderer :refer $ renderElement setupCanvas
     |app.fetch $ %{} :FileEntry
       :defs $ {}
         |load-files! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
@@ -2581,7 +2444,7 @@
         |reload! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn reload! () $ if (nil? build-errors)
-              do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
+              do (clear-caches!) (respo/clear-cache!) (remove-watch *store :change)
                 add-watch *store :change $ fn (store prev) (render-app!)
                 render-app!
                 when mobile? $ replace-control-loop! 8 on-control-event
@@ -2601,7 +2464,7 @@
         :code $ quote
           ns app.main $ :require
             |nanoid :refer $ nanoid
-            app.core :refer $ render! clear-phlox-caches! on-control-event
+            app.core :refer $ render! clear-caches! on-control-event
             app.container :refer $ comp-container
             app.schema :as schema
             app.config :refer $ dev? mobile?
@@ -2848,11 +2711,6 @@
             respo-ui.core :as ui
     |app.updater $ %{} :FileEntry
       :defs $ {}
-        |update-states $ %{} :CodeEntry (:doc |) (:schema :dynamic)
-          :code $ quote
-            defn update-states (store cursor data)
-              assoc-in store (concat ([] :states) cursor ([] :data)) data
-          :examples $ []
         |splice-after $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             defn splice-after (xs i ys)
@@ -2863,6 +2721,13 @@
                   () acc
                   (d0 ds)
                     recur (&list:assoc-after acc i d0) ds
+          :examples $ []
+        |update-states $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+          :code $ quote
+            defn update-states (store cursor data)
+              assoc-in store
+                concat ([] :states) cursor $ [] :data
+                , data
           :examples $ []
         |updater $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote

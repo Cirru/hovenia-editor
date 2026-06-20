@@ -22,7 +22,7 @@
     "ws": "^8.21.0"
   },
   "dependencies": {
-    "@calcit/procs": "^0.12.46",
+    "@calcit/procs": "^0.12.47",
     "@quamolit/touch-control": "^0.0.13",
     "bottom-tip": "^0.1.5",
     "fontfaceobserver-es": "^3.3.3",
