@@ -299,6 +299,7 @@ export function renderElement(
       const lineStyle = props["line-style"] as JsLineStyle | undefined;
       const lineWidth = lineStyle ? lineStyle.width : null;
       const lineColor = lineStyle ? lineStyle.color : null;
+      const lineAlpha = lineStyle?.alpha;
       const alpha = props.alpha as number | undefined;
       const angle = props.angle as number | undefined;
       const pivot = props.pivot as number[] | undefined;
@@ -315,7 +316,9 @@ export function renderElement(
         if (lineWidth != null && lineColor != null && size != null) {
           ctx.lineWidth = lineWidth;
           ctx.strokeStyle = toCssColor(lineColor);
+          if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
           ctx.strokeRect(-pivot[0], -pivot[1], size[0], size[1]);
+          if (lineAlpha != null) ctx.globalAlpha = 1;
         }
       } else {
         if (pos != null) ctx.translate(pos[0], pos[1]);
@@ -327,7 +330,9 @@ export function renderElement(
         if (lineWidth != null && lineColor != null && size != null) {
           ctx.lineWidth = lineWidth;
           ctx.strokeStyle = toCssColor(lineColor);
+          if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
           ctx.strokeRect(0, 0, size[0], size[1]);
+          if (lineAlpha != null) ctx.globalAlpha = 1;
         }
       }
       if (pos != null) ctx.restore();
@@ -340,6 +345,7 @@ export function renderElement(
       const lineStyle = props["line-style"] as JsLineStyle | undefined;
       const lineWidth = lineStyle ? lineStyle.width : null;
       const lineColor = lineStyle ? lineStyle.color : null;
+      const lineAlpha = lineStyle?.alpha;
       const alpha = props.alpha as number | undefined;
       if (pos != null) ctx.save();
       if (pos != null) ctx.translate(pos[0], pos[1]);
@@ -353,7 +359,9 @@ export function renderElement(
       if (lineWidth != null && lineColor != null) {
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = toCssColor(lineColor);
+        if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
         ctx.stroke();
+        if (lineAlpha != null) ctx.globalAlpha = 1;
       }
       if (pos != null) ctx.restore();
       break;
@@ -401,6 +409,7 @@ export function renderElement(
       if (lineWidth != null) ctx.lineWidth = lineWidth;
       if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
       if (lineColor != null) ctx.stroke();
+      if (lineAlpha != null) ctx.globalAlpha = 1;
       break;
     }
     case "line-segments":
