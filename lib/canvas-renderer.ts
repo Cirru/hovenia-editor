@@ -135,6 +135,7 @@ function scheduleRedraw(): void {
       const dpr = window.devicePixelRatio;
       _lastCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       _lastCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      _lastCtx.textBaseline = "top";
       applyCamera(_lastCtx);
       _renderDepth = 0;
       renderElement(_lastEl, _lastCtx, _lastDispatch);
@@ -313,6 +314,7 @@ function drawRoundedRect(
     }
   } else {
     if (fill != null) {
+      ctx.fillStyle = fill;
       ctx.fillRect(x, y, w, h);
     }
     if (stroke != null) {
@@ -467,8 +469,6 @@ export function renderElement(
       if (fontSize != null && fontFamily != null) {
         ctx.font = fontSize + "px " + fontFamily;
       }
-      // PixiJS uses top-left as text origin; Canvas 2D defaults to baseline
-      ctx.textBaseline = "top";
       if (fill != null) ctx.fillStyle = toCssColor(fill);
       if (txt != null) ctx.fillText(txt, 0, 0);
       // hit test recording
@@ -567,6 +567,7 @@ export function setupCanvas(
   if (ctx == null) return null;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
+  ctx.textBaseline = "top";
   // setup pan & zoom event handlers
   setupPanZoom(canvas);
 
