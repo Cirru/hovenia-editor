@@ -1210,11 +1210,11 @@
           :examples $ []
         |shape-focus $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
-            def shape-focus $ circle
+            def shape-focus $ polyline
               {}
-                :radius $ + dot-radius 2
+                :points $ [] ([] 0 -5) ([] 5 0) ([] 0 5) ([] -5 0) ([] 0 -5)
                 :position $ [] 0 0
-                :line-style $ {} (:width 1)
+                :style $ {} (:width 1)
                   :color $ hslx 60 80 80
                   :alpha 0.8
           :examples $ []
