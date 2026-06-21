@@ -1602,7 +1602,7 @@
                                   d! :cirru-edit-node $ [] coord content
                               d! :focus-or-pick coord
                     if (= coord focus)
-                      rect $ {}
+                      rect $ {} (:radius 5)
                         :position $ [] 0 (* -0.5 height)
                         :size $ [] (+ width 8) height
                         :alpha 0.8
