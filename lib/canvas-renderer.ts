@@ -459,11 +459,14 @@ export function renderElement(
       break;
     }
     case "polyline": {
+      const pos = props.position as number[] | undefined;
       const points = (props.points || []) as number[][];
       const style = (props.style || {}) as JsStyle;
       const lineWidth = style.width;
       const lineColor = style.color;
       const lineAlpha = style.alpha;
+      if (pos != null) ctx.save();
+      if (pos != null) ctx.translate(pos[0], pos[1]);
       ctx.beginPath();
       points.forEach((point: number[], idx: number) => {
         if (idx === 0) ctx.moveTo(point[0], point[1]);
@@ -474,7 +477,7 @@ export function renderElement(
       if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
       if (lineColor != null) ctx.stroke();
       if (lineAlpha != null) ctx.globalAlpha = 1;
-      // hit test recording
+      // hit test recording (before restore so CTM includes position)
       const on = props.on as Record<string, unknown> | undefined;
       const pointertap = on?.pointertap as ((e: MouseEvent, d: unknown) => void) | undefined;
       if (pointertap && points.length > 0) {
@@ -487,6 +490,7 @@ export function renderElement(
         }
         recordHitTarget(ctx, { x: minX, y: minY, w: maxX - minX || 1, h: maxY - minY || 1 }, pointertap, dispatch);
       }
+      if (pos != null) ctx.restore();
       break;
     }
     case "line-segments":
