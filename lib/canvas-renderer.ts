@@ -342,11 +342,16 @@ export function renderElement(
       const alpha = props.alpha as number | undefined;
       const angle = props.angle as number | undefined;
       const pivot = props.pivot as number[] | undefined;
-      if (pos != null) ctx.save();
-      if (angle != null && pivot != null && pos != null) {
-        // rotate around center: translate to pivot point, rotate, draw centered
-        ctx.translate(pos[0] + pivot[0], pos[1] + pivot[1]);
-        ctx.rotate((angle * Math.PI) / 180);
+      const hasAngle = angle != null && pivot != null;
+      if (pos != null || hasAngle) ctx.save();
+      if (hasAngle) {
+        // rotate around pivot (works with or without position)
+        if (pos != null) {
+          ctx.translate(pos[0] + pivot[0], pos[1] + pivot[1]);
+        } else {
+          ctx.translate(pivot[0], pivot[1]);
+        }
+        ctx.rotate((angle! * Math.PI) / 180);
         if (alpha != null) ctx.globalAlpha = alpha;
         if (fill != null && size != null) {
           ctx.fillStyle = toCssColor(fill);
@@ -386,7 +391,7 @@ export function renderElement(
           recordHitTarget(ctx, { x: 0, y: 0, w: size[0], h: size[1] }, pointertap, dispatch);
         }
       }
-      if (pos != null) ctx.restore();
+      if (pos != null || hasAngle) ctx.restore();
       break;
     }
     case "circle": {

@@ -1584,6 +1584,8 @@
                       :position $ [] 0 (* -0.5 height)
                       :size $ [] (+ width 8) height
                       :fill $ hslx 190 70 10
+                      :line-style $ {} (:width 1) (:alpha 0.2)
+                        :color $ hslx 60 80 100
                       :on $ {}
                         :pointertap $ fn (e d!)
                           let
@@ -1600,10 +1602,11 @@
                                   d! :cirru-edit-node $ [] coord content
                               d! :focus-or-pick coord
                     if (= coord focus)
-                      polyline $ {}
+                      rect $ {}
                         :position $ [] 0 (* -0.5 height)
-                        :points $ [] ([] 0 -5) ([] 5 0) ([] 0 5) ([] -5 0) ([] 0 -5)
-                        :style $ {} (:width 1)
+                        :size $ [] (+ width 8) height
+                        :alpha 0.8
+                        :line-style $ {} (:width 1)
                           :color $ hslx 60 80 80
                           :alpha 0.8
                     text $ {} (:text s)
