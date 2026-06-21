@@ -9,8 +9,7 @@
     "noEmit": true,
     "declaration": true,
     "checkJs": true,
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["@webgpu/types"]
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["lib/**/*.ts", "lib/**/*.mjs"]
 }

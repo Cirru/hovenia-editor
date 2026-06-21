@@ -621,25 +621,25 @@ export function setupCanvas(
     });
   }
 
-  // --- Keyboard events: forward to Calcit dispatch ---
+  // --- Keyboard events: forward to Calcit via Respo's :on-keyboard handler ---
   if (!_keySetupDone) {
     _keySetupDone = true;
     window.addEventListener("keydown", (e: KeyboardEvent) => {
-      const dispatch = _lastDispatch;
-      if (typeof dispatch !== "function") return;
-      // Construct Calcit-compatible event map
-      const calEvent = {
+      // Dispatch a native KeyboardEvent on document.body so Respo's :on-keyboard
+      // handler catches navigation keys (ArrowUp/Down/Left/Right, Tab).
+      // Respo's handler checks document.activeElement and event target.
+      document.body.dispatchEvent(new KeyboardEvent("keydown", {
         key: e.key,
-        "key-code": e.keyCode,
-        "meta?": e.metaKey,
-        "ctrl?": e.ctrlKey,
-        "shift?": e.shiftKey,
+        keyCode: e.keyCode,
+        code: e.code,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
         altKey: e.altKey,
-        preventDefault: () => e.preventDefault(),
-        stopPropagation: () => e.stopPropagation(),
-      };
-      console.log(`[keydown] key=${e.key} code=${e.keyCode} meta=${e.metaKey} ctrl=${e.ctrlKey}`);
-      try { (dispatch as (action: string, data: unknown) => void)(":key-event", calEvent); } catch (_) { /* ignore */ }
+        bubbles: true,
+        cancelable: true,
+      }));
+      console.log(`[keydown] key=${e.key}`);
     });
   }
   // apply camera offset & scale
