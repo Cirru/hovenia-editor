@@ -345,23 +345,21 @@ export function renderElement(
       const hasAngle = angle != null && pivot != null;
       if (pos != null || hasAngle) ctx.save();
       if (hasAngle) {
-        // rotate around pivot (works with or without position)
-        if (pos != null) {
-          ctx.translate(pos[0] + pivot[0], pos[1] + pivot[1]);
-        } else {
-          ctx.translate(pivot[0], pivot[1]);
-        }
+        // PixiJS transform: translate(position) → rotate → translate(-pivot)
+        // Centers the diamond at (position) with rotation around pivot
+        if (pos != null) ctx.translate(pos[0], pos[1]);
         ctx.rotate((angle! * Math.PI) / 180);
+        ctx.translate(-pivot[0], -pivot[1]);
         if (alpha != null) ctx.globalAlpha = alpha;
         if (fill != null && size != null) {
           ctx.fillStyle = toCssColor(fill);
-          ctx.fillRect(-pivot[0], -pivot[1], size[0], size[1]);
+          ctx.fillRect(0, 0, size[0], size[1]);
         }
         if (lineWidth != null && lineColor != null && size != null) {
           ctx.lineWidth = lineWidth;
           ctx.strokeStyle = toCssColor(lineColor);
           if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
-          ctx.strokeRect(-pivot[0], -pivot[1], size[0], size[1]);
+          ctx.strokeRect(0, 0, size[0], size[1]);
           if (lineAlpha != null) ctx.globalAlpha = 1;
         }
         // hit test recording
