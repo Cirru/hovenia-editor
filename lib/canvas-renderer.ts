@@ -290,6 +290,41 @@ function extractElementFromChild(child: unknown): unknown | null {
   return null;
 }
 
+// --- Rounded rect helper ---
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+  fill: string | undefined,
+  stroke: { width: number; color: string; alpha?: number } | undefined,
+): void {
+  if (r > 0 && w > 0 && h > 0) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    if (fill != null) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke != null) {
+      ctx.lineWidth = stroke.width;
+      ctx.strokeStyle = stroke.color;
+      if (stroke.alpha != null) ctx.globalAlpha = stroke.alpha;
+      ctx.stroke();
+      if (stroke.alpha != null) ctx.globalAlpha = 1;
+    }
+  } else {
+    if (fill != null) {
+      ctx.fillRect(x, y, w, h);
+    }
+    if (stroke != null) {
+      ctx.lineWidth = stroke.width;
+      ctx.strokeStyle = stroke.color;
+      if (stroke.alpha != null) ctx.globalAlpha = stroke.alpha;
+      ctx.strokeRect(x, y, w, h);
+      if (stroke.alpha != null) ctx.globalAlpha = 1;
+    }
+  }
+}
+
 export function renderElement(
   el: unknown,
   ctx: CanvasRenderingContext2D,
@@ -342,25 +377,21 @@ export function renderElement(
       const alpha = props.alpha as number | undefined;
       const angle = props.angle as number | undefined;
       const pivot = props.pivot as number[] | undefined;
+      const radius = props.radius as number | undefined;
       const hasAngle = angle != null && pivot != null;
       if (pos != null || hasAngle) ctx.save();
       if (hasAngle) {
         // PixiJS transform: translate(position) → rotate → translate(-pivot)
-        // Centers the diamond at (position) with rotation around pivot
         if (pos != null) ctx.translate(pos[0], pos[1]);
         ctx.rotate((angle! * Math.PI) / 180);
         ctx.translate(-pivot[0], -pivot[1]);
         if (alpha != null) ctx.globalAlpha = alpha;
-        if (fill != null && size != null) {
-          ctx.fillStyle = toCssColor(fill);
-          ctx.fillRect(0, 0, size[0], size[1]);
-        }
-        if (lineWidth != null && lineColor != null && size != null) {
-          ctx.lineWidth = lineWidth;
-          ctx.strokeStyle = toCssColor(lineColor);
-          if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
-          ctx.strokeRect(0, 0, size[0], size[1]);
-          if (lineAlpha != null) ctx.globalAlpha = 1;
+        if (size != null) {
+          drawRoundedRect(
+            ctx, 0, 0, size[0], size[1], radius ?? 0,
+            typeof fill === "number" || typeof fill === "string" ? toCssColor(fill) : undefined,
+            lineWidth != null && lineColor != null ? { width: lineWidth, color: toCssColor(lineColor), alpha: lineAlpha ?? undefined } : undefined,
+          );
         }
         // hit test recording
         const on = props.on as Record<string, unknown> | undefined;
@@ -371,16 +402,12 @@ export function renderElement(
       } else {
         if (pos != null) ctx.translate(pos[0], pos[1]);
         if (alpha != null) ctx.globalAlpha = alpha;
-        if (fill != null && size != null) {
-          ctx.fillStyle = toCssColor(fill);
-          ctx.fillRect(0, 0, size[0], size[1]);
-        }
-        if (lineWidth != null && lineColor != null && size != null) {
-          ctx.lineWidth = lineWidth;
-          ctx.strokeStyle = toCssColor(lineColor);
-          if (lineAlpha != null) ctx.globalAlpha = lineAlpha;
-          ctx.strokeRect(0, 0, size[0], size[1]);
-          if (lineAlpha != null) ctx.globalAlpha = 1;
+        if (size != null) {
+          drawRoundedRect(
+            ctx, 0, 0, size[0], size[1], radius ?? 0,
+            typeof fill === "number" || typeof fill === "string" ? toCssColor(fill) : undefined,
+            lineWidth != null && lineColor != null ? { width: lineWidth, color: toCssColor(lineColor), alpha: lineAlpha ?? undefined } : undefined,
+          );
         }
         // hit test recording
         const on = props.on as Record<string, unknown> | undefined;

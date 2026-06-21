@@ -1580,7 +1580,7 @@
                 {}
                   :tree $ container
                     {} $ :position ([] -4 0)
-                    rect $ {} (:alpha 0.8)
+                    rect $ {} (:alpha 0.8) (:radius 4)
                       :position $ [] 0 (* -0.5 height)
                       :size $ [] (+ width 8) height
                       :fill $ hslx 190 70 10
