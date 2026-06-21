@@ -625,9 +625,13 @@ export function setupCanvas(
   if (!_keySetupDone) {
     _keySetupDone = true;
     window.addEventListener("keydown", (e: KeyboardEvent) => {
-      // Dispatch a native KeyboardEvent on document.body so Respo's :on-keyboard
-      // handler catches navigation keys (ArrowUp/Down/Left/Right, Tab).
-      // Respo's handler checks document.activeElement and event target.
+      // Avoid infinite loop: skip events we dispatched ourselves
+      if (e.target === document.body) return;
+      // Only forward navigation keys (Respo's :on-keyboard handler checks for these)
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) return;
+      console.log(`[keydown] key=${e.key}`);
+      // Prevent default to avoid browser scrolling
+      e.preventDefault();
       document.body.dispatchEvent(new KeyboardEvent("keydown", {
         key: e.key,
         keyCode: e.keyCode,
@@ -639,7 +643,6 @@ export function setupCanvas(
         bubbles: true,
         cancelable: true,
       }));
-      console.log(`[keydown] key=${e.key}`);
     });
   }
   // apply camera offset & scale
