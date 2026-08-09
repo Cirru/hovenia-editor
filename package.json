@@ -14,7 +14,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "nanoid": "^5.1.5",
+    "nanoid": "^5.1.16",
     "vite": "^6.4.3"
   },
   "dependencies": {

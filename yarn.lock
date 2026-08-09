@@ -1323,7 +1323,7 @@ __metadata:
     fontfaceobserver-es: "npm:^3.3.3"
     hsluv: "npm:^1.0.1"
     mobile-detect: "npm:^1.4.5"
-    nanoid: "npm:^5.1.5"
+    nanoid: "npm:^5.1.16"
     pixi.js: "npm:7.x"
     vite: "npm:^6.4.3"
   languageName: unknown
@@ -1567,12 +1567,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^5.1.5":
-  version: 5.1.5
-  resolution: "nanoid@npm:5.1.5"
+"nanoid@npm:^5.1.16":
+  version: 5.1.16
+  resolution: "nanoid@npm:5.1.16"
   bin:
     nanoid: bin/nanoid.js
-  checksum: 10c0/e6004f1ad6c7123eeb037062c4441d44982037dc043aabb162457ef6986e99964ba98c63c975f96c547403beb0bf95bc537bd7bf9a09baf381656acdc2975c3c
+  checksum: 10c0/04b4f96237f5639716da0e98f453361b313bebaf458bb67dea2d384724fc8b3340a28f032a4373052150bcf3b801d122e291d81ae4fc522969f55c134f4401a3
   languageName: node
   linkType: hard
 
