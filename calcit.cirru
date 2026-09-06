@@ -398,18 +398,29 @@
           :code $ quote
             defcomp comp-command (states store on-close)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states)
-                    {} $ :content |
-                  editor $ :editor store
+                  cursor $
+                    get states :cursor
+                    , .unwrap-or ([])
+                  state $
+                    get states :data
+                    , .unwrap-or
+                      {} $ :content |
+                  content $
+                    get state :content
+                    , .unwrap-or |
+                  editor $
+                    get store :editor
+                    , .unwrap-or ({})
                   def-path $ get-in editor
-                    [] :stack $ :pointer editor
+                    [] :stack $
+                      get editor :pointer
+                      , .unwrap-or 0
                   set-box-text! $ fn (v d!)
                     let
                         box $ -> |#command-box js/document.querySelector
-                        next $ str (.-value box) v
-                      set! (.-value box) next
-                      .!focus box
+                        next $ str (.?-value box) v
+                      set! (.?-value box) next
+                      .?!focus box
                       d! cursor $ assoc state :content next
                 [] (effect-focus)
                   div
@@ -419,20 +430,25 @@
                       input $ {} (:placeholder |Command...) (:autofocus true) (:id |command-box) (:spellcheck false)
                         :class-name $ str-spaced css/input css-command-box
                         :style $ {} (:width |100%)
-                        :value $ :content state
+                        :value content
                         :on-input $ fn (e d!)
                           d! cursor $ assoc state :content
-                            str $ :value e
+                            str $
+                              get e :value
+                              , .unwrap-or |
                         :on-keydown $ fn (e d!)
                           cond
-                              = 13 $ :keycode e
+                              = 13 $
+                                get e :keycode
+                                , .unwrap-or 0
                               let
-                                  code $ first
-                                    parse-cirru-list $ :content state
+                                  code $
+                                    nth (parse-cirru-list content) 0
+                                    , .unwrap-or nil
                                 if (list? code) (run-command code store d!)
                                   d! :warn $ str "|invalid command:" code
                                 on-close d!
-                            (= |Escape (:key e))
+                            (= |Escape ((get e :key) .unwrap-or |))
                               on-close d!
                             true nil
                     =< nil 16
@@ -441,8 +457,9 @@
                       button $ {} (:class-name css/button) (:inner-text |Run)
                         :on-click $ fn (e d!)
                           let
-                              code $ first
-                                parse-cirru-list $ :content state
+                              code $
+                                nth (parse-cirru-list content) 0
+                                , .unwrap-or nil
                             if (list? code) (run-command code store d!)
                               d! :warn $ str "|invalid command:" code
                             on-close d!
@@ -476,8 +493,14 @@
                         span
                           {} $ :on-click
                             fn (e d!)
-                              set-text! (:fill info) d!
-                          <> (:tip info) css-tip
+                              set-text!
+                                  get info :fill
+                                  , .unwrap-or |
+                                , d!
+                          <>
+                              get info :tip
+                              , .unwrap-or |
+                            , css-tip
           :examples $ []
           :schema $ :: 'Dynamic
         'css-command-box $ %{} 'CodeEntry (:doc |)
@@ -521,35 +544,54 @@
                     difference (keys files) (keys saved-files)
                     .to-list
                     map $ fn (ns)
-                      [] ns $ get files ns
+                      [] ns $
+                        get files ns
+                        , .unwrap-or ({})
                     pairs-map
                   changed-entries $ -> common-ns
                     map $ fn (ns)
                       [] ns $ let
-                          file $ get files ns
-                          saved-file $ get saved-files ns
+                          file $
+                            get files ns
+                            , .unwrap-or ({})
+                          saved-file $
+                            get saved-files ns
+                            , .unwrap-or ({})
                         if (= file saved-file) nil $ let
-                            defs $ :defs file
-                            saved-defs $ :defs saved-file
+                            defs $
+                              get file :defs
+                              , .unwrap-or ({})
+                            saved-defs $
+                              get saved-file :defs
+                              , .unwrap-or ({})
                             common-defs $ intersection (keys saved-defs) (keys defs)
                             new-defs $ difference (keys defs) (keys saved-defs)
                           {}
                             :ns $ if
-                              = (:ns file) (:ns saved-file)
-                              , nil (:ns file)
-                            :added-defs $ -> new-defs
+                              =
+                                  get file :ns
+                                  , .unwrap-or nil
+                                (get saved-file :ns) .unwrap-or nil
+                              , nil
+                                (get file :ns) .unwrap-or nil
+                            :added-defs $ -> new-defs (.to-list)
                               map $ fn (def-name)
-                                [] def-name $ get defs def-name
+                                [] def-name $
+                                  get defs def-name
+                                  , .unwrap-or nil
                               pairs-map
                             :removed-defs $ difference (keys saved-defs) (keys defs)
                             :changed-defs $ -> common-defs
                               filter $ fn (def-name)
                                 not= (get defs def-name) (get saved-defs def-name)
+                              .to-list
                               map $ fn (def-name)
-                                [] def-name $ get defs def-name
+                                [] def-name $
+                                  get defs def-name
+                                  , .unwrap-or nil
                               pairs-map
                     filter $ fn (pair)
-                      some? $ nth pair 1
+                      option:some? $ nth pair 1
                     pairs-map
                   content $ format-cirru-edn
                     {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
@@ -570,9 +612,18 @@
           :code $ quote
             defn run-command (code store d!)
               let
-                  p1 $ get code 1
-                  p2 $ get code 2
-                case-default (first code)
+                  p1 $
+                    get code 1
+                    , .unwrap-or |
+                  p2 $
+                    get code 2
+                    , .unwrap-or nil
+                  files $
+                    get store :files
+                    , .unwrap-or ({})
+                case-default
+                    first code
+                    , .unwrap-or |
                   d! :warn $ str "|invalid command: " code
                   |add-ns $ d! :add-ns p1
                   |rm-ns $ d! :rm-ns p1
@@ -581,30 +632,45 @@
                   |mv-ns $ d! :mv-ns ([] p1 p2)
                   |mv-def $ d! :mv-def ([] p1 p2)
                   |load $ load-files! d!
-                  |save $ on-save (:files store) (:saved-files store) d!
+                  |save $ on-save files
+                    (get store :saved-files) .unwrap-or $ {}
+                    , d!
                   |pick $ if (= p1 |off) (d! :picker-mode false) (d! :picker-mode true)
                   |deps-tree $ do
-                    d! :deps-tree $ wo-js-log
-                      analyze-deps $ :files store
+                    d! :deps-tree $ wo-js-log (analyze-deps files)
                     d! :router $ {} (:name :deps-tree)
                   |deps-of $ do
-                    d! :deps-tree $ analyze-deps (:files store)
+                    d! :deps-tree $ analyze-deps files
                     d! :router $ {} (:name :deps-of)
                       :data $ if (some? p2) ([] p1 p2)
                         let
-                            editor $ :editor store
+                            editor $
+                              get store :editor
+                              , .unwrap-or ({})
                             def-path $ get-in editor
-                              [] :stack $ :pointer editor
-                          [] (nth def-path 0) (nth def-path 2)
+                              [] :stack $
+                                get editor :pointer
+                                , .unwrap-or 0
+                          []
+                              nth def-path 0
+                              , .unwrap-or |
+                            (nth def-path 2) .unwrap-or |
                   |call-tree $ do
-                    d! :deps-tree $ analyze-deps (:files store)
+                    d! :deps-tree $ analyze-deps files
                     d! :router $ {} (:name :call-tree)
                       :data $ if (some? p2) ([] p1 p2)
                         let
-                            editor $ :editor store
+                            editor $
+                              get store :editor
+                              , .unwrap-or ({})
                             def-path $ get-in editor
-                              [] :stack $ :pointer editor
-                          [] (nth def-path 0) (nth def-path 2)
+                              [] :stack $
+                                get editor :pointer
+                                , .unwrap-or 0
+                          []
+                              nth def-path 0
+                              , .unwrap-or |
+                            (nth def-path 2) .unwrap-or |
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2026,7 +2092,9 @@
               <> "|Picker Mode"
               comp-key-event $ fn (e d!)
                 if
-                  = |Escape $ :key e
+                  = |Escape $
+                    get e :key
+                    , .unwrap-or |
                   d! :picker-mode false
           :examples $ []
           :schema $ :: 'Dynamic
@@ -2147,16 +2215,22 @@
                               <> (nth frame 2)
                                 {} $ :color (hsl 0 0 100)
                 comp-key-event $ fn (e d!)
-                  cond
-                      and
-                        or (:meta? e) (:ctrl? e)
-                        = |k $ :key e
-                      d! :pointer-shrink pointer
-                    (and (or (:meta? e) (:ctrl? e)) (= |j (:key e)))
-                      d! :pointer-down pointer
-                    (and (or (:meta? e) (:ctrl? e)) (= |i (:key e)))
-                      d! :pointer-up pointer
-                    true nil
+                  let
+                      meta? $ or
+                          get e :meta?
+                          , .unwrap-or false
+                        (get e :ctrl?) .unwrap-or false
+                      key $
+                        get e :key
+                        , .unwrap-or |
+                    cond
+                        and meta? $ = |k key
+                        d! :pointer-shrink pointer
+                      (and meta? (= |j key))
+                        d! :pointer-down pointer
+                      (and meta? (= |i key))
+                        d! :pointer-up pointer
+                      true nil
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2475,7 +2549,10 @@
             defn render-app! ()
               render! (comp-container @*store) dispatch! $ {}
               respo/render! mount-target
-                comp-navbar @*store $ >> (:states @*store) :dom
+                comp-navbar @*store $ >>
+                    get @*store :states
+                    , .unwrap-or $ {}
+                  , :dom
                 , dispatch!
           :examples $ []
           :schema $ :: 'Dynamic
