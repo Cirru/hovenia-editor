@@ -5,7 +5,7 @@
   "description": "Fancy Cirru Editor",
   "main": "index.js",
   "scripts": {
-    "compile": "caps --ci && cr calcit.cirru js",
+    "compile": "caps --strict --ci && calcit calcit.cirru js",
     "release": "yarn vite build --base=./"
   },
   "repository": {

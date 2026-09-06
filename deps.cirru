@@ -1,6 +1,6 @@
 
 {} (:calcit-version |0.13.77)
-  :dependencies $ {} (|Cirru/respo-cirru-editor |codex/upgrade-calcit-0-13-77-latest)
+  :dependencies $ {} (|Cirru/respo-cirru-editor |0.6.6)
     |Phlox-GL/phlox |0.7.7
     |Respo/alerts.calcit |0.10.30
     |Respo/respo-ui.calcit |0.7.19

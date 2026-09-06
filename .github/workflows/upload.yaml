@@ -21,9 +21,16 @@ jobs:
     - uses: calcit-lang/setup-cr@0.0.8
 
     - name: "compiles to js"
-      run: >
-        caps --ci && cr compact.cirru js
-        && yarn install --immutable && yarn vite build --base=./
+      run: |
+        caps --strict --ci
+        yarn install --immutable
+        calcit calcit.cirru edit format
+        git diff --exit-code -- calcit.cirru
+        calcit calcit.cirru --check-only
+        calcit calcit.cirru analyze dynamic-methods --max 0
+        calcit calcit.cirru analyze deprecated --summary-only
+        calcit calcit.cirru js
+        yarn vite build --base=./
 
     - name: Deploy to server
       id: deploy
