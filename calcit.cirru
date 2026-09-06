@@ -65,10 +65,28 @@
         'lookup-body-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn lookup-body-deps (body imports-dict ns def-name def-names)
-              -> body flatten
-                filter $ fn (token)
-                  if (= token |) false $ let
-                      c $ nth token 0
+              let
+                  defs-imports $
+                    get imports-dict :defs
+                    , .unwrap-or ({})
+                  npm-defs $
+                    get imports-dict :npm-defs
+                    , .unwrap-or ({})
+                  npm-defaults $
+                    get imports-dict :npm-defaults
+                    , .unwrap-or ({})
+                  namespaces $
+                    get imports-dict :namespaces
+                    , .unwrap-or ({})
+                  npm-namespaces $
+                    get imports-dict :npm-namespaces
+                    , .unwrap-or ({})
+                -> body flatten $ filter
+                  fn (token)
+                    if (= token |) false $ let
+                        c $
+                          nth token 0
+                          , .unwrap-or |
                     not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (.!test digit-pattern token)
                 map strip-at
                 , distinct
@@ -77,29 +95,33 @@
                         = token def-name
                         , nil
                       (.includes? def-names token) ([] ns token :file)
-                      (contains? (:defs imports-dict) token)
+                      (contains? defs-imports token)
                         &let
                           target-ns $ get-in imports-dict ([] :defs token)
                           [] target-ns token :def
-                      (contains? (:npm-defs imports-dict) token)
+                      (contains? npm-defs token)
                         &let
                           target-ns $ get-in imports-dict ([] :npm-defs token)
                           [] target-ns token :npm-def
-                      (contains? (:npm-defaults imports-dict) token)
+                      (contains? npm-defaults token)
                         &let
                           target-ns $ get-in imports-dict ([] :npm-defaults token)
                           [] target-ns token :npm-default
-                      (and (not= (get token 0) |/) (.includes? token |/))
+                      (and (not= ((get token 0) .unwrap-or |) |/) (.includes? token |/))
                         let
                             pieces $ .split token |/
-                            ns-alias $ first pieces
-                            def-part $ nth pieces 1
+                            ns-alias $
+                              first pieces
+                              , .unwrap-or |
+                            def-part $
+                              nth pieces 1
+                              , .unwrap-or |
                           cond
-                              contains? (:namespaces imports-dict) ns-alias
+                              contains? namespaces ns-alias
                               &let
                                 target-ns $ get-in imports-dict ([] :namespaces ns-alias)
                                 [] target-ns def-part :ns-def
-                            (contains? (:npm-namespaces imports-dict) ns-alias)
+                            (contains? npm-namespaces ns-alias)
                               &let
                                 target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
                                 [] target-ns def-part :npm-ns-def
@@ -1885,22 +1907,34 @@
           :code $ quote
             defcomp comp-menu (states files def-path on-close)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states)
-                    {} (:ns nil) (:query |) (:select-idx 0)
-                  queries $ split
-                      get state :query
-                      , .unwrap-or |
-                    , "| "
+                  cursor $
+                    get states :cursor
+                    , .unwrap-or ([])
+                  state $
+                    get states :data
+                    , .unwrap-or
+                      {} (:ns nil) (:query |) (:select-idx 0)
+                  query $
+                    get state :query
+                    , .unwrap-or |
+                  select-idx $
+                    get state :select-idx
+                    , .unwrap-or 0
+                  queries $ split query "| "
                   all-entries $ -> files .to-list
                     mapcat $ fn (entry)
                       let[] (ns file) entry $ flipped prepend ([] ns :ns)
-                        -> (:defs file) keys .to-list $ .map
-                          fn (def-name) ([] ns :defs def-name)
+                        ->
+                            get file :defs
+                            , .unwrap-or $ {}
+                          , keys .to-list $ .map
+                            fn (def-name) ([] ns :defs def-name)
                   def-entries $ -> all-entries
                     filter $ fn (entry)
                       and
-                        = :defs $ nth entry 1
+                        = :defs $
+                          nth entry 1
+                          , .unwrap-or :ns
                         every? queries $ fn (x)
                           includes?
                               nth entry 2
@@ -1909,7 +1943,9 @@
                   ns-entries $ -> all-entries
                     filter $ fn (entry)
                       and
-                        = :ns $ nth entry 1
+                        = :ns $
+                          nth entry 1
+                          , .unwrap-or :defs
                         every? queries $ fn (x)
                           includes?
                               nth entry 0
@@ -1921,14 +1957,19 @@
                     {} $ :class-name (str-spaced css/column css-menu)
                     div
                       {} $ :class-name css/row-parted
-                      input $ {} (:id |query-box) (:class-name css-query-box)
-                        :value $ :query state
+                      input $ {} (:id |query-box) (:class-name css-query-box) (:value query)
                         :on-input $ fn (e d!)
                           d! cursor $ assoc state :query
-                            str (:value e) :select-idx 0
+                            str
+                                get e :value
+                                , .unwrap-or |
+                              , :select-idx 0
                         :autofocus true
                         :on-keydown $ fn (e d!)
-                          case-default (:key e) (;nil js/console.log e)
+                          case-default
+                              get e :key
+                              , .unwrap-or |
+                            ;nil js/console.log e
                             |ArrowDown $ d! cursor
                               update state :select-idx $ fn (idx)
                                 if
@@ -1938,7 +1979,7 @@
                               update state :select-idx $ fn (idx)
                                 if (> idx 0) (dec idx) 0
                             |Enter $ if-let
-                              target $ get entries (:select-idx state)
+                              target $ get entries select-idx
                               do (d! :def-path target) (on-close d!)
                                 d! cursor $ assoc state :query |
                             |Escape $ on-close d!
@@ -1948,10 +1989,8 @@
                             :color $ hsl 0 100 30
                         :on-click $ fn (e d!) (on-close d!)
                     =< nil 8
-                    if
-                      blank? $ :query state
-                      comp-files-entry cursor state files on-close
-                      comp-search-entry cursor state entries (:select-idx state)
+                    if (blank? query) (comp-files-entry cursor state files on-close)
+                      comp-search-entry cursor state entries select-idx
                         fn (idx d!)
                           d! cursor $ assoc state :select-idx idx
                         , on-close
