@@ -151,26 +151,38 @@
           :code $ quote
             defn lookup-target-def (token files def-path pkg)
               let
-                  ns $ first def-path
-                  imports-form $ get-in files ([] ns :ns :code 1)
+                  ns $
+                    first def-path
+                    , .unwrap-or |
+                  imports-form $
+                    get-in files $ [] ns :ns :code 1
+                    , .unwrap-or ([])
                   dict $ parse-import-dict imports-form
+                  namespaces $
+                    get dict :namespaces
+                    , .unwrap-or ({})
                 if
                   contains-in? files $ [] ns :defs token
                   [] ns :defs token
                   if
                     contains-in? dict $ [] :defs token
                     let
-                        target-ns $ get-in dict ([] :defs token)
+                        target-ns $
+                          get-in dict $ [] :defs token
+                          , .unwrap-or |
                       if (starts-with? target-ns pkg) ([] target-ns :defs token) nil
                     if
                       and
-                        not= |/ $ get token 0
+                        not= |/ $
+                          get token 0
+                          , .unwrap-or |
                         .includes? token |/
                       let[] (ns-part def-part) (.split token |/)
-                        if
-                          contains? (:namespaces dict) ns-part
+                        if (contains? namespaces ns-part)
                           let
-                              target-ns $ get-in dict ([] :namespaces ns-part)
+                              target-ns $
+                                get-in dict $ [] :namespaces ns-part
+                                , .unwrap-or |
                             if (starts-with? target-ns pkg) ([] target-ns :defs def-part) nil
                           , nil
                       , nil
@@ -867,7 +879,9 @@
                   target $ get @*defs-metrics-states entry
                 if
                   and (some? target)
-                    ; >= depth $ :depth target
+                    ; >= depth $
+                      get target :depth
+                      , .unwrap-or 0
                   [] target
                   let
                       info $ get deps-tree entry
@@ -924,14 +938,21 @@
                     mapcat $ fn (info)
                       let
                           base $ expand-layout-xy info
-                        -> (:scoped-defs info)
+                        ->
+                            get info :scoped-defs
+                            , .unwrap-or $ []
                           map-indexed $ fn (idx def-entry)
                             let
                                 target $ get @*defs-metrics-states (take def-entry 2)
                               if
                                 and
-                                  empty? $ :scoped-defs target
-                                  <= (:depth target) (:depth info)
+                                  empty? $
+                                    get target :scoped-defs
+                                    , .unwrap-or ([])
+                                  <=
+                                      get target :depth
+                                      , .unwrap-or 0
+                                    (get info :depth) .unwrap-or 0
                                 , nil $ []
                                   complex/add base $ []
                                     + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
@@ -970,24 +991,34 @@
                       fn (idx info)
                         [] idx $ let
                             position $ expand-layout-xy info
-                          ; js/console.log $ :scoped-defs info
+                          ; js/console.log $
+                            get info :scoped-defs
+                            , .unwrap-or ([])
                           container ({})
                             rect $ {} (:position position)
                               :size $ []
                                 measure-text-width!
-                                  + 8 $ str-def-entry (:entry info) pkg
+                                  + 8 $ str-def-entry
+                                      get info :entry
+                                      , .unwrap-or $ []
+                                    , pkg
                                   , 14 |Hind
                                 , 20
                               :fill $ hslx 0 0 20
                             text $ {}
-                              :text $ str-def-entry (:entry info) pkg
+                              :text $ str-def-entry
+                                  get info :entry
+                                  , .unwrap-or $ []
+                                , pkg
                               :position $ complex/add position ([] 4 0)
                               :style $ {}
                                 :fill $ hslx 0 0 80
                                 :font-size 14
                                 :font-family |Hind
                             create-list :container ({})
-                              -> (:scoped-defs info)
+                              ->
+                                  get info :scoped-defs
+                                  , .unwrap-or $ []
                                 map-indexed $ fn (idx def-entry)
                                   [] idx $ container ({})
                                     rect $ {}
@@ -1017,10 +1048,15 @@
           :code $ quote
             defn expand-layout-xy (info)
               let
-                  max-y $ get-def-stack-y-of (:depth info)
-                []
-                  * 320 $ :depth info
-                  * 20 $ - (:y info) (* 0.4 max-y)
+                  depth $
+                    get info :depth
+                    , .unwrap-or 0
+                  y $
+                    get info :y
+                    , .unwrap-or 0
+                  max-y $ get-def-stack-y-of depth
+                [] (* 320 depth)
+                  * 20 $ - y (* 0.4 max-y)
           :examples $ []
           :schema $ :: 'Dynamic
         'get-def-stack-y-of $ %{} 'CodeEntry (:doc |)
@@ -1087,28 +1123,39 @@
                 {} $ :on-keyboard
                   {} $ :down
                     fn (e d!)
-                      when
-                        = |Tab $ :key e
-                        .!preventDefault $ :event e
-                        .!stopPropagation $ :event e
-                        js/document.body.focus
-                      if
-                        and
-                          not $ and (:meta? e)
-                            = |Tab $ :key e
-                          identical? js/document.body $ .-target (:event e)
-                        let
-                            target $ get-in entry
-                              concat ([] :code 1) focus
-                          cond
-                              list? target
-                              handle-expr-event focus def-path (dissoc e :event) d!
-                            (string? target)
-                              handle-leaf-event focus def-path target (dissoc e :event) d!
-                            (nil? nil) nil
-                            true $ js/console.error "|unknown target" target
+                      let
+                          key $
+                            get e :key
+                            , .unwrap-or |
+                          event $
+                            get e :event
+                            , .unwrap-or nil
+                          meta? $
+                            get e :meta?
+                            , .unwrap-or false
+                        when (= |Tab key) (.?!preventDefault event) (.?!stopPropagation event) (js/document.body.focus)
+                        if
+                          and
+                            not $ and meta? (= |Tab key)
+                            identical? js/document.body $ .?-target event
+                          let
+                              target $
+                                get-in entry $ concat ([] :code 1) focus
+                                , .unwrap-or nil
+                            cond
+                                list? target
+                                handle-expr-event focus def-path (dissoc e :event) d!
+                              (string? target)
+                                handle-leaf-event focus def-path target (dissoc e :event) d!
+                              (nil? target) nil
+                              true $ js/console.error "|unknown target" target
                 :tree $ let
-                    item $ nth (:code entry) 1
+                    code $
+                      get entry :code
+                      , .unwrap-or ([])
+                    item $
+                      nth code 1
+                      , .unwrap-or nil
                   cond
                       nil? item
                       , nil
@@ -1300,21 +1347,21 @@
         'pick-leaf-color $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn pick-leaf-color (s head?)
-              cond
-                  or (= s |true) (= s |false) (= s |nil) (= s |;) (= s |&)
-                  hslx 300 100 33
-                (= | s) (hslx 190 50 50)
-                (= "|\"" (get s 0))
-                  hslx 70 50 40
-                (= || (nth s 0))
-                  hslx 70 50 40
-                (= |: (nth s 0))
-                  hslx 240 90 74
-                (= |. (nth s 0))
-                  hslx 100 100 70
-                (.!test pattern-number s) (hslx 330 100 40)
-                head? $ hslx 160 70 76
-                true $ hslx 190 50 50
+              let
+                  first-char $
+                    get s 0
+                    , .unwrap-or |
+                cond
+                    or (= s |true) (= s |false) (= s |nil) (= s |;) (= s |&)
+                    hslx 300 100 33
+                  (= | s) (hslx 190 50 50)
+                  (= "|\"" first-char) (hslx 70 50 40)
+                  (= || first-char) (hslx 70 50 40)
+                  (= |: first-char) (hslx 240 90 74)
+                  (= |. first-char) (hslx 100 100 70)
+                  (.!test pattern-number s) (hslx 330 100 40)
+                  head? $ hslx 160 70 76
+                  true $ hslx 190 50 50
           :examples $ []
           :schema $ :: 'Dynamic
         'shape-focus $ %{} 'CodeEntry (:doc |)
@@ -1904,7 +1951,11 @@
         'comp-files-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-files-entry (cursor state files on-close)
-              div
+              let
+                  selected-ns $
+                    get state :ns
+                    , .unwrap-or nil
+                div
                 {} $ :class-name (str-spaced css/expand css/row)
                 list->
                   {} $ :class-name css/expand
@@ -1913,8 +1964,7 @@
                       [] ns $ div
                         {} (:class-name css-hover-entry)
                           :style $ merge
-                            if
-                              = ns $ :ns state
+                            if (= ns selected-ns)
                               {} $ :background-color (hsl 0 0 100 0.3)
                               {}
                           :on-click $ fn (e d!)
@@ -1922,7 +1972,7 @@
                         <> ns
                 =< 8 nil
                 if-let
-                  ns $ :ns state
+                  ns $ get state :ns
                   if-let
                     file $ get files ns
                     div
@@ -1935,16 +1985,19 @@
                         <> ns $ {} (:font-family ui/font-code)
                       =< nil 8
                       list-> ({})
-                        -> files (get ns) (get :defs) keys .to-list sort $ map
-                          fn (def-name)
-                            [] def-name $ div
-                              {} (:class-name css-hover-entry)
-                                :style $ merge
-                                  {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
-                                :on-click $ fn (e d!)
-                                  d! :def-path $ [] ns :defs def-name
-                                  on-close d!
-                              <> def-name
+                        ->
+                            get file :defs
+                            , .unwrap-or $ {}
+                          , keys .to-list sort $ map
+                            fn (def-name)
+                              [] def-name $ div
+                                {} (:class-name css-hover-entry)
+                                  :style $ merge
+                                    {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
+                                  :on-click $ fn (e d!)
+                                    d! :def-path $ [] ns :defs def-name
+                                    on-close d!
+                                <> def-name
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-menu $ %{} 'CodeEntry (:doc |)
@@ -2195,15 +2248,23 @@
                             {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "|0 8px")
                             if (= idx selected-idx)
                               {} $ :background-color (hsl 0 0 100 0.3)
+                              {}
                           :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
                             d! cursor $ assoc state :query |
                         if
                           = 2 $ count entry
-                          <> $ str (first entry) "| :ns"
+                          <> $ str
+                              first entry
+                              , .unwrap-or |
+                            , "| :ns"
                           div ({})
-                            <> $ last entry
+                            <> $
+                              last entry
+                              , .unwrap-or |
                             =< 8 nil
-                            <> (first entry)
+                            <>
+                                first entry
+                                , .unwrap-or |
                               {} (:font-size 10)
                                 :color $ hsl 0 0 70
           :examples $ []
