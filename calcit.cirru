@@ -2411,7 +2411,7 @@
             defn dispatch! (op ? data)
               if (tag? op)
                 recur $ :: op data
-                tag-match op
+                match op
                   (:effect-goto-def data)
                     let
                         files $ :files @*store
@@ -2762,35 +2762,54 @@
         'updater $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn updater (store op op-id op-time)
-              tag-match op
+              match op
                 (:states cursor s) (update-states store cursor s)
                 (:load-files data)
                   -> store
-                    assoc :package $ :package data
-                    assoc :configs $ :configs data
-                    assoc :files $ :files data
-                    assoc :saved-files $ :files data
+                    assoc :package $
+                      get data :package
+                      , .unwrap-or |
+                    assoc :configs $
+                      get data :configs
+                      , .unwrap-or ({})
+                    assoc :files $
+                      get data :files
+                      , .unwrap-or ({})
+                    assoc :saved-files $
+                      get data :files
+                      , .unwrap-or ({})
                 (:files-synced)
-                  -> store $ assoc :saved-files (:files store)
+                  -> store $ assoc :saved-files
+                    (get store :files) .unwrap-or $ {}
                 (:router r) (assoc store :router r)
                 (:stack-pointer p)
                   assoc-in store ([] :editor :pointer) p
                 (:pointer-down idx)
                   update store :editor $ fn (editor)
                     let
-                        size $ count (:stack editor)
+                        size $ count
+                            get editor :stack
+                            , .unwrap-or $ []
                       if
                         >= idx $ dec size
                         , editor $ update editor :pointer inc
                 (:pointer-up idx)
                   update store :editor $ fn (editor)
                     let
-                        size $ count (:stack editor)
+                        size $ count
+                            get editor :stack
+                            , .unwrap-or $ []
                       if (= 0 idx) editor $ update editor :pointer dec
                 (:pointer-shrink idx)
                   update store :editor $ fn (editor)
-                    if
-                      contains? (:stack editor) (:pointer editor)
+                    let
+                        stack $
+                          get editor :stack
+                          , .unwrap-or ([])
+                        pointer $
+                          get editor :pointer
+                          , .unwrap-or 0
+                      if $ contains? stack pointer
                       -> editor
                         update :pointer $ fn (idx)
                           if (= 0 idx) 0 $ dec idx
@@ -2798,9 +2817,15 @@
                       , editor
                 (:call-cirru-edit op-data)
                   let
-                      editor $ :editor store
+                      editor $
+                        get store :editor
+                        , .unwrap-or ({})
+                      pointer $
+                        get editor :pointer
+                        , .unwrap-or 0
                       def-path $ prepend
-                        get-in editor $ [] :stack (:pointer editor)
+                          get-in editor $ [] :stack pointer
+                          , .unwrap-or $ []
                         , :files
                       def-entry $ -> store (get-in def-path)
                     if (struct? def-entry)
@@ -2808,19 +2833,31 @@
                           result $ cirru-edit
                             {}
                               :tree $ get-in def-entry ([] :code 1)
-                              :clipboard $ :clipboard editor
+                              :clipboard $
+                                get editor :clipboard
+                                , .unwrap-or nil
                             :: & op-data
                         ; js/console.log op-data result
                         if-let
-                          warning $ :warning result
+                          warning $
+                            get result :warning
+                            , .unwrap-or nil
                           js/console.warn warning
                         -> store
                           assoc-in def-path $ assoc def-entry :code
-                            :: 'quote $ :tree result
+                            :: 'quote $
+                              get result :tree
+                              , .unwrap-or ([])
                           assoc-in ([] :editor :focus)
-                            or (:focus result) (:focus editor)
-                          assoc-in ([] :editor :clipboard) (:clipboard result)
-                          assoc :warning $ :warning result
+                            either
+                                get result :focus
+                                , .unwrap-or nil
+                              (get editor :focus) .unwrap-or $ []
+                          assoc-in ([] :editor :clipboard)
+                            (get result :clipboard) .unwrap-or nil
+                          assoc :warning $
+                            get result :warning
+                            , .unwrap-or nil
                       assoc store :warning $ str "|target not found at:" def-path
                 (:cirru-edit-node op-data)
                   let-sugar
