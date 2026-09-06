@@ -81,53 +81,58 @@
                   npm-namespaces $
                     get imports-dict :npm-namespaces
                     , .unwrap-or ({})
-                -> body flatten $ filter
-                  fn (token)
+                -> body flatten
+                  filter $ fn (token)
                     if (= token |) false $ let
                         c $
                           nth token 0
                           , .unwrap-or |
-                    not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (.!test digit-pattern token)
-                map strip-at
-                , distinct
-                  map $ fn (token)
-                    cond
-                        = token def-name
-                        , nil
-                      (.includes? def-names token) ([] ns token :file)
-                      (contains? defs-imports token)
-                        &let
-                          target-ns $ get-in imports-dict ([] :defs token)
-                          [] target-ns token :def
-                      (contains? npm-defs token)
-                        &let
-                          target-ns $ get-in imports-dict ([] :npm-defs token)
-                          [] target-ns token :npm-def
-                      (contains? npm-defaults token)
-                        &let
-                          target-ns $ get-in imports-dict ([] :npm-defaults token)
-                          [] target-ns token :npm-default
-                      (and (not= ((get token 0) .unwrap-or |) |/) (.includes? token |/))
-                        let
-                            pieces $ .split token |/
-                            ns-alias $
-                              first pieces
+                      not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (.!test digit-pattern token)
+                  map strip-at
+                  , distinct
+                    map $ fn (token)
+                      cond
+                          = token def-name
+                          , nil
+                        (.includes? def-names token) ([] ns token :file)
+                        (contains? defs-imports token)
+                          []
+                              get defs-imports token
                               , .unwrap-or |
-                            def-part $
-                              nth pieces 1
+                            , token :def
+                        (contains? npm-defs token)
+                          []
+                              get npm-defs token
                               , .unwrap-or |
-                          cond
-                              contains? namespaces ns-alias
-                              &let
-                                target-ns $ get-in imports-dict ([] :namespaces ns-alias)
-                                [] target-ns def-part :ns-def
-                            (contains? npm-namespaces ns-alias)
-                              &let
-                                target-ns $ get-in imports-dict ([] :npm-namespaces ns-alias)
-                                [] target-ns def-part :npm-ns-def
-                            true nil
-                      true nil
-                  filter some?
+                            , token :npm-def
+                        (contains? npm-defaults token)
+                          []
+                              get npm-defaults token
+                              , .unwrap-or |
+                            , token :npm-default
+                        (and (not= ((get token 0) .unwrap-or |) |/) (.includes? token |/))
+                          let
+                              pieces $ .split token |/
+                              ns-alias $
+                                first pieces
+                                , .unwrap-or |
+                              def-part $
+                                nth pieces 1
+                                , .unwrap-or |
+                            cond
+                                contains? namespaces ns-alias
+                                []
+                                    get namespaces ns-alias
+                                    , .unwrap-or |
+                                  , def-part :ns-def
+                              (contains? npm-namespaces ns-alias)
+                                []
+                                    get npm-namespaces ns-alias
+                                    , .unwrap-or |
+                                  , def-part :npm-ns-def
+                              true nil
+                        true nil
+                    filter some?
           :examples $ []
           :schema $ :: 'Dynamic
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
@@ -198,15 +203,23 @@
                     :npm-defaults $ {}
                     :npm-defs $ {}
                     :npm-namespaces $ {}
-                  rules $ rest (nth ns-form 2)
+                  rules $ rest
+                      nth ns-form 2
+                      , .unwrap-or $ []
                 if (empty? rules) dict $ let
-                    rule $ regularize-rule (first rules)
-                    method $ nth rule 1
+                    rule $ regularize-rule
+                        first rules
+                        , .unwrap-or $ []
+                    method $
+                      nth rule 1
+                      , .unwrap-or |
                   case-default method
                     raise $ str "|unknown rule: " method
                     |:as $ let[] (target _m alias) rule
                       if
-                        = "|\"" $ first target
+                        = "|\"" $
+                          first target
+                          , .unwrap-or |
                         recur
                           assoc-in dict ([] :npm-namespaces alias) target
                           rest rules
@@ -215,7 +228,9 @@
                           rest rules
                     |:refer $ let[] (target _m defs-list) rule
                       if
-                        = "|\"" $ first target
+                        = "|\"" $
+                          first target
+                          , .unwrap-or |
                         recur
                           update dict :npm-defs $ fn (dict)
                             loop
@@ -238,8 +253,10 @@
                           rest rules
                     |:default $ recur
                       assoc-in dict
-                        [] :npm-defaults $ nth rule 2
-                        nth rule 0
+                        [] :npm-defaults $
+                          nth rule 2
+                          , .unwrap-or |
+                        (nth rule 0) .unwrap-or |
                       rest rules
           :examples $ []
           :schema $ :: 'Dynamic
@@ -256,7 +273,9 @@
           :code $ quote
             defn strip-at (token)
               if
-                = |@ $ nth token 0
+                = |@ $
+                  nth token 0
+                  , .unwrap-or |
                 .!slice token 1
                 , token
           :examples $ []
@@ -597,7 +616,7 @@
           :code $ quote
             defeffect effect-focus () (action el at?)
               if (= :mount action)
-                .!select $ .!querySelector el |input
+                .?!select $ .!querySelector el |input
           :examples $ []
           :schema $ :: 'Dynamic
         'on-save $ %{} 'CodeEntry (:doc |)
@@ -667,10 +686,10 @@
                   ->
                     js/fetch (str api-host |/compact-inc)
                       js-object (:method |PUT) (:body content)
-                    .!then $ fn (res)
+                    .?!then $ fn (res)
                       d! $ :: :files-synced
                       d! :ok nil
-                    .!catch $ fn (e)
+                    .?!catch $ fn (e)
                       d! :warn $ str e
           :examples $ []
           :schema $ :: 'Dynamic
@@ -836,9 +855,9 @@
                               :on $ {}
                                 :pointertap $ fn (e d!)
                                   let
-                                      event $ -> e .-data .-originalEvent
+                                      event $ -> e .-data .?-originalEvent
                                     if
-                                      or (.-metaKey event) (.-ctrlKey event)
+                                      or (.?-metaKey event) (.?-ctrlKey event)
                                       do
                                         d! :def-path $ [] (nth item 0) :defs (nth item 1)
                                         d! :router $ {} (:name :editor)
@@ -863,9 +882,9 @@
                               :on $ {}
                                 :pointertap $ fn (e d!)
                                   let
-                                      event $ -> e .-data .-originalEvent
+                                      event $ -> e .-data .?-originalEvent
                                     if
-                                      or (.-metaKey event) (.-ctrlKey event)
+                                      or (.?-metaKey event) (.?-ctrlKey event)
                                       do
                                         d! :def-path $ [] (nth item 0) :defs (nth item 1)
                                         d! :router $ {} (:name :editor)
@@ -1063,7 +1082,7 @@
                                       :alpha 0.3
                                       :on $ {}
                                         :pointertap $ fn (e d!) (js/console.log e)
-                                          when (-> e .-data .-originalEvent .-metaKey)
+                                          when (-> e .-data .?-originalEvent .?-metaKey)
                                             d! :router $ {} (:name :editor)
                                             d! :def-path $ [] (nth def-entry 0) :defs (nth def-entry 1)
                                     text $ {}
@@ -1355,13 +1374,13 @@
           :code $ quote
             defn on-expr-click (e code coord d!)
               let
-                  event $ -> e .-data .-originalEvent
+                  event $ -> e .-data .?-originalEvent
                 if
-                  or (.-metaKey event) (.-ctrlKey event)
+                  or (.?-metaKey event) (.?-ctrlKey event)
                   prompt-at!
                     &let
-                      pos $ -> e .-data .-global
-                      [] (.-x pos) (.-y pos)
+                      pos $ -> e .-data .?-global
+                      [] (.?-x pos) (.?-y pos)
                     {} (:textarea? true)
                       :initial $ format-cirru ([] code)
                       :style $ {} (:font-family code-font)
@@ -1837,13 +1856,13 @@
                       :on $ {}
                         :pointertap $ fn (e d!)
                           let
-                              event $ -> e .-data .-originalEvent
+                              event $ -> e .-data .?-originalEvent
                             if
-                              or (.-metaKey event) (.-ctrlKey event)
+                              or (.?-metaKey event) (.?-ctrlKey event)
                               prompt-at!
                                 &let
-                                  pos $ -> e .-data .-global
-                                  [] (.-x pos) (.-y pos)
+                                  pos $ -> e .-data .?-global
+                                  [] (.?-x pos) (.?-y pos)
                                 {} (:initial s)
                                   :style $ {} (:font-family code-font)
                                 fn (content)
@@ -1955,15 +1974,15 @@
               let
                   handler $ or (aget el |_dirtyEventListener)
                     fn (event)
-                      if
-                        and
-                          or
-                            = |p $ .-key event
-                            = |s $ .-key event
-                            = |d $ .-key event
-                            = |i $ .-key event
-                          or (.-ctrlKey event) (.-metaKey event)
-                        .!preventDefault event
+                      let
+                          key $ unsafe-coerce (.-key event) String
+                          ctrl? $ unsafe-coerce (.?-ctrlKey event) Bool
+                          meta? $ unsafe-coerce (.?-metaKey event) Bool
+                        if
+                          and
+                            or (= |p key) (= |s key) (= |d key) (= |i key)
+                            or ctrl? meta?
+                          .!preventDefault event
                       .!dispatchEvent el $ new js/KeyboardEvent (.-type event) event
                 aset el |_dirtyEventListener handler
                 case-default action nil
@@ -2332,7 +2351,7 @@
         'effect-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defeffect effect-focus (query) (action el at?)
-              .!select $ js/document.querySelector query
+              .?!select $ js/document.querySelector query
           :examples $ []
           :schema $ :: 'Dynamic
         'style-error $ %{} 'CodeEntry (:doc |)
@@ -2376,19 +2395,29 @@
                             {} (:cursor :pointer) (:padding "|4px 8px") (:border-radius |6px)
                             if (= idx pointer)
                               {} $ :background-color (hsl 0 0 30)
-                        case-default (nth frame 1)
+                              {}
+                        case-default
+                            nth frame 1
+                            , .unwrap-or :unknown
                           <> (str "|Err: " frame)
                             {} $ :color :red
                           :ns $ <>
-                            str $ nth frame 0
+                            str $
+                              nth frame 0
+                              , .unwrap-or |
                           :defs $ div
                             {} $ :style (merge ui/column)
                             <>
-                              str (nth frame 0) |/
+                              str
+                                  nth frame 0
+                                  , .unwrap-or |
+                                , |/
                               {} (:font-size 10) (:line-height 1)
                                 :color $ hsl 0 0 60
                             div ({})
-                              <> (nth frame 2)
+                              <>
+                                  nth frame 2
+                                  , .unwrap-or |
                                 {} $ :color (hsl 0 0 100)
                 comp-key-event $ fn (e d!)
                   let
@@ -2475,7 +2504,7 @@
           :schema $ :: 'Dynamic
         'twist-distance $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            def twist-distance $ * 0.8 js/window.innerWidth
+            def twist-distance $ * 0.8 (unsafe-coerce js/window.innerWidth Number)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2614,8 +2643,8 @@
               ->
                 if mocked? |//cors.cirru.org/compact.cirru $ str (if shared-editor? api-host-6011 api-host) |/compact-data
                 js/fetch
-                .!then $ fn (res) (.!text res)
-                .!then $ fn (text)
+                .?!then $ fn (res) (.!text res)
+                .?!then $ fn (text)
                   let
                       compact-files $ parse-cirru-edn text
                         {} (:CodeEntry schema/CodeEntry) (:FileEntry schema/FileEntry)
@@ -2625,7 +2654,7 @@
                         d! $ :: :ok
                       do (js/console.log "|unknown data:" compact-files)
                         d! $ :: :warn "|unknown data"
-                .!catch $ fn (err)
+                .?!catch $ fn (err)
                   d! $ :: :warn (str err)
           :examples $ []
           :schema $ :: 'Dynamic
@@ -2695,7 +2724,7 @@
             defn main! () (; js/console.log PIXI)
               if dev? $ load-console-formatter!
               -> (new FontFaceObserver "|Roboto Mono") (.!load)
-                .!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
+                .?!then $ fn (event) (render-app!) (js/window._phloxTree.renderer.plugins.accessibility.destroy)
               add-watch *store :change $ fn (store prev) (render-app!)
               when mobile? (render-control!) (start-control-loop! 8 on-control-event)
               load-files! dispatch!
