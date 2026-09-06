@@ -20,7 +20,7 @@
                     map-kv $ fn (ns file)
                       [] ns $ parse-import-dict
                         get-in file $ [] :ns :code 1
-                  defs-deps-dict $ -> files .to-list
+                  defs-deps-dict $ -> files &map:to-list
                     mapcat $ fn (pair)
                       let
                           ns $
@@ -94,7 +94,7 @@
                       cond
                           = token def-name
                           , nil
-                        (.includes? def-names token) ([] ns token :file)
+                        (contains? def-names token) ([] ns token :file)
                         (contains? defs-imports token)
                           []
                               get defs-imports token
@@ -110,9 +110,9 @@
                               get npm-defaults token
                               , .unwrap-or |
                             , token :npm-default
-                        (and (not= ((get token 0) .unwrap-or |) |/) (.includes? token |/))
+                        (and (not= ((get token 0) .unwrap-or |) |/) (includes? token |/))
                           let
-                              pieces $ .split token |/
+                              pieces $ split token |/
                               ns-alias $
                                 first pieces
                                 , .unwrap-or |
@@ -181,8 +181,8 @@
                         not= |/ $
                           get token 0
                           , .unwrap-or |
-                        .includes? token |/
-                      let[] (ns-part def-part) (.split token |/)
+                        includes? token |/
+                      let[] (ns-part def-part) (split token |/)
                         if (contains? namespaces ns-part)
                           let
                               target-ns $
@@ -288,7 +288,7 @@
           :code $ quote
             defn build-call-tree (deps-tree entry parents)
               let
-                  ret $ if (.includes? parents entry)
+                  ret $ if (contains? parents entry)
                     {} (:entry entry) (:looped? true)
                       :children $ []
                     {} (:entry entry) (:looped? false)
@@ -302,7 +302,7 @@
                               let
                                   child-entry $ take entry3 2
                                 if (contains? deps-tree child-entry)
-                                  build-call-tree deps-tree child-entry $ .include parents entry
+                                  build-call-tree deps-tree child-entry $ include parents entry
                                   , nil
                             filter some?
                 assoc ret :size $ count-tree ret
@@ -813,7 +813,7 @@
                             , .unwrap-or |
                           , pkg
                     dependants $ -> deps-tree
-                      .filter-kv $ fn (k v)
+                      &map:filter-kv $ fn (k v)
                         any? v $ fn (piece)
                           and
                             = (nth entry 0) (nth piece 0)
@@ -986,7 +986,7 @@
               reset! *defs-layout-stack $ {}
               reset! *defs-metrics-states $ {}
               let
-                  defs-metrics $ build-defs-metrics (.split init-fn |/) deps-tree 0 pkg
+                  defs-metrics $ build-defs-metrics (split init-fn |/) deps-tree 0 pkg
                   ; defs-metrics $ .to-list (.values @*defs-metrics-states)
                   connections $ -> defs-metrics
                     mapcat $ fn (info)
@@ -1137,7 +1137,7 @@
           :code $ quote
             defn str-def-entry (pair pkg)
               let[] (ns def-name) pair $ if (starts-with? ns pkg)
-                str (.strip-prefix ns pkg) |/ def-name
+                str (strip-prefix ns pkg) |/ def-name
                 str ns |/ def-name
           :examples $ []
           :schema $ :: 'Dynamic
@@ -2084,7 +2084,7 @@
                     get state :select-idx
                     , .unwrap-or 0
                   queries $ split query "| "
-                  all-entries $ -> files .to-list
+                  all-entries $ -> files &map:to-list
                     mapcat $ fn (entry)
                       let[] (ns file) entry $ let
                           defs $
@@ -3254,7 +3254,7 @@
                         update-in files ([] ns :defs)
                           fn (defs)
                             let
-                                defs-value $ defs.unwrap-or ({})
+                                defs-value $ option:unwrap-or defs ({})
                               if (contains? defs-value def-name) defs-value $ assoc defs-value def-name
                                 %{} schema/CodeEntry (:doc |)
                                   :code $ :: 'quote
@@ -3268,7 +3268,7 @@
                         update-in files ([] ns :defs)
                           fn (defs)
                             let
-                                defs-value $ defs.unwrap-or ({})
+                                defs-value $ option:unwrap-or defs ({})
                               if (contains? defs-value def-name) (dissoc defs-value def-name) defs-value
                         , files
                 (:mv-ns op-data)
@@ -3282,7 +3282,7 @@
                           update-in ([] :ns 1)
                             fn (code-option)
                               let
-                                  code $ code-option.unwrap-or ([])
+                                  code $ option:unwrap-or code-option ([])
                                 if
                                   string? $
                                     get code 1
@@ -3294,8 +3294,8 @@
                   let-sugar
                         [] from to
                         , op-data
-                      ([] from-ns from-def) (.split from |/)
-                      ([] to-ns to-def) (.split to |/)
+                      ([] from-ns from-def) (split from |/)
+                      ([] to-ns to-def) (split to |/)
                     if
                       and
                         contains-in? store $ [] :files from-ns :defs from-def
@@ -3311,7 +3311,7 @@
                                   , .unwrap-or nil
                                 update 1 $ fn (code-option)
                                   let
-                                      code $ code-option.unwrap-or ([])
+                                      code $ option:unwrap-or code-option ([])
                                     if
                                       string? $
                                         get code 1
@@ -3349,7 +3349,7 @@
                             concat ([] :files) def-path $ [] :code
                             fn (pair-option)
                               let
-                                  pair $ pair-option.unwrap-or
+                                  pair $ option:unwrap-or pair-option
                                     :: 'quote $ []
                                 :: 'quote $ assoc-in
                                     nth pair 1
