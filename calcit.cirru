@@ -1398,8 +1398,12 @@
                         item $ first ys
                         next-coord $ conj coord idx
                         info $ wrap-leaf item next-coord focus (= idx 0)
-                        width $ :width info
-                        tree $ :tree info
+                        width $
+                          get info :width
+                          , .unwrap-or 0
+                        tree $
+                          get info :tree
+                          , .unwrap-or nil
                         offset $ + x-position leaf-gap
                       recur
                         conj acc $ [] idx
@@ -1425,10 +1429,16 @@
                           (and (with-linear? item) (not (all-block? item)))
                             wrap-expr-with-linear item next-coord focus true false 0
                           true $ wrap-block-expr item next-coord focus
-                        width $ :width info
-                        tree $ :tree info
+                        width $
+                          get info :width
+                          , .unwrap-or 0
+                        tree $
+                          get info :tree
+                          , .unwrap-or nil
                         next-y-stack $ if
-                          some? $ :winding-x info
+                          some? $
+                            get info :winding-x
+                            , .unwrap-or nil
                           if
                             >
                               either
@@ -1454,7 +1464,9 @@
                                 :style $ {} (:fill |red) (:font-size 8) (:font-family "|Source Code Pro, monospace")
                         rest ys
                         , width
-                          + next-y-stack $ :y-stack info
+                          + next-y-stack $
+                            get info :y-stack
+                            , .unwrap-or 0
                           inc idx
                           , width
                             if (= 0 idx)
@@ -1505,8 +1517,12 @@
                         string? item
                         let
                             info $ wrap-leaf item next-coord focus (= idx 0)
-                            width $ :width info
-                            tree $ :tree info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
+                            tree $
+                              get info :tree
+                              , .unwrap-or nil
                           recur
                             conj acc $ [] idx
                               container
@@ -1522,7 +1538,9 @@
                         let
                             focused? $ = next-coord focus
                             info $ wrap-linear-expr item next-coord focus true
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               container
@@ -1541,7 +1559,7 @@
                                 container
                                   {} $ :position
                                     [] 0 $ * -1 line-height
-                                  :tree info
+                                  (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position leaf-gap
                             , y-stack y-stack-max
@@ -1553,7 +1571,9 @@
                         let
                             focused? $ = next-coord focus
                             info $ wrap-linear-expr item next-coord focus true
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               container
@@ -1572,7 +1592,7 @@
                                 container
                                   {} $ :position
                                     [] 0 $ * y-stack line-height
-                                  :tree info
+                                  (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position leaf-gap
                             inc y-stack
@@ -1584,15 +1604,19 @@
                       (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? item)))
                         let
                             info $ wrap-linear-expr item next-coord focus false
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               container
                                 {} $ :position ([] x-position 0)
-                                :tree info
+                                (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position width leaf-gap
-                            &max y-stack $ :y-stack info
+                            &max y-stack $
+                              get info :y-stack
+                              , .unwrap-or 0
                             &max y-stack-max $ &max y-stack
                               (get info :y-stack) .unwrap-or 0
                             , y-stack-extend-x (inc idx) winding-okay? winding-x
@@ -1604,20 +1628,26 @@
                               (and (with-linear? item) (not (all-block? item)))
                                 wrap-expr-with-linear item next-coord focus winding-okay? false $ + acc-x x-position
                               true $ wrap-block-expr item next-coord focus
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               container
                                 {} $ :position ([] x-position 0)
-                                :tree info
+                                (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position width leaf-gap
-                            &max y-stack $ :y-stack info
+                            &max y-stack $
+                              get info :y-stack
+                              , .unwrap-or 0
                             &max y-stack-max $ &max y-stack
                               (get info :y-stack) .unwrap-or 0
                             , y-stack-extend-x (inc idx) winding-okay? $ either winding-x
                               if-let
-                                x $ :winding-x info
+                                x $
+                                  get info :winding-x
+                                  , .unwrap-or nil
                                 + x-position x
                       (and (> acc-x twist-distance) (= 1 (count ys)))
                         let
@@ -1626,7 +1656,9 @@
                                   not $ all-block? item
                                 wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position (negate twist-distance)
                               true $ wrap-block-expr item next-coord focus
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               let
@@ -1651,14 +1683,16 @@
                                     {} $ :position
                                       [] (negate twist-distance)
                                         * (inc y-stack) line-height
-                                    :tree info
+                                    (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position width leaf-gap
                             + y-stack
                               (get info :y-stack) .unwrap-or 0
                               , 1
                             &max y-stack-max $ inc
-                              + y-stack $ :y-stack info
+                              + y-stack $
+                                get info :y-stack
+                                , .unwrap-or 0
                             , y-stack-extend-x (inc idx) winding-okay? winding-x
                       (= 1 (count ys))
                         let
@@ -1667,7 +1701,9 @@
                                   not $ all-block? item
                                 wrap-expr-with-linear item next-coord focus winding-okay? true $ + acc-x x-position
                               true $ assoc (wrap-block-expr item next-coord focus) :width 0
-                            width $ :width info
+                            width $
+                              get info :width
+                              , .unwrap-or 0
                           recur
                             conj acc $ [] idx
                               let
@@ -1688,10 +1724,12 @@
                                   container
                                     {} $ :position
                                       [] 0 $ * y-stack line-height
-                                    :tree info
+                                    (get info :tree) .unwrap-or nil
                             rest ys
                             + x-position width leaf-gap
-                            + y-stack $ :y-stack info
+                            + y-stack $
+                              get info :y-stack
+                              , .unwrap-or 0
                             &max y-stack-max $ + y-stack
                               (get info :y-stack) .unwrap-or 0
                             , y-stack-extend-x (inc idx) winding-okay? winding-x
@@ -1789,8 +1827,12 @@
                           wrap-leaf item next-coord focus $ = idx 0
                         (is-linear? item) (wrap-linear-expr item next-coord focus false)
                         true $ comp-error item
-                      width $ :width info
-                      tree $ :tree info
+                      width $
+                        get info :width
+                        , .unwrap-or 0
+                      tree $
+                        get info :tree
+                        , .unwrap-or nil
                     recur
                       conj acc $ [] idx
                         container
@@ -1798,7 +1840,9 @@
                           , tree
                       rest ys
                       + x-position width leaf-gap
-                      &max y-stack $ :y-stack info
+                      &max y-stack $
+                        get info :y-stack
+                        , .unwrap-or 0
                       inc idx
           :examples $ []
           :schema $ :: 'Dynamic
