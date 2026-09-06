@@ -274,7 +274,9 @@
                       :children $ []
                     {} (:entry entry) (:looped? false)
                       :children $ let
-                          child-deps $ get deps-tree entry
+                          child-deps $
+                            get deps-tree entry
+                            , .unwrap-or ([])
                         if (empty? child-deps) ([])
                           -> child-deps
                             map $ fn (entry3)
@@ -291,19 +293,30 @@
           :code $ quote
             defn comp-call-tree (states deps-tree router pkg)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states)
-                    {}
-                      :spin-pos $ [] 600 200
-                      :spin 0
+                  cursor $
+                    get states :cursor
+                    , .unwrap-or ([])
+                  state $
+                    get states :data
+                    , .unwrap-or
+                      {}
+                        :spin-pos $ [] 600 200
+                        :spin 0
                   call-tree $ build-call-tree deps-tree router (#{})
                 container ({})
                   ; w-js-log $ comp-curve 200 0.1 0.7 (hsluvx 20 100 60) 40
-                  comp-sector call-tree 40 (:spin state) (* 2 &PI) 0
+                  comp-sector call-tree 40
+                    (get state :spin) .unwrap-or 0
+                    * 2 &PI
+                    , 0
                   comp-spin-slider (>> states :c)
                     {} (:unit 0.4) (:label |spin) (:fraction 1)
-                      :position $ :spin-pos state
-                      :value $ :spin state
+                      :position $
+                        get state :spin-pos
+                        , .unwrap-or ([] 600 200)
+                      :value $
+                        get state :spin
+                        , .unwrap-or 0
                       :on-change $ fn (value d!)
                         d! cursor $ assoc state :spin value
                       :on-move $ fn (pos d!)
@@ -314,20 +327,33 @@
           :code $ quote
             defn comp-sector (call-tree radius start-radian radian-size idx)
               let
-                  thickness $ + 10 (js/Math.pow radius 0.7)
-                    * 2 $ count (:children call-tree)
+                  children $
+                    get call-tree :children
+                    , .unwrap-or ([])
+                  tree-size $
+                    get call-tree :size
+                    , .unwrap-or 1
+                  entry $
+                    get call-tree :entry
+                    , .unwrap-or ([])
+                  thickness $ + 10
+                    unsafe-coerce (js/Math.pow radius 0.7) Number
+                    * 2 $ count children
                 container ({})
                   create-list :container ({})
                     loop
                         acc $ []
-                        xs $ :children call-tree
+                        xs children
                         a0 start-radian
                       list-match xs
                         () acc
                         (x0 xss)
                           let
                               delta $ * (- radian-size 0.01)
-                                / (:size x0) (:size call-tree)
+                                /
+                                    get x0 :size
+                                    , .unwrap-or 0
+                                  , tree-size
                             recur
                               conj acc $ let
                                   index $ count acc
@@ -341,7 +367,9 @@
                       , 100 50
                     , thickness
                   text $ {}
-                    :text $ nth (:entry call-tree) 1
+                    :text $
+                      nth entry 1
+                      , .unwrap-or |
                     :position $ []
                       * radius $ cos start-radian
                       * radius $ sin start-radian
@@ -391,7 +419,11 @@
         'count-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn count-tree (tree)
-              inc $ -> (:children tree) (map count-tree) (foldl 0 &+)
+              inc $ ->
+                  get tree :children
+                  , .unwrap-or $ []
+                map count-tree
+                foldl 0 &+
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -3084,16 +3116,30 @@
                   let-sugar
                         [] focus code
                         , op-data
-                      editor $ :editor store
+                      editor $
+                        get store :editor
+                        , .unwrap-or ({})
+                      pointer $
+                        get editor :pointer
+                        , .unwrap-or 0
                       def-path $ prepend
-                        get-in editor $ [] :stack (:pointer editor)
+                          get-in editor $ [] :stack pointer
+                          , .unwrap-or $ []
                         , :files
-                      def-entry $ -> store (get-in def-path)
+                      def-entry $
+                        get-in store def-path
+                        , .unwrap-or nil
                     if (struct? def-entry)
-                      assoc-in store (conj def-path :code)
-                        :: 'quote $ assoc-in
-                          get-in def-entry $ [] :code 1
-                          , focus code
+                      let
+                          quoted-code $
+                            get def-entry :code
+                            , .unwrap-or
+                              :: 'quote $ []
+                          tree $
+                            nth quoted-code 1
+                            , .unwrap-or ([])
+                        assoc-in store (conj def-path :code)
+                          :: 'quote $ assoc-in tree focus code
                       assoc store :warning $ str "|target not found at:" def-path
                 (:def-path op-data)
                   -> store
@@ -3159,11 +3205,15 @@
                     contains-in? store $ [] :files from
                     update store :files $ fn (files)
                       -> files (dissoc from)
-                        assoc to $ -> (get files from)
+                        assoc to $ ->
+                            get files from
+                            , .unwrap-or $ {}
                           update-in ([] :ns 1)
                             fn (code)
                               if
-                                string? $ get code 1
+                                string? $
+                                  get code 1
+                                  , .unwrap-or nil
                                 assoc code 1 to
                                 do (js/console.warn "|ns name not found in:" code) code
                     assoc store :warning $ str "|unknown ns: " from
@@ -3184,10 +3234,13 @@
                             dissoc-in $ [] from-ns :defs from-def
                             assoc-in ([] to-ns :defs to-def)
                               ->
-                                get-in files $ [] from-ns :defs from-def
+                                  get-in files $ [] from-ns :defs from-def
+                                  , .unwrap-or nil
                                 update 1 $ fn (code)
                                   if
-                                    string? $ get code 1
+                                    string? $
+                                      get code 1
+                                      , .unwrap-or nil
                                     assoc code 1 to-def
                                     do (js/console.warn "|def not found in:" code) code
                         assoc :warning nil
@@ -3195,19 +3248,35 @@
                 (:picker-mode op-data)
                   assoc-in store ([] :editor :picker-mode?) op-data
                 (:focus-or-pick op-data)
-                  if
-                    :picker-mode? $ :editor store
+                  let
+                      editor $
+                        get store :editor
+                        , .unwrap-or ({})
+                      picker-mode? $
+                        get editor :picker-mode?
+                        , .unwrap-or false
+                      pointer $
+                        get editor :pointer
+                        , .unwrap-or 0
+                    if picker-mode?
                     let
-                        editor $ :editor store
-                        def-path $ get-in editor
-                          [] :stack $ :pointer editor
-                        item $ get-in store
-                          concat ([] :files) def-path ([] :code 1) op-data
+                        def-path $
+                          get-in editor $ [] :stack pointer
+                          , .unwrap-or ([])
+                        item $
+                          get-in store $ concat ([] :files) def-path ([] :code 1) op-data
+                          , .unwrap-or nil
+                        focus $
+                          get editor :focus
+                          , .unwrap-or ([])
                       -> store
                         update-in
                           concat ([] :files) def-path $ [] :code
                           fn (pair)
-                            :: 'quote $ assoc-in (nth pair 1) (-> store :editor :focus) item
+                            :: 'quote $ assoc-in
+                                nth pair 1
+                                , .unwrap-or $ []
+                              , focus item
                         assoc-in ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) op-data
                 (:deps-tree op-data) (assoc store :deps-tree op-data)
