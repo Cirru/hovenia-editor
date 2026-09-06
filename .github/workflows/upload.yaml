@@ -6,28 +6,50 @@ on:
       - main
   pull_request: {}
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-node@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        node-version: 20
+        persist-credentials: false
 
-    - run: corepack enable && corepack prepare yarn@4.12.0 --activate
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      with:
+        node-version: 24
+        package-manager-cache: false
 
-    - uses: calcit-lang/setup-cr@0.0.8
+    - name: Enable Corepack
+      run: |
+        corepack enable
+        corepack prepare yarn@4.12.0 --activate
+        yarn --version
 
-    - name: "compiles to js"
-      run: >
-        caps --ci && cr compact.cirru js
-        && yarn install --immutable && yarn vite build --base=./
+    - uses: calcit-lang/setup-calcit@704b3f5cd6f9ce3bd1e0c926dbdd1d181adb8180 # v1.4.0
+      with:
+        tools: calcit,caps
+
+    - name: Validate and build
+      run: |
+        set -euo pipefail
+        caps --strict --ci
+        yarn install --immutable
+        caps verify --toolchain
+        calcit calcit.cirru edit format
+        git diff --exit-code -- calcit.cirru
+        calcit calcit.cirru --check-only
+        calcit calcit.cirru analyze dynamic-methods --max 0
+        calcit calcit.cirru analyze deprecated --summary-only
+        calcit calcit.cirru js
+        yarn vite build --base=./
 
     - name: Deploy to server
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       id: deploy
-      uses: Pendect/action-rsyncer@v2.0.0
+      uses: Pendect/action-rsyncer@8e05ffa5c93e5d9c9b167796b26044d2c616b2b9 # v2.0.0
       env:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
       with:
@@ -38,4 +60,5 @@ jobs:
         dest: 'rsync-user@tiye.me:/web-assets/repo/${{ github.repository }}'
 
     - name: Display status from deploy
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "${{ steps.deploy.outputs.status }}"
