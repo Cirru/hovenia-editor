@@ -502,9 +502,9 @@
                       , .unwrap-or 0
                   set-box-text! $ fn (v d!)
                     let
-                        box $ -> |#command-box js/document.querySelector
+                        box $ unsafe-coerce (-> |#command-box js/document.querySelector) JsObject
                         next $ str (.?-value box) v
-                      set! (.?-value box) next
+                      set! (.-value box) next
                       .?!focus box
                       d! cursor $ assoc state :content next
                 [] (effect-focus)
@@ -633,7 +633,7 @@
                         get files ns
                         , .unwrap-or ({})
                     pairs-map
-                  changed-entries $ -> common-ns
+                  changed-entries $ -> common-ns (.to-list)
                     map $ fn (ns)
                       [] ns $ let
                           file $
@@ -849,7 +849,9 @@
                           [] idx $ comp-button
                             {}
                               :text $ str (nth item 0) |/ (nth item 1) "|  "
-                                count $ get deps-tree (take item 2)
+                                count $
+                                  get deps-tree $ take item 2
+                                  , .unwrap-or ([])
                               :position $ [] 0 (* idx 40)
                               :align-right? true
                               :on $ {}
@@ -875,7 +877,8 @@
                                     , .unwrap-or |
                                   , pkg
                                 str (nth item 0) |/ (nth item 1) "|  " $ count
-                                  get deps-tree $ take item 2
+                                    get deps-tree $ take item 2
+                                    , .unwrap-or $ []
                                 str (nth item 0) |/ $ nth item 1
                               :position $ [] 0 (* idx 40)
                               :align-right? false
@@ -994,7 +997,9 @@
                             , .unwrap-or $ []
                           map-indexed $ fn (idx def-entry)
                             let
-                                target $ get @*defs-metrics-states (take def-entry 2)
+                                target $
+                                  get @*defs-metrics-states $ take def-entry 2
+                                  , .unwrap-or ({})
                               if
                                 and
                                   empty? $
@@ -1010,7 +1015,7 @@
                                     + 10 $ * 20 (inc idx)
                                   complex/add (expand-layout-xy target) ([] 0 10)
                           filter $ fn (pair)
-                            some? $ last pair
+                            option:some? $ last pair
                 ; js/console.log @*defs-metrics-states
                 ; js/console.log |connection connections
                 container ({})
@@ -1200,23 +1205,24 @@
                                 handle-leaf-event focus def-path target (dissoc e :event) d!
                               (nil? target) nil
                               true $ js/console.error "|unknown target" target
-                :tree $ let
+                let
                     code $
                       get entry :code
                       , .unwrap-or ([])
                     item $
                       nth code 1
                       , .unwrap-or nil
-                  cond
-                      nil? item
-                      , nil
-                    (string? item)
-                      wrap-leaf item ([]) focus false
-                    (is-linear? item)
-                      wrap-linear-expr item ([]) focus false
-                    (with-linear? item)
-                      wrap-expr-with-linear item ([]) focus true false 0
-                    true $ wrap-block-expr item ([]) focus
+                    info $ cond
+                        nil? item
+                        {} $ :tree nil
+                      (string? item)
+                        wrap-leaf item ([]) focus false
+                      (is-linear? item)
+                        wrap-linear-expr item ([]) focus false
+                      (with-linear? item)
+                        wrap-expr-with-linear item ([]) focus true false 0
+                      true $ wrap-block-expr item ([]) focus
+                  (get info :tree) .unwrap-or nil
                 ; comp-hint (>> states :hint) focus $ get-in tree focus
           :examples $ []
           :schema $ :: 'Dynamic
@@ -1491,9 +1497,13 @@
                     :y-stack y-stack
                     :winding-x winding-x
                   if
-                    and prev-leaf? $ string? (first ys)
+                    and prev-leaf? $ string?
+                        first ys
+                        , .unwrap-or nil
                     let
-                        item $ first ys
+                        item $
+                          first ys
+                          , .unwrap-or nil
                         next-coord $ conj coord idx
                         info $ wrap-leaf item next-coord focus (= idx 0)
                         width $
@@ -1518,7 +1528,9 @@
                             , winding-x
                           , true
                     let
-                        item $ first ys
+                        item $
+                          first ys
+                          , .unwrap-or nil
                         next-coord $ conj coord idx
                         info $ cond
                             string? item
@@ -1609,7 +1621,9 @@
                     :y-stack y-stack-max
                     :winding-x winding-x
                   let
-                      item $ first ys
+                      item $
+                        first ys
+                        , .unwrap-or nil
                       next-coord $ conj coord idx
                     cond
                         string? item
@@ -1743,9 +1757,7 @@
                               (get info :y-stack) .unwrap-or 0
                             , y-stack-extend-x (inc idx) winding-okay? $ either winding-x
                               if-let
-                                x $
-                                  get info :winding-x
-                                  , .unwrap-or nil
+                                x $ get info :winding-x
                                 + x-position x
                       (and (> acc-x twist-distance) (= 1 (count ys)))
                         let
@@ -1918,7 +1930,9 @@
                     :width x-position
                     :y-stack y-stack
                   let
-                      item $ first ys
+                      item $
+                        first ys
+                        , .unwrap-or nil
                       next-coord $ conj coord idx
                       info $ cond
                           string? item
@@ -2007,48 +2021,49 @@
                     get state :ns
                     , .unwrap-or nil
                 div
-                {} $ :class-name (str-spaced css/expand css/row)
-                list->
-                  {} $ :class-name css/expand
-                  -> (keys files) .to-list sort $ map
-                    fn (ns)
-                      [] ns $ div
-                        {} (:class-name css-hover-entry)
-                          :style $ merge
-                            if (= ns selected-ns)
-                              {} $ :background-color (hsl 0 0 100 0.3)
-                              {}
-                          :on-click $ fn (e d!)
-                            d! cursor $ assoc state :ns ns
-                        <> ns
-                =< 8 nil
-                if-let
-                  ns $ get state :ns
+                  {} $ :class-name (str-spaced css/expand css/row)
+                  list->
+                    {} $ :class-name css/expand
+                    -> (keys files) .to-list sort $ map
+                      fn (ns)
+                        [] ns $ div
+                          {} (:class-name css-hover-entry)
+                            :style $ merge
+                              if (= ns selected-ns)
+                                {} $ :background-color (hsl 0 0 100 0.3)
+                                {}
+                            :on-click $ fn (e d!)
+                              d! cursor $ assoc state :ns ns
+                          <> ns
+                  =< 8 nil
                   if-let
-                    file $ get files ns
-                    div
-                      {} $ :class-name css/expand
-                      div
-                        {}
-                          :style $ {} (:cursor :pointer)
-                          :on-click $ fn (e d!)
-                            d! :def-path $ [] ns :ns
-                        <> ns $ {} (:font-family ui/font-code)
-                      =< nil 8
-                      list-> ({})
-                        ->
+                    ns $ get state :ns
+                    if-let
+                      file $ get files ns
+                      let
+                          defs $
                             get file :defs
-                            , .unwrap-or $ {}
-                          , keys .to-list sort $ map
-                            fn (def-name)
-                              [] def-name $ div
-                                {} (:class-name css-hover-entry)
-                                  :style $ merge
-                                    {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
-                                  :on-click $ fn (e d!)
-                                    d! :def-path $ [] ns :defs def-name
-                                    on-close d!
-                                <> def-name
+                            , .unwrap-or ({})
+                        div
+                          {} $ :class-name css/expand
+                          div
+                            {}
+                              :style $ {} (:cursor :pointer)
+                              :on-click $ fn (e d!)
+                                d! :def-path $ [] ns :ns
+                            <> ns $ {} (:font-family ui/font-code)
+                          =< nil 8
+                          list-> ({})
+                            -> defs keys .to-list sort $ map
+                              fn (def-name)
+                                [] def-name $ div
+                                  {} (:class-name css-hover-entry)
+                                    :style $ merge
+                                      {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
+                                    :on-click $ fn (e d!)
+                                      d! :def-path $ [] ns :defs def-name
+                                      on-close d!
+                                  <> def-name
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-menu $ %{} 'CodeEntry (:doc |)
@@ -2071,11 +2086,13 @@
                   queries $ split query "| "
                   all-entries $ -> files .to-list
                     mapcat $ fn (entry)
-                      let[] (ns file) entry $ flipped prepend ([] ns :ns)
-                        ->
+                      let[] (ns file) entry $ let
+                          defs $
                             get file :defs
-                            , .unwrap-or $ {}
-                          , keys .to-list $ .map
+                            , .unwrap-or ({})
+                        concat
+                          [] $ [] ns :ns
+                          -> defs keys .to-list $ map
                             fn (def-name) ([] ns :defs def-name)
                   def-entries $ -> all-entries
                     filter $ fn (entry)
@@ -2185,7 +2202,9 @@
                       :on-click $ fn (e d!)
                         d! cursor $ assoc state :menu? true
                         d! :router $ {} (:name :editor)
-                        .!preventDefault $ :event e
+                        .?!preventDefault $
+                          get e :event
+                          , .unwrap-or nil
                     div ({})
                       if
                         not $ identical?
@@ -2204,13 +2223,13 @@
                       a $ {} (:inner-text |Command)
                         :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!) (.show command-plugin d!)
-                  if $
-                    get state :menu?
-                    , .unwrap-or false
-                      memof1-call comp-menu (>> states :menu)
-                        (get store :files) .unwrap-or $ {}
-                        , def-path $ fn (d!)
-                          d! cursor $ assoc state :menu? false
+                  if
+                      get state :menu?
+                      , .unwrap-or false
+                    memof1-call comp-menu (>> states :menu)
+                      (get store :files) .unwrap-or $ {}
+                      , def-path $ fn (d!)
+                        d! cursor $ assoc state :menu? false
                   if
                     not $ blank?
                         get store :warning
@@ -2536,7 +2555,7 @@
                   router $
                     get store :router
                     , .unwrap-or ({})
-                  package $
+                  package-name $
                     get store :package
                     , .unwrap-or |
                   deps-tree $
@@ -2560,7 +2579,7 @@
                       text $ {} (:text "|No code selected")
                         :position $ [] -60 0
                         :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
-                      memof1-call comp-editor entry focus def-path package
+                      memof1-call comp-editor entry focus def-path package-name
                   :deps-tree $ if (nil? deps-tree)
                     text $ {} (:text "|tree is empty")
                       :position $ [] 1 1
@@ -2568,21 +2587,21 @@
                     comp-deps-tree deps-tree
                       (get-in store ([] :configs :init-fn))
                         , .unwrap-or |
-                      , package
+                      , package-name
                   :deps-of $ if (nil? deps-tree)
                     text $ {} (:text "|tree is empty")
                       :position $ [] 1 1
                       :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                     comp-deps-of deps-tree
                       (get router :data) .unwrap-or nil
-                      , package
+                      , package-name
                   :call-tree $ if (nil? deps-tree)
                     text $ {} (:text "|tree is empty")
                       :position $ [] 1 1
                       :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                     comp-call-tree (>> states :call-tree) deps-tree
                       (get router :data) .unwrap-or nil
-                      , package
+                      , package-name
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-hint $ %{} 'CodeEntry (:doc |)
@@ -2666,12 +2685,12 @@
                   [] k $ -> v
                     update-in ([] :ns :code)
                       fn (q)
-                        :: 'quote $ &cirru-quote:to-list q
+                        :: 'quote $ &cirru-quote:to-list (option:unwrap q)
                     update :defs $ fn (d)
                       map-kv d $ fn (k v)
                         [] k $ update v :code
                           fn (q)
-                            :: 'quote $ &cirru-quote:to-list q
+                            :: 'quote $ &cirru-quote:to-list (option:unwrap q)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2693,17 +2712,28 @@
                 match op
                   (:effect-goto-def data)
                     let
-                        files $ :files @*store
-                        editor $ :editor @*store
+                        files $
+                          get @*store :files
+                          , .unwrap-or ({})
+                        editor $
+                          get @*store :editor
+                          , .unwrap-or ({})
+                        pointer $
+                          get editor :pointer
+                          , .unwrap-or 0
                       if-let
                         next-def-path $ lookup-target-def data files
-                          get-in editor $ [] :stack (:pointer editor)
-                          :package @*store
+                          (get-in editor ([] :stack pointer))
+                            , .unwrap-or $ []
+                          (get @*store :package) .unwrap-or |
                         dispatch! :def-path next-def-path
                         dispatch! :warn $ str "|not found: " data
                   _ $ do
                     when
-                      and dev? $ not= (nth op 0) :states
+                      and dev? $ not=
+                          nth op 0
+                          , .unwrap-or :unknown
+                        , :states
                       js/console.log |dispatch! op
                     let
                         op-id $ nanoid
@@ -3091,12 +3121,12 @@
                         pointer $
                           get editor :pointer
                           , .unwrap-or 0
-                      if $ contains? stack pointer
-                      -> editor
-                        update :pointer $ fn (idx)
-                          if (= 0 idx) 0 $ dec idx
-                        update :stack $ fn (xs) (dissoc xs idx)
-                      , editor
+                      if (contains? stack pointer)
+                        -> editor
+                          update :pointer $ fn (idx)
+                            if (= 0 idx) 0 $ dec idx
+                          update :stack $ fn (xs) (dissoc xs idx)
+                        , editor
                 (:call-cirru-edit op-data)
                   let
                       editor $
@@ -3109,21 +3139,28 @@
                           get-in editor $ [] :stack pointer
                           , .unwrap-or $ []
                         , :files
-                      def-entry $ -> store (get-in def-path)
+                      def-entry $
+                        get-in store def-path
+                        , .unwrap-or nil
                     if (struct? def-entry)
                       let
+                          entry-map $ unsafe-coerce def-entry Dynamic
+                          quoted-code $
+                            get entry-map :code
+                            , .unwrap-or
+                              :: 'quote $ []
                           result $ cirru-edit
                             {}
-                              :tree $ get-in def-entry ([] :code 1)
+                              :tree $
+                                nth quoted-code 1
+                                , .unwrap-or ([])
                               :clipboard $
                                 get editor :clipboard
                                 , .unwrap-or nil
                             :: & op-data
                         ; js/console.log op-data result
                         if-let
-                          warning $
-                            get result :warning
-                            , .unwrap-or nil
+                          warning $ get result :warning
                           js/console.warn warning
                         -> store
                           assoc-in def-path $ assoc def-entry :code
@@ -3160,8 +3197,9 @@
                         , .unwrap-or nil
                     if (struct? def-entry)
                       let
+                          entry-map $ unsafe-coerce def-entry Dynamic
                           quoted-code $
-                            get def-entry :code
+                            get entry-map :code
                             , .unwrap-or
                               :: 'quote $ []
                           tree $
@@ -3215,10 +3253,12 @@
                       if (contains? files ns)
                         update-in files ([] ns :defs)
                           fn (defs)
-                            if (contains? defs def-name) defs $ assoc defs def-name
-                              %{} schema/CodeEntry (:doc |)
-                                :code $ :: 'quote
-                                  [] |defn def-name $ []
+                            let
+                                defs-value $ defs.unwrap-or ({})
+                              if (contains? defs-value def-name) defs-value $ assoc defs-value def-name
+                                %{} schema/CodeEntry (:doc |)
+                                  :code $ :: 'quote
+                                    [] |defn def-name $ []
                         , files
                 (:rm-def op-data)
                   let[] (ns def-name)
@@ -3227,7 +3267,9 @@
                       if (contains? files ns)
                         update-in files ([] ns :defs)
                           fn (defs)
-                            if (contains? defs def-name) (dissoc defs def-name) defs
+                            let
+                                defs-value $ defs.unwrap-or ({})
+                              if (contains? defs-value def-name) (dissoc defs-value def-name) defs-value
                         , files
                 (:mv-ns op-data)
                   let[] (from to) op-data $ if
@@ -3238,13 +3280,15 @@
                             get files from
                             , .unwrap-or $ {}
                           update-in ([] :ns 1)
-                            fn (code)
-                              if
-                                string? $
-                                  get code 1
-                                  , .unwrap-or nil
-                                assoc code 1 to
-                                do (js/console.warn "|ns name not found in:" code) code
+                            fn (code-option)
+                              let
+                                  code $ code-option.unwrap-or ([])
+                                if
+                                  string? $
+                                    get code 1
+                                    , .unwrap-or nil
+                                  assoc code 1 to
+                                  do (js/console.warn "|ns name not found in:" code) code
                     assoc store :warning $ str "|unknown ns: " from
                 (:mv-def op-data)
                   let-sugar
@@ -3265,13 +3309,15 @@
                               ->
                                   get-in files $ [] from-ns :defs from-def
                                   , .unwrap-or nil
-                                update 1 $ fn (code)
-                                  if
-                                    string? $
-                                      get code 1
-                                      , .unwrap-or nil
-                                    assoc code 1 to-def
-                                    do (js/console.warn "|def not found in:" code) code
+                                update 1 $ fn (code-option)
+                                  let
+                                      code $ code-option.unwrap-or ([])
+                                    if
+                                      string? $
+                                        get code 1
+                                        , .unwrap-or nil
+                                      assoc code 1 to-def
+                                      do (js/console.warn "|def not found in:" code) code
                         assoc :warning nil
                       assoc store :warning $ str "|unknown ns/def: " from
                 (:picker-mode op-data)
@@ -3288,26 +3334,29 @@
                         get editor :pointer
                         , .unwrap-or 0
                     if picker-mode?
-                    let
-                        def-path $
-                          get-in editor $ [] :stack pointer
-                          , .unwrap-or ([])
-                        item $
-                          get-in store $ concat ([] :files) def-path ([] :code 1) op-data
-                          , .unwrap-or nil
-                        focus $
-                          get editor :focus
-                          , .unwrap-or ([])
-                      -> store
-                        update-in
-                          concat ([] :files) def-path $ [] :code
-                          fn (pair)
-                            :: 'quote $ assoc-in
-                                nth pair 1
-                                , .unwrap-or $ []
-                              , focus item
-                        assoc-in ([] :editor :picker-mode?) false
-                    assoc-in store ([] :editor :focus) op-data
+                      let
+                          def-path $
+                            get-in editor $ [] :stack pointer
+                            , .unwrap-or ([])
+                          item $
+                            get-in store $ concat ([] :files) def-path ([] :code 1) op-data
+                            , .unwrap-or nil
+                          focus $
+                            get editor :focus
+                            , .unwrap-or ([])
+                        -> store
+                          update-in
+                            concat ([] :files) def-path $ [] :code
+                            fn (pair-option)
+                              let
+                                  pair $ pair-option.unwrap-or
+                                    :: 'quote $ []
+                                :: 'quote $ assoc-in
+                                    nth pair 1
+                                    , .unwrap-or $ []
+                                  , focus item
+                          assoc-in ([] :editor :picker-mode?) false
+                      assoc-in store ([] :editor :focus) op-data
                 (:deps-tree op-data) (assoc store :deps-tree op-data)
                 (:hydrate-storage op-data) op-data
                 _ $ do (eprintln "|unknown op" op) store
