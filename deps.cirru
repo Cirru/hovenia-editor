@@ -1,5 +1,5 @@
 
-{} (:calcit-version |0.13.77) (:version |0.1.0)
+{} (:calcit-version |0.14.16) (:version |0.1.0)
   :dependencies $ {} (|Cirru/respo-cirru-editor |0.6.6)
     |Phlox-GL/phlox |0.7.7
     |Respo/alerts.calcit |0.10.30
