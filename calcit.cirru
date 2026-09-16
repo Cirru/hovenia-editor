@@ -2053,6 +2053,7 @@
         'comp-files-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-files-entry (cursor state files on-close)
             let
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
                 selected-ns $
                   get state :ns
                   , .unwrap-or nil
@@ -2060,7 +2061,7 @@
                 {} $ :class-name $ str-spaced css/expand css/row
                 list->
                   {} $ :class-name css/expand
-                  -> (keys files) .to-list sort $ map $ fn (ns)
+                  -> (keys typed-files) &map:to-list sort $ map $ fn (ns)
                     [] ns $ div
                       {} (:class-name css-hover-entry)
                         :style $ merge $ if (= ns selected-ns)
@@ -2073,11 +2074,12 @@
                 if-let
                   ns $ get state :ns
                   if-let
-                    file $ get files ns
+                    file $ get typed-files $ str ns
                     let
-                        defs $
+                        defs0 $
                           get file :defs
                           , .unwrap-or $ {}
+                        defs $ assert-type defs0 $ :: 'Map 'String 'Dynamic
                       div
                         {} $ :class-name css/expand
                         div
@@ -2088,7 +2090,7 @@
                           <> ns $ {} $ :font-family ui/font-code
                         =< nil 8
                         list-> ({})
-                          -> defs keys .to-list sort $ map $ fn (def-name)
+                          -> defs keys &map:to-list sort $ map $ fn (def-name)
                             [] def-name $ div
                               {} (:class-name css-hover-entry)
                                 :style $ merge $ {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
