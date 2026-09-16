@@ -1429,7 +1429,7 @@
             :features $ #{} :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pattern-number ()
-            new js/RegExp |^-?\d+ (\.\d+) ?$
+            new js/RegExp "|^-?\\d+ (\\.\\d+) ?$"
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'JsObject)
             :args $ []
@@ -2808,7 +2808,7 @@
           :code $ quote $ defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
             ->
-              unsafe-coerce (new FontFaceObserver |Roboto Mono) FontFaceObserverHost
+              unsafe-coerce (new FontFaceObserver "|Roboto Mono") FontFaceObserverHost
               .!load
               .?!then $ fn (event) (render-app!)
                 js/window._phloxTree.renderer.plugins.accessibility.destroy
