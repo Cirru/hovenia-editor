@@ -2438,14 +2438,18 @@
                 {} $ :style $ merge column-style
                   {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
                 -> stack $ map-indexed $ fn (idx frame)
-                  [] idx $ div
+                  let
+                      selected-style $ assert-type
+                        if (= idx pointer)
+                          {} $ :background-color $ hsl 0 0 30
+                          {}
+                        (:: 'Map 'Keyword 'Dynamic)
+                    [] idx $ div
                     {} (:class-name css-hover-entry)
                       :on-click $ fn (e d!) (d! :stack-pointer idx)
                       :style $ merge
                         {} (:cursor :pointer) (:padding "|4px 8px") (:border-radius |6px)
-                        if (= idx pointer)
-                          {} $ :background-color $ hsl 0 0 30
-                          {}
+                        selected-style
                     case-default
                         nth frame 1
                         , .unwrap-or :unknown
