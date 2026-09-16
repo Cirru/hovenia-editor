@@ -17,7 +17,7 @@
         'analyze-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn analyze-deps (files)
             let
-                typed-files $ assert-type files (:: 'Map 'String (:: 'Map 'String 'Dynamic))
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
                 ns-deps-dict $ -> typed-files $ filter-map-kv
                   fn (ns file)
                     %:: MapEntryDecision :keep ns $ [] ns $ parse-import-dict
@@ -34,21 +34,20 @@
                         defs0 $
                           get file :defs
                           , .unwrap-or $ {}
-                        defs $ assert-type defs0 (:: 'Map 'String 'Dynamic)
-                      -> defs &map:to-list
-                        map $ fn (pair)
-                          let
-                              def-name $
-                                nth pair 0
-                                , .unwrap-or |
-                              code $
-                                get-in pair $ [] 1 :code 1
-                                , .unwrap-or $ []
-                              ns-deps $
-                                get ns-deps-dict ns
-                                , .unwrap-or $ {}
-                            [] ([] ns def-name)
-                              lookup-body-deps (slice code 2) ns-deps ns def-name $ keys defs
+                        defs $ assert-type defs0 $ :: 'Map 'String 'Dynamic
+                      -> defs &map:to-list $ map $ fn (pair)
+                        let
+                            def-name $
+                              nth pair 0
+                              , .unwrap-or |
+                            code $
+                              get-in pair $ [] 1 :code 1
+                              , .unwrap-or $ []
+                            ns-deps $
+                              get ns-deps-dict ns
+                              , .unwrap-or $ {}
+                          [] ([] ns def-name)
+                            lookup-body-deps (slice code 2) ns-deps ns def-name $ keys defs
                   pairs-map
                 ; defs-dependants-dict $ lookup-dependants defs-deps-dict
               , defs-deps-dict
@@ -65,8 +64,9 @@
           :code $ quote $ defn flatten (xs)
             if (list? xs) (mapcat xs flatten) ([] xs)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return $ :: 'List 'Dynamic)
+          :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
+            :return $ :: 'List 'Dynamic
         'lookup-body-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-body-deps (body imports-dict ns def-name def-names)
             let
@@ -138,8 +138,9 @@
                       true nil
                   filter some?
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return $ :: 'List 'Dynamic)
+          :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :return $ :: 'List 'Dynamic
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
             -> deps-dict keys
@@ -1002,9 +1003,9 @@
                             scoped-defs $ assert-type
                                 option:unwrap-or (get info' :scoped-defs) []
                               (:: 'List (:: 'List 'Dynamic))
-                          map
-                              range 0 (count scoped-defs) 1
-                            (fn (idx) (let ((def-entry (nth scoped-defs idx))) (target ((get @*defs-metrics-states (take (unsafe-coerce def-entry (:: 'List 'Dynamic)) 2)) .unwrap-or ({})))) (if (and (empty? ((get target :scoped-defs) .unwrap-or ([]))) (<= ((get target :depth) .unwrap-or 0) ((get info' :depth) .unwrap-or 0))) nil ([] (complex/add base ([] (+ 8 (measure-text-width! (str-def-entry def-entry pkg) 14 |Hind)) (+ 10 (* 20 (inc idx))))) (complex/add (expand-layout-xy target) ([] 0 10)))))
+                          :: map
+                            (range 0 (count scoped-defs) 1)
+                            (:: fn (idx) (let ((def-entry (nth scoped-defs idx))) (target ((get @*defs-metrics-states (take (unsafe-coerce def-entry (:: 'List 'Dynamic)) 2)) .unwrap-or ({})))) (if (and (empty? ((get target :scoped-defs) .unwrap-or ([]))) (<= ((get target :depth) .unwrap-or 0) ((get info' :depth) .unwrap-or 0))) nil ([] (complex/add base ([] (+ 8 (measure-text-width! (str-def-entry def-entry pkg) 14 |Hind)) (+ 10 (* 20 (inc idx))))) (complex/add (expand-layout-xy target) ([] 0 10)))))
                           filter $ :: fn (pair)
                             option:some? $ last pair
                       :: 'List 'Dynamic
@@ -1069,7 +1070,7 @@
                               (:: 'List (:: 'List 'Dynamic))
                             map-indexed $ hint-fn
                               {:args $ [] 'Number (:: 'List 'Dynamic) :return $ :: 'Dynamic}
-                              fn $ idx def-entry
+                              :: fn $ idx def-entry
                               [] idx $ container ({})
                                 rect $ {}
                                   :position $ complex/add position $ [] 0
@@ -1080,7 +1081,7 @@
                                   :fill $ hslx 0 0 20
                                   :alpha 0.3
                                   :on $ {} $ :pointertap
-                                    fn (e d!) (js/console.log e)
+                                    :: fn (e d!) (js/console.log e)
                                       when (-> e .-data .?-originalEvent .?-metaKey)
                                         d! :router $ {} $ :name :editor
                                         d! :def-path $ [] (nth def-entry 0) :defs $ nth def-entry 1
