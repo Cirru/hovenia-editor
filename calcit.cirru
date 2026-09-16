@@ -3,15 +3,11 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {} (:description |) (:init-fn 'app.main/main!) (:mode :native)
-      :reload-fn 'app.main/reload!
+    :default $ {} (:description |) (:init-fn 'app.main/main!) (:mode :native) (:reload-fn 'app.main/reload!)
       :feature-policy $ {}
       :modules $ [] |memof/ |lilac/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/
       :type-slots $ {}
-    :server $ {} (:description |)
-      :init-fn 'app.server/main!
-      :mode :native
-      :reload-fn 'app.server/reload!
+    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
       :feature-policy $ {}
       :modules $ [] |calcit-http/
       :type-slots $ {}
@@ -21,10 +17,12 @@
         'analyze-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn analyze-deps (files)
             let
-                ns-deps-dict $ -> files $ map-kv
+                typed-files $ assert-type files (:: 'Map 'String (:: 'Map 'String 'Dynamic))
+                ns-deps-dict $ -> typed-files $ filter-map-kv
                   fn (ns file)
-                    [] ns $ parse-import-dict $ get-in file ([] :ns :code 1)
-                defs-deps-dict $ -> files &map:to-list
+                    %:: MapEntryDecision :keep ns $ [] ns $ parse-import-dict
+                      get-in file $ [] :ns :code 1
+                defs-deps-dict $ -> typed-files &map:to-list
                   mapcat $ fn (pair)
                     let
                         ns $
@@ -33,10 +31,11 @@
                         file $
                           nth pair 1
                           , .unwrap-or $ {}
-                        defs $
+                        defs0 $
                           get file :defs
                           , .unwrap-or $ {}
-                      -> defs (.to-list)
+                        defs $ assert-type defs0 (:: 'Map 'String 'Dynamic)
+                      -> defs &map:to-list
                         map $ fn (pair)
                           let
                               def-name $
@@ -54,16 +53,20 @@
                 ; defs-dependants-dict $ lookup-dependants defs-deps-dict
               , defs-deps-dict
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] $ :: 'Map 'String 'Dynamic
         'digit-pattern $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def digit-pattern (new js/RegExp |^\d$)
+          :code $ quote $ defn digit-pattern () (new js/RegExp |^\d$)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+            :features $ #{} :js-ffi
         'flatten $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn flatten (xs)
             if (list? xs) (mapcat xs flatten) ([] xs)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return $ :: 'List 'Dynamic)
+            :args $ [] 'Dynamic
         'lookup-body-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-body-deps (body imports-dict ns def-name def-names)
             let
@@ -88,7 +91,7 @@
                       c $
                         nth token 0
                         , .unwrap-or |
-                    not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (.!test digit-pattern token)
+                    not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (contains? |0123456789| token)
                 map strip-at
                 , distinct
                   map $ fn (token)
@@ -135,7 +138,8 @@
                       true nil
                   filter some?
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return $ :: 'List 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
             -> deps-dict keys
@@ -191,7 +195,9 @@
                         , nil
                     , nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'String
+            :return $ :: 'Option $ :: 'List 'String
         'parse-import-dict $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-import-dict (ns-form)
             loop
@@ -255,7 +261,8 @@
                       (nth rule 0) .unwrap-or |
                     rest rules
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'regularize-rule $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn regularize-rule (rule)
             -> rule
@@ -263,7 +270,9 @@
               map $ fn (item)
                 if (list? item) (regularize-rule item) item
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'List 'Dynamic
         'strip-at $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn strip-at (token)
             if
@@ -273,7 +282,9 @@
               .!slice token 1
               , token
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.analyze
     'app.comp.call-tree $ %{} 'FileEntry
@@ -300,7 +311,11 @@
                           filter some?
               assoc ret :size $ count-tree ret
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+              :: 'Map 'String $ :: 'List $ :: 'List 'String
+              :: 'List 'String
+              :: 'List 'String
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
             let
@@ -332,7 +347,8 @@
                     :on-move $ fn (pos d!)
                       d! cursor $ assoc state :spin-pos pos
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
         'comp-sector $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector (call-tree radius start-radian radian-size idx)
             let
@@ -364,13 +380,15 @@
                                   , .unwrap-or 0
                                 , tree-size
                           recur
-                            conj acc $ let
-                                index $ count acc
-                              [] index $ comp-sector x0 (+ radius thickness 20) a0 delta index
+                            conj
+                              assert-type acc $ :: 'List 'Dynamic
+                              let
+                                  index $ count acc
+                                [] index $ comp-sector x0 (+ radius thickness 20) a0 delta index
                             , xss $ + a0 delta
                 comp-sector-curve radius start-radian radian-size
                   hslx
-                    .rem
+                    &number:rem
                       + radius $ * idx 77
                       , 360
                     , 100 50
@@ -385,7 +403,9 @@
                   :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
                   :rotation start-radian
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-sector-curve $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector-curve (radius start-radian radian-size color thickness)
             let
@@ -423,7 +443,9 @@
                   g :close-path nil
                   g :end-fill
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'count-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn count-tree (tree)
             inc $ ->
@@ -432,7 +454,8 @@
               map count-tree
               foldl 0 &+
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Number)
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.call-tree
           :require
@@ -455,27 +478,16 @@
             []
               {} (:tip "|add-ns <ns>") (:fill "|add-ns ")
               {} (:tip "|rm-ns <ns>") (:fill "|rm-ns ")
-              {}
-                :tip "|add-def <ns> <def>"
-                :fill "|add-def "
-              {}
-                :tip "|rm-def <ns> <def>"
-                :fill "|rm-def "
+              {} (:tip "|add-def <ns> <def>") (:fill "|add-def ")
+              {} (:tip "|rm-def <ns> <def>") (:fill "|rm-def ")
               {} (:tip |load) (:comment "|load data")
               {} (:tip |save) (:comment "|save all files")
-              {}
-                :tip "|mv-ns <from> <to>"
-                :fill "|mv-ns "
-              {}
-                :tip "|move-def <from>/<a> <to>/<b>"
-                :fill "|move-def "
-              {} (:tip "|pick [off]") (:fill |pick)
-                :comment "|pick mode on/off"
+              {} (:tip "|mv-ns <from> <to>") (:fill "|mv-ns ")
+              {} (:tip "|move-def <from>/<a> <to>/<b>") (:fill "|move-def ")
+              {} (:tip "|pick [off]") (:fill |pick) (:comment "|pick mode on/off")
               {} (:tip |deps-tree) (:fill |deps-tree) (:comment |call)
-              {} (:tip |deps-of) (:fill |deps-of)
-                :comment "|current dependency"
-              {} (:tip |call-tree) (:fill |call-tree)
-                :comment "|sunburst graph of current function"
+              {} (:tip |deps-of) (:fill |deps-of) (:comment "|current dependency")
+              {} (:tip |call-tree) (:fill |call-tree) (:comment "|sunburst graph of current function")
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-command $ %{} 'CodeEntry (:doc |)
@@ -497,9 +509,7 @@
                   (get editor :pointer) .unwrap-or 0
                 set-box-text! $ fn (v d!)
                   let
-                      box $ unsafe-coerce
-                        -> |#command-box js/document.querySelector
-                        , JsObject
+                      box $ unsafe-coerce (-> |#command-box js/document.querySelector) Dynamic
                       next $ str (.?-value box) v
                     set! (.-value box) next
                     .?!focus box
@@ -556,7 +566,9 @@
                   =< nil 8
                   comp-command-tips $ fn (v d!) (set-box-text! v d!)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-command-tips $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-command-tips (set-text!)
             div ({})
@@ -613,13 +625,13 @@
                 common-ns $ intersection (keys files) (keys saved-files)
                 new-entries $ ->
                   difference (keys files) (keys saved-files)
-                  .to-list
+                  &set:to-list
                   map $ fn (ns)
                     [] ns $
                       get files ns
                       , .unwrap-or $ {}
                   pairs-map
-                changed-entries $ -> common-ns (.to-list)
+                changed-entries $ -> common-ns &set:to-list
                   map $ fn (ns)
                     [] ns $ let
                         file $
@@ -629,12 +641,12 @@
                           get saved-files ns
                           , .unwrap-or $ {}
                       if (= file saved-file) nil $ let
-                          defs $
-                            get file :defs
-                            , .unwrap-or $ {}
-                          saved-defs $
-                            get saved-file :defs
-                            , .unwrap-or $ {}
+                          defs $ assert-type
+                              get file :defs
+                            (:: 'Map 'String 'Dynamic)
+                          saved-defs $ assert-type
+                              get saved-file :defs
+                            (:: 'Map 'String 'Dynamic)
                           common-defs $ intersection (keys saved-defs) (keys defs)
                           new-defs $ difference (keys defs) (keys saved-defs)
                         {}
@@ -646,7 +658,7 @@
                             , nil $
                               get file :ns
                               , .unwrap-or nil
-                          :added-defs $ -> new-defs (.to-list)
+                          :added-defs $ -> new-defs &set:to-list
                             map $ fn (def-name)
                               [] def-name $
                                 get defs def-name
@@ -656,7 +668,7 @@
                           :changed-defs $ -> common-defs
                             filter $ fn (def-name)
                               not= (get defs def-name) (get saved-defs def-name)
-                            .to-list
+                            &set:to-list
                             map $ fn (def-name)
                               [] def-name $
                                 get defs def-name
@@ -668,8 +680,7 @@
                 content $ format-cirru-edn $ {} (:added new-entries) (:removed removed-entries) (:changed changed-entries)
               ; js/console.log changed-entries
               ; println $ format-cirru-edn changed-entries
-              if mocked?
-                js/alert "|Data is mocked, nothing to save."
+              if mocked? (js/alert "|Data is mocked, nothing to save.")
                 ->
                   js/fetch (str api-host |/compact-inc)
                     js-object (:method |PUT) (:body content)
@@ -679,7 +690,9 @@
                   .?!catch $ fn (e)
                     d! :warn $ str e
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] (:: 'Map 'String 'Dynamic) (:: 'Map 'String 'Dynamic) 'Dynamic
+            :features $ #{} :js-ffi
         'run-command $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn run-command (code store d!)
             let
@@ -702,7 +715,7 @@
                 |rm-def $ d! :rm-def $ [] p1 p2
                 |mv-ns $ d! :mv-ns $ [] p1 p2
                 |mv-def $ d! :mv-def $ [] p1 p2
-                |load $ load-files! d!
+                |load $ load-files! d! false
                 |save $ on-save files
                   (get store :saved-files) .unwrap-or $ {}
                   , d!
@@ -739,7 +752,9 @@
                             , .unwrap-or |
                           (nth def-path 2) .unwrap-or |
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.command
           :require (respo-ui.core :as ui)
@@ -768,12 +783,13 @@
                     []
                       g :line-style $ {} (:width 2) (:alpha 1)
                         :color $ hclx
-                          .rem (* 37 idx) 360
+                          &number:rem (* 37 idx) 360
                           , 100 60
                       g :move-to from
                       g :bezier-to $ {} (:p1 p1) (:p2 p2) (:to-p to)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] $ :: 'List (:: 'List 'Dynamic)
         'comp-deps-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-deps-of (deps-tree entry pkg) (; js/console.log deps-tree entry)
             if (contains? deps-tree entry)
@@ -801,31 +817,39 @@
                   mid-text $ str (nth entry 0) |/ $ nth entry 1
                   button-width $ + 16 $ measure-text-width! mid-text 14 "|Josefin Sans"
                   connections $ concat
-                    -> dependants .to-list $ map-indexed $ fn (idx item)
+                    -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       let
                           to $ [] -200 $ + 16
                             * (dec idx) 40
                           p2 $ complex/add to $ [] 100 0
                         [] ([] 0 16) ([] -100 16) p2 to
-                    -> internal-deps $ map-indexed $ fn (idx item)
-                      let
-                          to $ [] 320 $ + 16
-                            * (dec idx) 40
-                          p2 $ complex/add to $ [] -100 0
-                        [] ([] button-width 16)
-                          [] (+ 100 button-width) 16
-                          , p2 to
+                    ->
+                      assert-type internal-deps $ :: 'List 'String
+                      map-indexed $ fn (idx item)
+                        let
+                            to $ [] 320 $ + 16
+                              * (dec idx) 40
+                            p2 $ complex/add to $ [] -100 0
+                          [] ([] button-width 16)
+                            [] (+ 100 button-width) 16
+                            , p2 to
                 container ({}) (comp-curves connections)
                   comp-button $ {} (:text mid-text)
                     :position $ [] 0 0
                     :align-right? false
                   create-list :container
                     {} $ :position $ [] -200 -40
-                    -> dependants .to-list $ map-indexed $ fn (idx item)
+                    -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
-                        :text $ str (nth item 0) |/ (nth item 1) "|  " $ count
-                            get deps-tree $ take item 2
-                            , .unwrap-or $ []
+                        :text $ str
+                          .unwrap-or $ nth item 0
+                          , |/
+                            .unwrap-or $ nth item 1
+                            , "|  " $ count
+                                get deps-tree $ take
+                                  assert-type item $ :: 'List 'String
+                                  , 2
+                                , .unwrap-or $ []
                         :position $ [] 0 $ * idx 40
                         :align-right? true
                         :on $ {} $ :pointertap
@@ -838,7 +862,9 @@
                                   d! :def-path $ [] (nth item 0) :defs $ nth item 1
                                   d! :router $ {} $ :name :editor
                                 d! :router $ {} (:name :deps-of)
-                                  :data $ take item 2
+                                  :data $ take
+                                    assert-type item $ :: 'List 'String
+                                    , 2
                   create-list :container
                     {} $ :position $ [] 320 -40
                     -> internal-deps $ map-indexed $ fn (idx item)
@@ -870,7 +896,12 @@
                 :position $ [] 1 1
                 :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+              :: 'Map 'String $ :: 'List $ :: 'List 'String
+              :: 'List 'String
+              , 'String
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.deps-of
           :require
@@ -898,7 +929,9 @@
         'build-defs-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn build-defs-metrics (entry3 deps-tree depth pkg)
             let
-                entry $ take entry3 2
+                entry $ take
+                  unsafe-coerce entry3 $ :: 'List 'Dynamic
+                  , 2
                 target $ get @*defs-metrics-states entry
               if
                 and (some? target)
@@ -939,7 +972,9 @@
                         build-defs-metrics e deps-tree (inc depth) pkg
                   concat ([] partial-self) children
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'calcit-def? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn calcit-def? (item)
             or
@@ -954,34 +989,25 @@
             let
                 defs-metrics $ build-defs-metrics (split init-fn |/) deps-tree 0 pkg
                 ; defs-metrics $ .to-list $ .values @*defs-metrics-states
-                connections $ -> defs-metrics $ mapcat
-                  fn (info)
+                connections $ ->
+                  unsafe-coerce defs-metrics $ :: 'List 'Dynamic
+                  mapcat $ hint-fn
+                    {:args $ [] 'Dynamic :return $ :: 'List 'Dynamic}
+                    (:: fn (info))
+                    let $
+                      info' $ unsafe-coerce info $ :: 'Map 'Keyword 'Dynamic
                     let
-                        base $ expand-layout-xy info
-                      ->
-                          get info :scoped-defs
-                          , .unwrap-or $ []
-                        map-indexed $ fn (idx def-entry)
-                          let
-                              target $
-                                get @*defs-metrics-states $ take def-entry 2
-                                , .unwrap-or $ {}
-                            if
-                              and
-                                empty? $
-                                  get target :scoped-defs
-                                  , .unwrap-or $ []
-                                <=
-                                    get target :depth
-                                    , .unwrap-or 0
-                                  (get info :depth) .unwrap-or 0
-                              , nil $ []
-                                complex/add base $ []
-                                  + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
-                                  + 10 $ * 20 $ inc idx
-                                complex/add (expand-layout-xy target) ([] 0 10)
-                        filter $ fn (pair)
-                          option:some? $ last pair
+                          base $ expand-layout-xy info
+                        let
+                            scoped-defs $ assert-type
+                                option:unwrap-or (get info' :scoped-defs) []
+                              (:: 'List (:: 'List 'Dynamic))
+                          map
+                              range 0 (count scoped-defs) 1
+                            (fn (idx) (let ((def-entry (nth scoped-defs idx))) (target ((get @*defs-metrics-states (take (unsafe-coerce def-entry (:: 'List 'Dynamic)) 2)) .unwrap-or ({})))) (if (and (empty? ((get target :scoped-defs) .unwrap-or ([]))) (<= ((get target :depth) .unwrap-or 0) ((get info' :depth) .unwrap-or 0))) nil ([] (complex/add base ([] (+ 8 (measure-text-width! (str-def-entry def-entry pkg) 14 |Hind)) (+ 10 (* 20 (inc idx))))) (complex/add (expand-layout-xy target) ([] 0 10)))))
+                          filter $ :: fn (pair)
+                            option:some? $ last pair
+                      :: 'List 'Dynamic
               ; js/console.log @*defs-metrics-states
               ; js/console.log |connection connections
               container ({})
@@ -1000,15 +1026,17 @@
                         []
                           g :line-style $ {} (:width 2) (:alpha 1)
                             :color $ hclx
-                              .rem (* 37 idx) 360
+                              &number:rem (* 37 idx) 360
                               , 100 60
                           g :move-to from
                           g :bezier-to $ {}
-                            :p1 $ complex/add from $ [] 50 0
-                            :p2 $ complex/minus to $ [] 50 0
+                            :p1 $ complex/add (option:unwrap-or from []) ([] 50 0)
+                            :p2 $ complex/minus (option:unwrap-or to []) ([] 50 0)
                             :to-p to
                 create-list :container ({})
-                  -> defs-metrics $ map-indexed $ fn (idx info)
+                  ->
+                    assert-type defs-metrics $ :: 'List 'Dynamic
+                    map-indexed $ fn $ idx info
                     [] idx $ let
                         position $ expand-layout-xy info
                       ; js/console.log $
@@ -1018,9 +1046,8 @@
                         rect $ {} (:position position)
                           :size $ []
                             measure-text-width!
-                              + 8 $ str-def-entry
-                                  get info :entry
-                                  , .unwrap-or $ []
+                              str-def-entry
+                                option:unwrap-or (get info :entry) []
                                 , pkg
                               , 14 |Hind
                             , 20
@@ -1037,9 +1064,12 @@
                             :font-family |Hind
                         create-list :container ({})
                           ->
-                              get info :scoped-defs
-                              , .unwrap-or $ []
-                            map-indexed $ fn (idx def-entry)
+                            assert-type
+                                option:unwrap-or (get info :scoped-defs) []
+                              (:: 'List (:: 'List 'Dynamic))
+                            map-indexed $ hint-fn
+                              {:args $ [] 'Number (:: 'List 'Dynamic) :return $ :: 'Dynamic}
+                              fn $ idx def-entry
                               [] idx $ container ({})
                                 rect $ {}
                                   :position $ complex/add position $ [] 0
@@ -1054,7 +1084,7 @@
                                       when (-> e .-data .?-originalEvent .?-metaKey)
                                         d! :router $ {} $ :name :editor
                                         d! :def-path $ [] (nth def-entry 0) :defs $ nth def-entry 1
-                                text $ {}
+                                  text $ {}
                                   :text $ str-def-entry def-entry pkg
                                   :position $ complex/add position $ [] 4
                                     * 20 $ inc idx
@@ -1063,7 +1093,9 @@
                                     :font-size 14
                                     :font-family |Hind
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'expand-layout-xy $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn expand-layout-xy (info)
             let
@@ -1077,12 +1109,13 @@
               [] (* 320 depth)
                 * 20 $ - y $ * 0.4 max-y
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'get-def-stack-y-of $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn get-def-stack-y-of (depth)
-            get @*defs-layout-stack depth
+          :code $ quote $ defn get-def-stack-y-of (depth) (get @*defs-layout-stack depth)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'new-def-stack-y-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn new-def-stack-y-of (depth size)
             let
@@ -1092,18 +1125,18 @@
                     v $ get dict depth
                   swap! *defs-layout-stack update depth $ fn (x) (+ x size)
                   , v
-                do
-                  swap! *defs-layout-stack assoc depth size
-                  , 0
+                do (swap! *defs-layout-stack assoc depth size) 0
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Number)
+            :args $ [] 'Dynamic 'Dynamic
         'str-def-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn str-def-entry (pair pkg)
             let[] (ns def-name) pair $ if (starts-with? ns pkg)
               str (strip-prefix ns pkg) |/ def-name
               str ns |/ def-name
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'String)
+            :args $ [] 'Dynamic 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.deps-tree
           :require
@@ -1118,10 +1151,29 @@
             phlox.util :refer $ measure-text-width!
     'app.comp.editor $ %{} 'FileEntry
       :defs $ {}
+        'EventDataHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait EventDataHost (:global 'JsObject)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object)
+          :schema $ :: 'Trait
+        'GlobalPointHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait GlobalPointHost (:x 'Number) (:y 'Number)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object)
+          :schema $ :: 'Trait
+        'RegexHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait RegexHost
+            .test $ :: 'Fn $ {}
+              :args $ [] 'RegexHost 'String
+              :return 'Bool
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object)
+          :schema $ :: 'Trait
         'all-block? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn all-block? (item) (every? item list?)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Bool)
+            :args $ [] 'Dynamic
         'base-dot $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def base-dot
             {} (:radius dot-radius) (:alpha 1)
@@ -1132,7 +1184,8 @@
           :code $ quote $ defn char-keymap (key)
             case-default key key (|: |;) (|; |:) (|\ ||) (|| |\)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'comp-editor $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-editor (entry focus def-path pkg)
             container
@@ -1148,17 +1201,14 @@
                       meta? $
                         get e :meta?
                         , .unwrap-or false
-                    when (= |Tab key)
-                      .?!preventDefault event
-                      .?!stopPropagation event
-                      js/document.body.focus
+                    when (= |Tab key) (.?!preventDefault event) (.?!stopPropagation event) (js/document.body.focus)
                     if
                       and
                         not $ and meta? $ = |Tab key
                         identical? js/document.body $ .?-target event
                       let
                           target $
-                            get-in entry $ concat ([] :code 1) focus
+                            get-in entry $ unsafe-coerce focus $ :: 'List 'Number
                             , .unwrap-or nil
                         cond
                             list? target
@@ -1187,7 +1237,9 @@
                 (get info :tree) .unwrap-or nil
               ; comp-hint (>> states :hint) focus $ get-in tree focus
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-error $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-error (ys)
             circle
@@ -1201,6 +1253,24 @@
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
           :examples $ []
           :schema $ :: 'Dynamic
+        'event-position $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn event-position (e)
+            []
+              unsafe-coerce
+                .-x $ unsafe-coerce
+                  .-global $ unsafe-coerce (.-data e) EventDataHost
+                  , GlobalPointHost
+                , Number
+              unsafe-coerce
+                .-y $ unsafe-coerce
+                  .-global $ unsafe-coerce (.-data e) EventDataHost
+                  , GlobalPointHost
+                , Number
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
+            :return $ :: 'List 'Number
         'handle-expr-event $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-expr-event (focus def-path e d!)
             let
@@ -1256,7 +1326,9 @@
                   d! :def-path $ w-log $ [] (first def-path) :ns
                 true $ do $ ;nil js/console.log "|unknown event:" e
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'handle-leaf-event $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-leaf-event (focus def-path token e d!)
             let
@@ -1312,7 +1384,9 @@
                     str token $ char-keymap key
                 true $ do $ ;nil js/console.warn "|unknown event:" e
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'is-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn is-linear? (xs)
             cond
@@ -1328,17 +1402,15 @@
                   recur $ rest xs
                   , false
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Bool)
+            :args $ [] 'Dynamic
         'on-expr-click $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-expr-click (e code coord d!)
             let
                 event $ -> e .-data .?-originalEvent
               if
                 or (.?-metaKey event) (.?-ctrlKey event)
-                prompt-at!
-                  &let
-                    pos $ -> e .-data .?-global
-                    [] (.?-x pos) (.?-y pos)
+                prompt-at! (event-position e)
                   {} (:textarea? true)
                     :initial $ format-cirru $ [] code
                     :style $ {} $ :font-family code-font
@@ -1346,11 +1418,16 @@
                     d! :cirru-edit-node $ [] coord $ first (parse-cirru-list content)
                 d! :focus-or-pick coord
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def pattern-number (new js/RegExp "|^-?\\d+(\\.\\d+)?$")
+          :code $ quote $ defn pattern-number ()
+            new js/RegExp |^-?\d+ (\.\d+) ?$
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'JsObject)
+            :args $ []
+            :features $ #{} :js-ffi
         'pick-leaf-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pick-leaf-color (s head?)
             let
@@ -1365,11 +1442,14 @@
                 (= || first-char) (hslx 70 50 40)
                 (= |: first-char) (hslx 240 90 74)
                 (= |. first-char) (hslx 100 100 70)
-                (.!test pattern-number s) (hslx 330 100 40)
+                (.!test (unsafe-coerce (pattern-number) RegexHost) s)
+                  hslx 330 100 40
                 head? $ hslx 160 70 76
                 true $ hslx 190 50 50
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'shape-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def shape-focus
             circle $ {}
@@ -1407,7 +1487,8 @@
                     recur $ rest xs
                     , false
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Bool)
+            :args $ [] 'Dynamic
         'wrap-block-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-block-expr (xs coord focus)
             loop
@@ -1449,7 +1530,9 @@
                       item $
                         first ys
                         , .unwrap-or nil
-                      next-coord $ conj coord idx
+                      next-coord $ conj
+                        unsafe-coerce coord $ :: 'List 'Dynamic
+                        , idx
                       info $ wrap-leaf item next-coord focus $ = idx 0
                       width $
                         get info :width
@@ -1459,10 +1542,7 @@
                         , .unwrap-or nil
                       offset $ + x-position leaf-gap
                     recur
-                      conj acc $ [] idx $ container
-                        {} $ :position $ [] (+ leaf-gap offset)
-                          * (dec y-stack) line-height
-                        , tree
+                      unsafe-coerce acc $ :: 'List 'Dynamic
                       rest ys
                       + width offset
                       , y-stack (inc idx) (+ width offset)
@@ -1474,7 +1554,9 @@
                       item $
                         first ys
                         , .unwrap-or nil
-                      next-coord $ conj coord idx
+                      next-coord $ conj
+                        unsafe-coerce coord $ :: 'List 'Dynamic
+                        , idx
                       info $ cond
                           string? item
                           wrap-leaf item next-coord focus $ = idx 0
@@ -1502,17 +1584,18 @@
                           , y-stack $ inc y-stack
                         , y-stack
                     recur
-                      conj acc $ [] idx $ container
-                        {} $ :position $ [] leaf-gap (* next-y-stack line-height)
-                        , tree
-                          ; text $ {}
-                            :text $ str $ [] prev-width
-                              (get info :winding-x) .unwrap-or nil
-                              do width
-                            :position $ [] 0 -8
-                            :rotation -0.4
-                            :style $ {} (:fill |red) (:font-size 8)
-                              :font-family "|Source Code Pro, monospace"
+                      conj
+                        unsafe-coerce acc $ :: 'List 'Dynamic
+                        [] idx $ container
+                          {} $ :position $ [] leaf-gap (* next-y-stack line-height)
+                          , tree $ ; text
+                            {}
+                              :text $ str $ [] prev-width
+                                (get info :winding-x) .unwrap-or nil
+                                do width
+                              :position $ [] 0 -8
+                              :rotation -0.4
+                              :style $ {} (:fill |red) (:font-size 8) (:font-family "|Source Code Pro, monospace")
                       rest ys
                       , width
                         + next-y-stack $
@@ -1525,10 +1608,11 @@
                             , winding-x
                           string? item
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'wrap-expr-with-linear $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn wrap-expr-with-linear
-            xs coord focus parent-winding-okay? smaller? acc-x
+          :code $ quote $ defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
                 acc $ []
                 ys xs
@@ -1556,7 +1640,8 @@
                       if
                         and focused? $ not smaller?
                         , shape-focus
-                      create-list :container ({}) (reverse acc)
+                      create-list :container ({})
+                        reverse $ unsafe-coerce acc $ :: 'List 'Dynamic
                   :width x-position
                   :y-stack y-stack-max
                   :winding-x winding-x
@@ -1564,7 +1649,9 @@
                     item $
                       first ys
                       , .unwrap-or nil
-                    next-coord $ conj coord idx
+                    next-coord $ conj
+                      unsafe-coerce coord $ :: 'List 'Dynamic
+                      , idx
                   cond
                       string? item
                       let
@@ -1576,9 +1663,11 @@
                             get info :tree
                             , .unwrap-or nil
                         recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            , tree
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ container
+                              {} $ :position $ [] x-position 0
+                              , tree
                           rest ys
                           + x-position width leaf-gap
                           if
@@ -1593,21 +1682,23 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            polyline $ {}
-                              :style $ if focused? style-active-line style-shadow-line
-                              :position $ [] 0 0
-                              :points $ [] ([] 0 0)
-                                [] 0 $ * -1 line-height
-                            circle $ merge base-dot $ {}
-                              :fill $ hslx 180 60 40
-                              :on $ {} $ :pointertap
-                                fn (e d!) (on-expr-click e item next-coord d!)
-                            if focused? shape-focus
-                            container
-                              {} $ :position $ [] 0 (* -1 line-height)
-                              (get info :tree) .unwrap-or nil
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ container
+                              {} $ :position $ [] x-position 0
+                              polyline $ {}
+                                :style $ if focused? style-active-line style-shadow-line
+                                :position $ [] 0 0
+                                :points $ [] ([] 0 0)
+                                  [] 0 $ * -1 line-height
+                              circle $ merge base-dot $ {}
+                                :fill $ hslx 180 60 40
+                                :on $ {} $ :pointertap
+                                  fn (e d!) (on-expr-click e item next-coord d!)
+                              if focused? shape-focus
+                              container
+                                {} $ :position $ [] 0 (* -1 line-height)
+                                (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position leaf-gap
                           , y-stack y-stack-max
@@ -1624,21 +1715,23 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            polyline $ {}
-                              :style $ if focused? style-active-line style-shadow-line
-                              :position $ [] 0 0
-                              :points $ [] ([] 0 0)
-                                [] 0 $ * y-stack line-height
-                            circle $ merge base-dot $ {}
-                              :fill $ hslx 160 100 30
-                              :on $ {} $ :pointertap
-                                fn (e d!) (on-expr-click e item next-coord d!)
-                            if (= next-coord focus) shape-focus
-                            container
-                              {} $ :position $ [] 0 (* y-stack line-height)
-                              (get info :tree) .unwrap-or nil
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ container
+                              {} $ :position $ [] x-position 0
+                              polyline $ {}
+                                :style $ if focused? style-active-line style-shadow-line
+                                :position $ [] 0 0
+                                :points $ [] ([] 0 0)
+                                  [] 0 $ * y-stack line-height
+                              circle $ merge base-dot $ {}
+                                :fill $ hslx 160 100 30
+                                :on $ {} $ :pointertap
+                                  fn (e d!) (on-expr-click e item next-coord d!)
+                              if (= next-coord focus) shape-focus
+                              container
+                                {} $ :position $ [] 0 (* y-stack line-height)
+                                (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position leaf-gap
                           inc y-stack
@@ -1655,9 +1748,11 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            (get info :tree) .unwrap-or nil
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ container
+                              {} $ :position $ [] x-position 0
+                              (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position width leaf-gap
                           &max y-stack $
@@ -1679,9 +1774,11 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            (get info :tree) .unwrap-or nil
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ container
+                              {} $ :position $ [] x-position 0
+                              (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position width leaf-gap
                           &max y-stack $
@@ -1704,27 +1801,29 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ let
-                              focused? $ = next-coord focus
-                            container
-                              {} $ :position $ [] x-position 0
-                              polyline $ {}
-                                :style $ if focused? style-active-line style-shadow-line
-                                :position $ [] 0 0
-                                :points $ [] ([] 0 0)
-                                  [] 0 $ * y-stack line-height
-                                  [] (negate twist-distance) (* y-stack line-height)
-                                  [] (negate twist-distance)
-                                    * (inc y-stack) line-height
-                              circle $ merge base-dot $ {}
-                                :fill $ hslx 300 100 30
-                                :on $ {} $ :pointertap
-                                  fn (e d!) (on-expr-click e item next-coord d!)
-                              if focused? shape-focus
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ let
+                                focused? $ = next-coord focus
                               container
-                                {} $ :position $ [] (negate twist-distance)
-                                  * (inc y-stack) line-height
-                                (get info :tree) .unwrap-or nil
+                                {} $ :position $ [] x-position 0
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                    [] (negate twist-distance) (* y-stack line-height)
+                                    [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                circle $ merge base-dot $ {}
+                                  :fill $ hslx 300 100 30
+                                  :on $ {} $ :pointertap
+                                    fn (e d!) (on-expr-click e item next-coord d!)
+                                if focused? shape-focus
+                                container
+                                  {} $ :position $ [] (negate twist-distance)
+                                    * (inc y-stack) line-height
+                                  (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position width leaf-gap
                           + y-stack
@@ -1744,23 +1843,25 @@
                             get info :width
                             , .unwrap-or 0
                         recur
-                          conj acc $ [] idx $ let
-                              focused? $ = next-coord focus
-                            container
-                              {} $ :position $ [] x-position 0
-                              polyline $ {}
-                                :style $ if focused? style-active-line style-shadow-line
-                                :position $ [] 0 0
-                                :points $ [] ([] 0 0)
-                                  [] 0 $ * y-stack line-height
-                              circle $ merge base-dot $ {}
-                                :fill $ hslx 300 100 30
-                                :on $ {} $ :pointertap
-                                  fn (e d!) (on-expr-click e item next-coord d!)
-                              if focused? shape-focus
+                          conj
+                            unsafe-coerce acc $ :: 'List 'Dynamic
+                            [] idx $ let
+                                focused? $ = next-coord focus
                               container
-                                {} $ :position $ [] 0 (* y-stack line-height)
-                                (get info :tree) .unwrap-or nil
+                                {} $ :position $ [] x-position 0
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                circle $ merge base-dot $ {}
+                                  :fill $ hslx 300 100 30
+                                  :on $ {} $ :pointertap
+                                    fn (e d!) (on-expr-click e item next-coord d!)
+                                if focused? shape-focus
+                                container
+                                  {} $ :position $ [] 0 (* y-stack line-height)
+                                  (get info :tree) .unwrap-or nil
                           rest ys
                           + x-position width leaf-gap
                           + y-stack $
@@ -1772,11 +1873,15 @@
                           , y-stack-extend-x (inc idx) winding-okay? winding-x
                     true $ {}
                       :tree $ create-list :container ({})
-                        conj acc $ [] idx $ comp-error ys
+                        conj
+                          unsafe-coerce acc $ :: 'List 'Dynamic
+                          [] idx $ comp-error ys
                       :width x-position
                       :y-stack y-stack
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'wrap-leaf $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-leaf (s coord focus head?)
             let
@@ -1797,10 +1902,7 @@
                             event $ -> e .-data .?-originalEvent
                           if
                             or (.?-metaKey event) (.?-ctrlKey event)
-                            prompt-at!
-                              &let
-                                pos $ -> e .-data .?-global
-                                [] (.?-x pos) (.?-y pos)
+                            prompt-at! (event-position e)
                               {} (:initial s)
                                 :style $ {} $ :font-family code-font
                               fn (content)
@@ -1824,7 +1926,9 @@
                 :y-stack 1
                 :winding-x nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'wrap-linear-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-linear-expr (xs coord focus smaller?)
             loop
@@ -1857,7 +1961,9 @@
                     item $
                       first ys
                       , .unwrap-or nil
-                    next-coord $ conj coord idx
+                    next-coord $ conj
+                      unsafe-coerce coord $ :: 'List 'Dynamic
+                      , idx
                     info $ cond
                         string? item
                         wrap-leaf item next-coord focus $ = idx 0
@@ -1870,9 +1976,11 @@
                       get info :tree
                       , .unwrap-or nil
                   recur
-                    conj acc $ [] idx $ container
-                      {} $ :position $ [] x-position 0
-                      , tree
+                    conj
+                      unsafe-coerce acc $ :: 'List 'Dynamic
+                      [] idx $ container
+                        {} $ :position $ [] x-position 0
+                        , tree
                     rest ys
                     + x-position width leaf-gap
                     &max y-stack $
@@ -1880,7 +1988,9 @@
                       , .unwrap-or 0
                     inc idx
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.editor
           :require
@@ -1899,8 +2009,7 @@
       :defs $ {}
         'comp-key-event $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-key-event (on-event)
-            []
-              effect-listen-keyboard
+            [] (effect-listen-keyboard)
               span $ {} $ :on-keydown
                 fn (e d!) (on-event e d!)
           :examples $ []
@@ -1908,8 +2017,7 @@
         'effect-listen-keyboard $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defeffect effect-listen-keyboard () (action el at?)
             let
-                handler $ or
-                  aget el |_dirtyEventListener
+                handler $ or (aget el |_dirtyEventListener)
                   fn (event)
                     let
                         key $ unsafe-coerce (.-key event) String
@@ -1950,7 +2058,7 @@
                     [] ns $ div
                       {} (:class-name css-hover-entry)
                         :style $ merge $ if (= ns selected-ns)
-                          {} $ :background-color $ hsl 0 0 100 0.3
+                          {} $ :background-color $ hsl 0 0 100
                           {}
                         :on-click $ fn (e d!)
                           d! cursor $ assoc state :ns ns
@@ -2199,11 +2307,10 @@
         'comp-picker-mode $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-picker-mode ()
             div
-              {}
-                :title "|Click to disable"
+              {} (:title "|Click to disable")
                 :style $ {} (:position :absolute) (:top 16) (:left 16) (:font-size 20) (:padding "|8px 16px") (:font-family ui/font-fancy) (:border-radius |8px) (:cursor :pointer)
                   :border $ str "|2px solid " $ hsl 180 30 60
-                  :background-color $ hsl 120 80 80 0.8
+                  :background-color $ hsl 120 80 80
                 :on-click $ fn (e d!) (d! :picker-mode false)
               <> "|Picker Mode"
               comp-key-event $ fn (e d!)
@@ -2225,7 +2332,7 @@
                       :style $ merge
                         {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "|0 8px")
                         if (= idx selected-idx)
-                          {} $ :background-color $ hsl 0 0 100 0.3
+                          {} $ :background-color $ hsl 0 0 100
                           {}
                       :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
                         d! cursor $ assoc state :query |
@@ -2251,7 +2358,7 @@
           :code $ quote $ defstyle css-menu
             {} $ |& $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height |88vh) ("|×" 100) (:backdrop-filter "|blur(1.5px)") (:border-radius |6px) (:padding 8) (:border-width "|0 1px 1px 0") (:z-index 100)
               :border $ str "|1px solid " $ hsl 0 0 30
-              :background-color $ hsl 0 0 20 0.4
+              :background-color $ hsl 0 0 20
           :examples $ []
           :schema $ :: 'Dynamic
         'css-navbar $ %{} 'CodeEntry (:doc |)
@@ -2262,16 +2369,13 @@
         'css-notice-area $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-notice-area
             {} $ |& $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "|8px 16px")
-              :background-color $ hsl 0 0 0 0.7
+              :background-color $ hsl 0 0 0
           :examples $ []
           :schema $ :: 'Dynamic
         'css-query-box $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-query-box
             {} $ |& $ merge ui/input
-              {}
-                :background-color :transparent
-                :font-family ui/font-code
-                :color :white
+              {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
           :examples $ []
           :schema $ :: 'Dynamic
         'effect-focus $ %{} 'CodeEntry (:doc |)
@@ -2391,9 +2495,7 @@
           :schema $ :: 'Dynamic
         'cors-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def cors-headers
-            {} (:Content-Type |data/cirru-edn)
-              :Access-Control-Allow-Origin |*
-              :Access-Control-Allow-Methods |*
+            {} (:Content-Type |data/cirru-edn) (:Access-Control-Allow-Origin |*) (:Access-Control-Allow-Methods |*)
           :examples $ []
           :schema $ :: 'Dynamic
         'dot-radius $ %{} 'CodeEntry (:doc |)
@@ -2419,9 +2521,7 @@
           :schema $ :: 'Dynamic
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def site
-            {} (:title |Phlox)
-              :icon |http://cdn.tiye.me/logo/quamolit.png
-              :storage-key |phlox-workflow
+            {} (:title |Phlox) (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |phlox-workflow)
           :examples $ []
           :schema $ :: 'Dynamic
         'twist-distance $ %{} 'CodeEntry (:doc |)
@@ -2472,14 +2572,13 @@
                 :editor $ let
                     def-path $ either
                       get-in editor $ [] :stack $
-                        get editor :pointer
+                        editor-pointer editor
                         , .unwrap-or 0
                       []
                     entry $ if-not (empty? def-path)
-                      (get-in files def-path) .unwrap-or nil
+                      option:unwrap-or (lookup-file files def-path) nil
                   if (nil? entry)
-                    text $ {}
-                      :text "|No code selected"
+                    text $ {} (:text "|No code selected")
                       :position $ [] -60 0
                       :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
                     memof1-call comp-editor entry focus def-path package-name
@@ -2532,6 +2631,25 @@
                     :font-family "|Roboto Mono, manospace"
           :examples $ []
           :schema $ :: 'Dynamic
+        'editor-pointer $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn editor-pointer (editor)
+            unsafe-coerce (get editor :pointer) Number
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Number)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
+        'lookup-file $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn lookup-file (files path)
+            unsafe-coerce
+              get-in
+                unsafe-coerce files $ :: 'Map 'String 'Dynamic
+                unsafe-coerce path $ :: 'List 'String
+              , Dynamic
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
+            :return $ :: 'Option 'Dynamic
         'turn-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn turn-quoted (target)
             if (string? target) (turn-symbol target) (map target turn-quoted)
@@ -2558,7 +2676,7 @@
     'app.fetch $ %{} 'FileEntry
       :defs $ {}
         'load-files! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn load-files! (d! ? shared-editor?)
+          :code $ quote $ defn load-files! (d! shared-editor?)
             ->
               if mocked? |//cors.cirru.org/compact.cirru $ str (if shared-editor? api-host-6011 api-host) |/compact-data
               js/fetch
@@ -2575,21 +2693,25 @@
               .?!catch $ fn (err)
                 d! $ :: :warn $ str err
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Bool
+            :features $ #{} :js-ffi
         'transform-cirru-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn transform-cirru-quoted (compact-files)
             update compact-files :files $ fn (files)
-              map-kv files $ fn (k v)
-                [] k $ -> v
+              filter-map-kv files $ fn (k v)
+                %:: MapEntryDecision :keep k $ [] k $ -> v
                   update-in ([] :ns :code)
                     fn (q)
                       :: 'quote $ &cirru-quote:to-list $ option:unwrap q
                   update :defs $ fn (d)
-                    map-kv d $ fn (k v)
-                      [] k $ update v :code $ fn (q)
-                        :: 'quote $ &cirru-quote:to-list $ option:unwrap q
+                    filter-map-kv d $ fn (k v)
+                      %:: MapEntryDecision :keep k $ [] k $ update v :code
+                        fn (q)
+                          :: 'quote $ &cirru-quote:to-list $ option:unwrap q
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.fetch
           :require
@@ -2601,8 +2723,14 @@
           :code $ quote $ defatom *store schema/store
           :examples $ []
           :schema $ :: 'Dynamic
+        'FontFaceObserverHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait FontFaceObserverHost
+            :load $ :: 'Fn {:args [] :return 'Dynamic}
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object)
+          :schema $ :: 'Trait
         'dispatch! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn dispatch! (op ? data)
+          :code $ quote $ defn dispatch! (op data)
             if (tag? op)
               recur $ :: op data
               match op
@@ -2627,8 +2755,9 @@
                 _ $ do
                   when
                     and dev? $ not=
-                        nth op 0
-                        , .unwrap-or :unknown
+                        if (list? op)
+                          option:unwrap-or (nth op 0) :unknown
+                          , :unknown
                       , :states
                     js/console.log |dispatch! op
                   let
@@ -2636,7 +2765,9 @@
                       op-time $ js/Date.now
                     reset! *store $ updater @*store op op-id op-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Tag 'Dynamic
+            :features $ #{} :js-ffi
         'handle-global-keys $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-global-keys ()
             js/window.addEventListener |keydown $ fn (event)
@@ -2646,29 +2777,30 @@
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (; js/console.log PIXI)
             if dev? $ load-console-formatter!
-            -> (new FontFaceObserver "|Roboto Mono") (.!load)
+            ->
+              unsafe-coerce (new FontFaceObserver |Roboto Mono) FontFaceObserverHost
+              .!load
               .?!then $ fn (event) (render-app!)
                 js/window._phloxTree.renderer.plugins.accessibility.destroy
             add-watch *store :change $ fn (store prev) (render-app!)
-            when mobile? (render-control!)
-              start-control-loop! 8 on-control-event
-            load-files! dispatch!
+            when mobile? (render-control!) (start-control-loop! 8 on-control-event)
+            load-files! dispatch! false
             ; handle-global-keys
             println "|App Started"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+            :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def mount-target
-            js/document.querySelector |.app
+          :code $ quote $ def mount-target (js/document.querySelector |.app)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+            :features $ #{} :js-ffi
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if (nil? build-errors)
-              do
-                clear-phlox-caches!
-                respo/clear-cache!
-                remove-watch *store :change
+              do (clear-phlox-caches!) (respo/clear-cache!) (remove-watch *store :change)
                 add-watch *store :change $ fn (store prev) (render-app!)
                 render-app!
                 when mobile? $ replace-control-loop! 8 on-control-event
@@ -2687,7 +2819,8 @@
                 , :dom
               , dispatch!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.main
           :require (|pixi.js :as PIXI)
@@ -2826,11 +2959,10 @@
           :examples $ []
           :schema $ :: 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn main! ()
-            println "|start web server"
-            start-server!
+          :code $ quote $ defn main! () (println "|start web server") (start-server!)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
         'on-request $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-request (req)
             case-default (:url req)
@@ -2921,7 +3053,7 @@
           :code $ quote $ defstyle css-hover-entry
             {}
               |$0 $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height |2) (:padding "|0 8px")
-              |$0:hover $ {} $ :background-color (hsl 0 0 100 0.2)
+              |$0:hover $ {} $ :background-color (hsl 0 0 100)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2940,9 +3072,7 @@
               list-match data
                 () acc
                 (d0 ds)
-                  recur
-                    &list:assoc-after acc i d0
-                    , ds
+                  recur (&list:assoc-after acc i d0) ds
           :examples $ []
           :schema $ :: 'Dynamic
         'updater $ %{} 'CodeEntry (:doc |)
@@ -3075,8 +3205,11 @@
                         tree $
                           nth quoted-code 1
                           , .unwrap-or $ []
-                      assoc-in store (conj def-path :code)
-                        :: 'quote $ assoc-in tree focus code
+                      assoc-in store
+                        (assert-type (conj def-path :code) (:: 'List 'String))
+                        :: 'quote $ assoc-in tree
+                          assert-type focus $ :: 'List 'Number
+                          , code
                     assoc store :warning $ str "|target not found at:" def-path
               (:def-path op-data)
                 -> store
@@ -3092,13 +3225,13 @@
                         next-pointer $ inc pointer
                       if
                         and (contains? stack next-pointer)
-                          = op-data $ get stack next-pointer
+                          = op-data $ option:unwrap-or (get stack next-pointer) nil
                         update editor :pointer inc
                         merge editor $ if (empty? stack)
                           {} (:pointer 0)
                             :stack $ [] op-data
                           {}
-                            :stack $ .assoc-after stack pointer op-data
+                            :stack $ &list:assoc-after stack pointer op-data
                             :pointer next-pointer
               (:focus op-data)
                 assoc-in store ([] :editor :focus) op-data
@@ -3156,9 +3289,7 @@
                                   get code 1
                                   , .unwrap-or nil
                                 assoc code 1 to
-                                do
-                                  js/console.warn "|ns name not found in:" code
-                                  , code
+                                do (js/console.warn "|ns name not found in:" code) code
                   assoc store :warning $ str "|unknown ns: " from
               (:mv-def op-data)
                 let-sugar
@@ -3187,9 +3318,7 @@
                                       get code 1
                                       , .unwrap-or nil
                                     assoc code 1 to-def
-                                    do
-                                      js/console.warn "|def not found in:" code
-                                      , code
+                                    do (js/console.warn "|def not found in:" code) code
                       assoc :warning nil
                     assoc store :warning $ str "|unknown ns/def: " from
               (:picker-mode op-data)
@@ -3207,11 +3336,11 @@
                       , .unwrap-or 0
                   if picker-mode?
                     let
-                        def-path $
-                          get-in editor $ [] :stack pointer
-                          , .unwrap-or $ []
+                        def-path $ assert-type
+                            get-in editor $ [] :stack pointer
+                          (:: 'List 'String)
                         item $
-                          get-in store $ concat ([] :files) def-path ([] :code 1) op-data
+                          get-in store $ concat ([] :files) def-path ([] :code 1) ([] op-data)
                           , .unwrap-or nil
                         focus $
                           get editor :focus
@@ -3225,14 +3354,17 @@
                               :: 'quote $ assoc-in
                                   nth pair 1
                                   , .unwrap-or $ []
-                                , focus item
+                                assert-type focus $ :: 'List 'Number
+                                , item
                         assoc-in ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) op-data
               (:deps-tree op-data) (assoc store :deps-tree op-data)
               (:hydrate-storage op-data) op-data
               _ $ do (eprintln "|unknown op" op) store
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
           :require
