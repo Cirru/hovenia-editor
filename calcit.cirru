@@ -2840,7 +2840,9 @@
           :schema $ :: 'Dynamic
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
-            render! (comp-container @*store) dispatch! $ {}
+            let
+                app-view $ assert-type (comp-container @*store) 'respo.schema/Component
+              render! app-view dispatch! $ {}
             respo/render! mount-target
               comp-navbar @*store $ >>
                   get @*store :states
