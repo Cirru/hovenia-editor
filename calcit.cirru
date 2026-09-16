@@ -2842,12 +2842,15 @@
           :code $ quote $ defn render-app! ()
             let
                 app-view $ assert-type (comp-container @*store) 'respo.schema/Component
+                navbar-view $ assert-type
+                  comp-navbar @*store $ >>
+                    get @*store :states
+                    , .unwrap-or $ {}
+                    , :dom
+                  'respo.schema/Component
               render! app-view dispatch! $ {}
             respo/render! mount-target
-              comp-navbar @*store $ >>
-                  get @*store :states
-                  , .unwrap-or $ {}
-                , :dom
+              navbar-view
               , dispatch!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
