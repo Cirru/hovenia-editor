@@ -2792,7 +2792,7 @@
                   let
                       op-id $ nanoid
                       op-time $ js/Date.now
-                      next-store $ assert-type (updater @*store op op-id op-time) $ :: 'Map 'Tag 'Dynamic
+                      next-store $ assert-type (updater @*store op op-id op-time) (:: 'Map 'Tag 'Dynamic)
                     reset! *store next-store
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
@@ -2841,18 +2841,6 @@
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ []
             :features $ #{} :js-ffi
-        'render-navbar! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn render-navbar! ()
-            respo/render! mount-target
-              unsafe-coerce
-                comp-navbar @*store $ >> (get @*store :states) .unwrap-or ({}) :dom
-                'respo.schema/Component
-              $ fn (op)
-                do (dispatch! op nil) nil
-          :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ []
-            :features $ #{} :js-ffi
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
             let
@@ -2862,6 +2850,17 @@
                 render-navbar!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ []
+            :features $ #{} :js-ffi
+        'render-navbar! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn render-navbar! ()
+            respo/render! mount-target
+              unsafe-coerce
+                comp-navbar @*store $ >> (get @*store :states) .unwrap-or ({}) :dom
+                'respo.schema/Component
+              (fn (op) (do (dispatch! op nil) nil))
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
             :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
