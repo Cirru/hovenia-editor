@@ -1428,8 +1428,7 @@
             :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic
             :features $ #{} :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn pattern-number ()
-            new js/RegExp "|^-?\\d+ (\\.\\d+) ?$"
+          :code $ quote $ defn pattern-number () (new js/RegExp "|^-?\\d+ (\\.\\d+) ?$")
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'JsObject)
             :args $ []
