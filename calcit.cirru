@@ -2433,11 +2433,12 @@
           :code $ quote $ defcomp comp-stack (stack pointer pkg)
             let
                 column-style $ assert-type ui/column $ :: 'Map 'Keyword 'Dynamic
+                typed-stack $ assert-type stack $ :: 'List 'Dynamic
               div $ {}
               list->
                 {} $ :style $ merge column-style
                   {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
-                -> stack $ map-indexed $ fn (idx frame)
+                -> typed-stack $ map-indexed $ fn (idx frame)
                   let
                       selected-style $ assert-type
                         if (= idx pointer)
