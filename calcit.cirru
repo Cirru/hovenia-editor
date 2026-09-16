@@ -2761,7 +2761,7 @@
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op data)
             if (tag? op)
-              recur $ :: op data
+              dispatch! (:: op data) nil
               match op
                 (:effect-goto-def data)
                   let
@@ -2792,7 +2792,8 @@
                   let
                       op-id $ nanoid
                       op-time $ js/Date.now
-                    reset! *store $ updater @*store op op-id op-time
+                      next-store $ assert-type (updater @*store op op-id op-time) $ :: 'Map 'Tag 'Dynamic
+                    reset! *store next-store
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ [] 'Tag 'Dynamic
@@ -2840,18 +2841,29 @@
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ []
             :features $ #{} :js-ffi
+        'render-navbar! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn render-navbar! ()
+            respo/render! mount-target
+              unsafe-coerce
+                comp-navbar @*store $ >> (get @*store :states) .unwrap-or ({}) :dom
+                'respo.schema/Component
+              $ fn (op)
+                do (dispatch! op nil) nil
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
             let
                 app-view $ assert-type (comp-container @*store) 'respo.schema/Component
-                navbar-view* $ assert-type
-                  comp-navbar @*store $ >> (get @*store :states) .unwrap-or ({}) :dom
-                  'respo.schema/Component
-              render! app-view dispatch! $ {}
-            respo/render! mount-target navbar-view* dispatch!
+              do
+                render! app-view dispatch! $ {}
+                render-navbar!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ []
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.main
           :require (|pixi.js :as PIXI)
