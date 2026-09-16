@@ -37,7 +37,7 @@
                           get file :defs
                           , .unwrap-or $ {}
                         defs $ assert-type defs0 $ :: 'Map 'String 'Dynamic
-                      -> defs &map:to-list $ map $ fn (pair)
+                      -> defs &map:to-list $ :: map $ :: fn (pair)
                         let
                             def-name $
                               nth pair 0
