@@ -141,7 +141,7 @@
                   filter some?
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
             :return $ :: 'List 'Dynamic
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
@@ -2367,7 +2367,8 @@
                           {} (:font-size 10)
                             :color $ hsl 0 0 70
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
         'css-menu $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-menu
             {} $ |& $ {} (:position :absolute) (:top 0) (:left 0) (:width 480) (:height |88vh) ("|×" 100) (:backdrop-filter "|blur(1.5px)") (:border-radius |6px) (:padding 8) (:border-width "|0 1px 1px 0") (:z-index 100)
