@@ -23,7 +23,9 @@
                     %:: MapEntryDecision :keep ns $ [] ns $ parse-import-dict
                       get-in file $ [] :ns :code 1
                 defs-deps-dict $ -> typed-files &map:to-list
-                  mapcat $ fn (pair)
+                  mapcat $ hint-fn
+                    {:args $ [] 'Dynamic :return $ :: 'List 'Dynamic}
+                    (:: fn (pair))
                     let
                         ns $
                           nth pair 0
@@ -156,7 +158,9 @@
                   keys
               pairs-map
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'lookup-target-def $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-target-def (token files def-path pkg)
             let
@@ -2304,7 +2308,9 @@
                     true nil
                 .render command-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-picker-mode $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-picker-mode ()
             div
