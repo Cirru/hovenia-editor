@@ -324,6 +324,7 @@
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
             let
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
                 cursor $
                   get states :cursor
                   , .unwrap-or $ []
@@ -2109,19 +2110,23 @@
                 query $
                   get state :query
                   , .unwrap-or |
-                select-idx $
+                select-idx0 $
                   get state :select-idx
                   , .unwrap-or 0
+                select-idx $ assert-type select-idx0 'Number
                 queries $ split query "| "
-                all-entries $ -> files &map:to-list $ mapcat
-                  fn (entry)
+                all-entries $ -> typed-files &map:to-list $ mapcat
+                  hint-fn
+                    {:args $ [] 'Dynamic :return $ :: 'List 'Dynamic}
+                    (:: fn (entry))
                     let[] (ns file) entry $ let
-                        defs $
+                        defs0 $
                           get file :defs
                           , .unwrap-or $ {}
+                        defs $ assert-type defs0 $ :: 'Map 'String 'Dynamic
                       concat
                         [] $ [] ns :ns
-                        -> defs keys .to-list $ map $ fn (def-name) ([] ns :defs def-name)
+                        -> defs keys &map:to-list $ :: map $ :: fn (def-name) ([] ns :defs def-name)
                 def-entries $ -> all-entries $ filter
                   fn (entry)
                     and
