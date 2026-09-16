@@ -2431,9 +2431,11 @@
       :defs $ {} $ 'comp-stack
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-stack (stack pointer pkg)
-            div ({})
+            let
+                column-style $ assert-type ui/column $ :: 'Map 'Keyword 'Dynamic
+              div ({})
               list->
-                {} $ :style $ merge ui/column
+                {} $ :style $ merge column-style
                   {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
                 -> stack $ map-indexed $ fn (idx frame)
                   [] idx $ div
@@ -2453,7 +2455,7 @@
                           nth frame 0
                           , .unwrap-or |
                       :defs $ div
-                        {} $ :style $ merge ui/column
+                        {} $ :style $ merge column-style
                         <>
                           str
                               nth frame 0
