@@ -2433,7 +2433,7 @@
           :code $ quote $ defcomp comp-stack (stack pointer pkg)
             let
                 column-style $ assert-type ui/column $ :: 'Map 'Keyword 'Dynamic
-              div ({})
+              div $ {}
               list->
                 {} $ :style $ merge column-style
                   {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
