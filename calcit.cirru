@@ -2337,17 +2337,24 @@
           :schema $ :: 'Dynamic
         'comp-search-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
-            let () $ list->
-              {} $ :style $ merge ui/expand
-              -> entries $ map-indexed $ fn (idx entry)
-                [] (str entry)
+            let
+                style-base $ assert-type ui/expand $ :: 'Map 'Keyword 'Dynamic
+                typed-entries $ assert-type entries $ :: 'List 'Dynamic
+              list->
+              {} $ :style $ merge style-base
+              -> typed-entries $ map-indexed $ fn (idx entry)
+                let
+                    style-selected $ assert-type
+                      if (= idx selected-idx)
+                        {} $ :background-color $ hsl 0 0 100
+                        {}
+                      (:: 'Map 'Keyword 'Dynamic)
+                  [] $ str entry
                   div
                     {} (:class-name css-hover-entry)
                       :style $ merge
                         {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "|0 8px")
-                        if (= idx selected-idx)
-                          {} $ :background-color $ hsl 0 0 100
-                          {}
+                        style-selected
                       :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
                         d! cursor $ assoc state :query |
                     if
