@@ -17,11 +17,15 @@
         'analyze-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn analyze-deps (files)
             let
-                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
                 ns-deps-dict $ -> typed-files $ filter-map-kv
-                  fn (ns file)
-                    %:: MapEntryDecision :keep ns $ [] ns $ parse-import-dict
-                      get-in file $ [] :ns :code 1
+                  hint-fn
+                    {:args
+                      [] 'String $ :: 'Map 'Tag 'Dynamic
+                      , :return 'MapEntryDecision}
+                    :: fn (ns file)
+                      %:: MapEntryDecision :keep ns $ [] ns $ parse-import-dict
+                        get-in file $ [] :ns :code 1
                 defs-deps-dict $ -> typed-files &map:to-list
                   mapcat $ hint-fn
                     {:args $ [] 'Dynamic :return $ :: 'List 'Dynamic}
@@ -318,13 +322,13 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ []
-              :: 'Map 'String $ :: 'List $ :: 'List 'String
+              :: 'Map (:: 'List 'String)
+                :: 'List $ :: 'List 'String
               :: 'List 'String
-              :: 'List 'String
+              :: 'Set $ :: 'List 'String
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
             let
-                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
                 cursor $
                   get states :cursor
                   , .unwrap-or $ []
@@ -640,19 +644,19 @@
                 changed-entries $ -> common-ns &set:to-list
                   map $ fn (ns)
                     [] ns $ let
-                        file $
-                          get files ns
-                          , .unwrap-or $ {}
-                        saved-file $
-                          get saved-files ns
-                          , .unwrap-or $ {}
+                        file $ assert-type
+                          option:unwrap-or (get files ns) ({})
+                          :: 'Map 'Tag 'Dynamic
+                        saved-file $ assert-type
+                          option:unwrap-or (get saved-files ns) ({})
+                          :: 'Map 'Tag 'Dynamic
                       if (= file saved-file) nil $ let
                           defs $ assert-type
-                              get file :defs
-                            (:: 'Map 'String 'Dynamic)
+                            option:unwrap-or (get file :defs) ({})
+                            :: 'Map 'String 'Dynamic
                           saved-defs $ assert-type
-                              get saved-file :defs
-                            (:: 'Map 'String 'Dynamic)
+                            option:unwrap-or (get saved-file :defs) ({})
+                            :: 'Map 'String 'Dynamic
                           common-defs $ intersection (keys saved-defs) (keys defs)
                           new-defs $ difference (keys defs) (keys saved-defs)
                         {}
@@ -814,11 +818,17 @@
                           , .unwrap-or |
                         , pkg
                   dependants $ -> deps-tree
-                    &map:filter-kv $ fn (k v)
-                      any? v $ fn (piece)
-                        and
-                          = (nth entry 0) (nth piece 0)
-                          = (nth entry 1) (nth piece 1)
+                    &map:filter-kv $ hint-fn
+                      {:args
+                        [] (:: 'List 'String)
+                          :: 'List $ :: 'List 'String
+                        , :return 'Bool}
+                      :: fn (k v)
+                        any? v $ :: fn (piece)
+                          = (take entry 2)
+                            take
+                              assert-type piece $ :: 'List 'String
+                              , 2
                     keys
                   mid-text $ str (nth entry 0) |/ $ nth entry 1
                   button-width $ + 16 $ measure-text-width! mid-text 14 "|Josefin Sans"
@@ -830,7 +840,7 @@
                           p2 $ complex/add to $ [] 100 0
                         [] ([] 0 16) ([] -100 16) p2 to
                     ->
-                      assert-type internal-deps $ :: 'List 'String
+                      assert-type internal-deps $ :: 'List $ :: 'List 'String
                       map-indexed $ fn (idx item)
                         let
                             to $ [] 320 $ + 16
@@ -848,9 +858,9 @@
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ str
-                          .unwrap-or $ nth item 0
+                          option:unwrap-or (nth item 0) |
                           , |/
-                            .unwrap-or $ nth item 1
+                            option:unwrap-or (nth item 1) |
                             , "|  " $ count
                                 get deps-tree $ take
                                   assert-type item $ :: 'List 'String
@@ -904,7 +914,8 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ []
-              :: 'Map 'String $ :: 'List $ :: 'List 'String
+              :: 'Map (:: 'List 'String)
+                :: 'List $ :: 'List 'String
               :: 'List 'String
               , 'String
             :features $ #{} :js-ffi
@@ -1042,62 +1053,62 @@
                 create-list :container ({})
                   ->
                     assert-type defs-metrics $ :: 'List 'Dynamic
-                    map-indexed $ fn $ idx info
-                    [] idx $ let
-                        position $ expand-layout-xy info
-                      ; js/console.log $
-                        get info :scoped-defs
-                        , .unwrap-or $ []
-                      container ({})
-                        rect $ {} (:position position)
-                          :size $ []
-                            measure-text-width!
-                              str-def-entry
-                                option:unwrap-or (get info :entry) []
-                                , pkg
-                              , 14 |Hind
-                            , 20
-                          :fill $ hslx 0 0 20
-                        text $ {}
-                          :text $ str-def-entry
-                              get info :entry
-                              , .unwrap-or $ []
-                            , pkg
-                          :position $ complex/add position $ [] 4 0
-                          :style $ {}
-                            :fill $ hslx 0 0 80
-                            :font-size 14
-                            :font-family |Hind
-                        create-list :container ({})
-                          ->
-                            assert-type
-                                option:unwrap-or (get info :scoped-defs) []
-                              (:: 'List (:: 'List 'Dynamic))
-                            map-indexed $ hint-fn
-                              {:args $ [] 'Number (:: 'List 'Dynamic) :return $ :: 'Dynamic}
-                              :: fn $ idx def-entry
-                              [] idx $ container ({})
-                                rect $ {}
-                                  :position $ complex/add position $ [] 0
-                                    * 20 $ inc idx
-                                  :size $ []
-                                    + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
-                                    , 20
-                                  :fill $ hslx 0 0 20
-                                  :alpha 0.3
-                                  :on $ {} $ :pointertap
-                                    :: fn (e d!) (js/console.log e)
-                                      when (-> e .-data .?-originalEvent .?-metaKey)
-                                        d! :router $ {} $ :name :editor
-                                        d! :def-path $ [] (nth def-entry 0) :defs $ nth def-entry 1
-                                  text $ {}
-                                  :text $ str-def-entry def-entry pkg
-                                  :position $ complex/add position $ [] 4
-                                    * 20 $ inc idx
-                                  :style $ {}
-                                    :fill $ hslx 180 30 40
-                                    :font-size 14
-                                    :font-family |Hind
+                    map-indexed $ fn (idx info)
+                      [] idx $ let
+                          position $ expand-layout-xy info
+                        ; js/console.log $
+                          get info :scoped-defs
+                          , .unwrap-or $ []
+                        container ({})
+                          rect $ {} (:position position)
+                            :size $ []
+                              measure-text-width!
+                                str-def-entry
+                                  option:unwrap-or (get info :entry) []
+                                  , pkg
+                                , 14 |Hind
+                              , 20
+                            :fill $ hslx 0 0 20
+                          text $ {}
+                            :text $ str-def-entry
+                                get info :entry
+                                , .unwrap-or $ []
+                              , pkg
+                            :position $ complex/add position $ [] 4 0
+                            :style $ {}
+                              :fill $ hslx 0 0 80
+                              :font-size 14
+                              :font-family |Hind
+                          create-list :container ({})
+                            ->
+                              assert-type
+                                  option:unwrap-or (get info :scoped-defs) []
+                                (:: 'List (:: 'List 'Dynamic))
+                              map-indexed $ hint-fn
+                                {:args $ [] 'Number (:: 'List 'Dynamic) :return $ :: 'Dynamic}
+                                :: fn $ idx def-entry
+                                [] idx $ container ({})
+                                  rect $ {}
+                                    :position $ complex/add position $ [] 0
+                                      * 20 $ inc idx
+                                    :size $ []
+                                      + 8 $ measure-text-width! (str-def-entry def-entry pkg) 14 |Hind
+                                      , 20
+                                    :fill $ hslx 0 0 20
+                                    :alpha 0.3
+                                    :on $ {} $ :pointertap
+                                      :: fn (e d!) (js/console.log e)
+                                        when (-> e .-data .?-originalEvent .?-metaKey)
+                                          d! :router $ {} $ :name :editor
+                                          d! :def-path $ [] (nth def-entry 0) :defs $ nth def-entry 1
+                                    text $ {}
+                                    :text $ str-def-entry def-entry pkg
+                                    :position $ complex/add position $ [] 4
+                                      * 20 $ inc idx
+                                    :style $ {}
+                                      :fill $ hslx 180 30 40
+                                      :font-size 14
+                                      :font-family |Hind
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ [] 'Dynamic 'Dynamic 'Dynamic
@@ -1795,6 +1806,7 @@
                           , y-stack-extend-x (inc idx) winding-okay? $ either winding-x $ if-let
                             x $ get info :winding-x
                             + x-position x
+                            unsafe-coerce nil $ :: 'Number
                     (and (> acc-x twist-distance) (= 1 (count ys)))
                       let
                           info $ cond
@@ -2052,7 +2064,7 @@
         'comp-files-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-files-entry (cursor state files on-close)
             let
-                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'String 'Dynamic)
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
                 selected-ns $
                   get state :ns
                   , .unwrap-or nil
@@ -2060,7 +2072,7 @@
                 {} $ :class-name $ str-spaced css/expand css/row
                 list->
                   {} $ :class-name css/expand
-                  -> (keys typed-files) &map:to-list sort $ map $ fn (ns)
+                  -> (keys typed-files) &set:to-list sort $ map $ fn (ns)
                     [] ns $ div
                       {} (:class-name css-hover-entry)
                         :style $ merge $ if (= ns selected-ns)
@@ -2089,7 +2101,7 @@
                           <> ns $ {} $ :font-family ui/font-code
                         =< nil 8
                         list-> ({})
-                          -> defs keys &map:to-list sort $ map $ fn (def-name)
+                          -> defs keys &set:to-list sort $ map $ fn (def-name)
                             [] def-name $ div
                               {} (:class-name css-hover-entry)
                                 :style $ merge $ {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
@@ -2097,11 +2109,14 @@
                                   d! :def-path $ [] ns :defs def-name
                                   on-close d!
                               <> def-name
+                    <> |
+                  <> |
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-menu $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-menu (states files def-path on-close)
             let
+                typed-files $ assert-type files $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
                 cursor $
                   get states :cursor
                   , .unwrap-or $ []
@@ -2127,7 +2142,7 @@
                         defs $ assert-type defs0 $ :: 'Map 'String 'Dynamic
                       concat
                         [] $ [] ns :ns
-                        -> defs keys &map:to-list $ :: map $ :: fn (def-name) ([] ns :defs def-name)
+                        -> defs keys &set:to-list $ :: map $ :: fn (def-name) ([] ns :defs def-name)
                 def-entries $ -> all-entries $ filter
                   fn (entry)
                     and
@@ -2168,14 +2183,12 @@
                             get e :key
                             , .unwrap-or |
                           ;nil js/console.log e
-                          |ArrowDown $ d! cursor $ update state :select-idx
-                            fn (idx)
-                              if
-                                >= (inc idx) (count entries)
-                                , idx $ inc idx
-                          |ArrowUp $ d! cursor $ update state :select-idx
-                            fn (idx)
-                              if (> idx 0) (dec idx) 0
+                          |ArrowDown $ d! cursor $ assoc state :select-idx
+                            if
+                              >= (inc select-idx) (count entries)
+                              , select-idx $ inc select-idx
+                          |ArrowUp $ d! cursor $ assoc state :select-idx
+                            if (> select-idx 0) (dec select-idx) 0
                           |Enter $ if-let
                             target $ get entries select-idx
                             do (d! :def-path target) (on-close d!)
@@ -2337,41 +2350,41 @@
         'comp-search-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-search-entry (cursor state entries selected-idx on-select on-close)
             let
-                style-base $ assert-type ui/expand $ :: 'Map 'Keyword 'Dynamic
+                style-base $ assert-type ui/expand $ :: 'Map 'Tag 'Dynamic
                 typed-entries $ assert-type entries $ :: 'List 'Dynamic
               list->
-              {} $ :style $ merge style-base
-              -> typed-entries $ map-indexed $ fn (idx entry)
-                let
-                    style-selected $ assert-type
-                      if (= idx selected-idx)
-                        {} $ :background-color $ hsl 0 0 100
-                        {}
-                      (:: 'Map 'Keyword 'Dynamic)
-                  [] $ str entry
-                  div
-                    {} (:class-name css-hover-entry)
-                      :style $ merge
-                        {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "|0 8px")
-                        style-selected
-                      :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
-                        d! cursor $ assoc state :query |
-                    if
-                      = 2 $ count entry
-                      <> $ str
-                          first entry
-                          , .unwrap-or |
-                        , "| :ns"
-                      div ({})
-                        <> $
-                          last entry
-                          , .unwrap-or |
-                        =< 8 nil
-                        <>
-                            first entry
-                            , .unwrap-or |
-                          {} (:font-size 10)
-                            :color $ hsl 0 0 70
+                {} $ :style $ merge style-base
+                -> typed-entries $ map-indexed $ fn (idx entry)
+                  let
+                      style-selected $ assert-type
+                        if (= idx selected-idx)
+                          {} $ :background-color $ hsl 0 0 100
+                          {}
+                        :: 'Map 'Tag 'Dynamic
+                    [] (str entry)
+                      div
+                        {} (:class-name css-hover-entry)
+                          :style $ merge
+                            {} (:line-height 2) (:font-family ui/font-code) (:cursor :pointer) (:padding "|0 8px")
+                            , style-selected
+                          :on-click $ fn (e d!) (d! :def-path entry) (on-close d!)
+                            d! cursor $ assoc state :query |
+                        if
+                          = 2 $ count entry
+                          <> $ str
+                              first entry
+                              , .unwrap-or |
+                            , "| :ns"
+                          div ({})
+                            <> $
+                              last entry
+                              , .unwrap-or |
+                            =< 8 nil
+                            <>
+                                first entry
+                                , .unwrap-or |
+                              {} (:font-size 10)
+                                :color $ hsl 0 0 70
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ [] 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic 'Dynamic
@@ -2431,64 +2444,64 @@
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-stack (stack pointer pkg)
             let
-                column-style $ assert-type ui/column $ :: 'Map 'Keyword 'Dynamic
+                column-style $ assert-type ui/column $ :: 'Map 'Tag 'Dynamic
                 typed-stack $ assert-type stack $ :: 'List 'Dynamic
-              div $ {}
-              list->
-                {} $ :style $ merge column-style
-                  {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
-                -> typed-stack $ map-indexed $ fn (idx frame)
-                  let
-                      selected-style $ assert-type
-                        if (= idx pointer)
-                          {} $ :background-color $ hsl 0 0 30
-                          {}
-                        (:: 'Map 'Keyword 'Dynamic)
-                    [] idx $ div
-                    {} (:class-name css-hover-entry)
-                      :on-click $ fn (e d!) (d! :stack-pointer idx)
-                      :style $ merge
-                        {} (:cursor :pointer) (:padding "|4px 8px") (:border-radius |6px)
-                        selected-style
-                    case-default
-                        nth frame 1
-                        , .unwrap-or :unknown
-                      <> (str "|Err: " frame)
-                        {} $ :color :red
-                      :ns $ <> $ str
-                          nth frame 0
-                          , .unwrap-or |
-                      :defs $ div
-                        {} $ :style $ merge column-style
-                        <>
-                          str
+              div ({})
+                list->
+                  {} $ :style $ merge column-style
+                    {} (:position :absolute) (:opacity 0.8) (:top 32) (:left 8) (:z-index 0) (:align-items :flex-start) (:user-select :none)
+                  -> typed-stack $ map-indexed $ fn (idx frame)
+                    let
+                        selected-style $ assert-type
+                          if (= idx pointer)
+                            {} $ :background-color $ hsl 0 0 30
+                            {}
+                          :: 'Map 'Tag 'Dynamic
+                      [] idx $ div
+                        {} (:class-name css-hover-entry)
+                          :on-click $ fn (e d!) (d! :stack-pointer idx)
+                          :style $ merge
+                            {} (:cursor :pointer) (:padding "|4px 8px") (:border-radius |6px)
+                            , selected-style
+                        case-default
+                            nth frame 1
+                            , .unwrap-or :unknown
+                          <> (str "|Err: " frame)
+                            {} $ :color :red
+                          :ns $ <> $ str
                               nth frame 0
                               , .unwrap-or |
-                            , |/
-                          {} (:font-size 10) (:line-height 1)
-                            :color $ hsl 0 0 60
-                        div ({})
-                          <>
-                              nth frame 2
-                              , .unwrap-or |
-                            {} $ :color $ hsl 0 0 100
-              comp-key-event $ fn (e d!)
-                let
-                    meta? $ or
-                        get e :meta?
-                        , .unwrap-or false
-                      (get e :ctrl?) .unwrap-or false
-                    key $
-                      get e :key
-                      , .unwrap-or |
-                  cond
-                      and meta? $ = |k key
-                      d! :pointer-shrink pointer
-                    (and meta? (= |j key))
-                      d! :pointer-down pointer
-                    (and meta? (= |i key))
-                      d! :pointer-up pointer
-                    true nil
+                          :defs $ div
+                            {} $ :style $ merge column-style
+                            <>
+                              str
+                                  nth frame 0
+                                  , .unwrap-or |
+                                , |/
+                              {} (:font-size 10) (:line-height 1)
+                                :color $ hsl 0 0 60
+                            div ({})
+                              <>
+                                  nth frame 2
+                                  , .unwrap-or |
+                                {} $ :color $ hsl 0 0 100
+                comp-key-event $ fn (e d!)
+                  let
+                      meta? $ or
+                          get e :meta?
+                          , .unwrap-or false
+                        (get e :ctrl?) .unwrap-or false
+                      key $
+                        get e :key
+                        , .unwrap-or |
+                    cond
+                        and meta? $ = |k key
+                        d! :pointer-shrink pointer
+                      (and meta? (= |j key))
+                        d! :pointer-down pointer
+                      (and meta? (= |i key))
+                        d! :pointer-up pointer
+                      true nil
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -2726,17 +2739,31 @@
             :features $ #{} :js-ffi
         'transform-cirru-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn transform-cirru-quoted (compact-files)
-            update compact-files :files $ fn (files)
-              filter-map-kv files $ fn (k v)
-                %:: MapEntryDecision :keep k $ [] k $ -> v
-                  update-in ([] :ns :code)
-                    fn (q)
-                      :: 'quote $ &cirru-quote:to-list $ option:unwrap q
-                  update :defs $ fn (d)
-                    filter-map-kv d $ fn (k v)
-                      %:: MapEntryDecision :keep k $ [] k $ update v :code
-                        fn (q)
-                          :: 'quote $ &cirru-quote:to-list $ option:unwrap q
+            assoc compact-files :files $ let
+                files $ assert-type
+                  option:unwrap-or (get compact-files :files) ({})
+                  :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+              filter-map-kv files $ hint-fn
+                {:args
+                  [] 'String $ :: 'Map 'Tag 'Dynamic
+                  , :return 'MapEntryDecision}
+                :: fn (k v)
+                  %:: MapEntryDecision :keep k $ [] k $ let
+                      ns-code $ option:unwrap $ get-in v ([] :ns :code)
+                      d $ assert-type
+                        option:unwrap-or (get v :defs) ({})
+                        :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                      transformed-defs $ filter-map-kv d $ hint-fn
+                        {:args
+                          [] 'String $ :: 'Map 'Tag 'Dynamic
+                          , :return 'MapEntryDecision}
+                        :: fn (k v)
+                          %:: MapEntryDecision :keep k $ [] k $ assoc v :code
+                            :: 'quote $ &cirru-quote:to-list $ option:unwrap (get v :code)
+                    -> v
+                      assoc-in ([] :ns :code)
+                        :: 'quote $ &cirru-quote:to-list ns-code
+                      assoc :defs transformed-defs
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ [] 'Dynamic
@@ -2855,9 +2882,11 @@
           :code $ quote $ defn render-navbar! ()
             respo/render! mount-target
               unsafe-coerce
-                comp-navbar @*store $ >> (get @*store :states) .unwrap-or ({}) :dom
-                'respo.schema/Component
-              (fn (op) (do (dispatch! op nil) nil))
+                comp-navbar @*store $ >>
+                  option:unwrap-or (get @*store :states) ({})
+                  , :dom
+                :: 'respo.schema/Component
+              fn (op) (dispatch! op nil)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -2996,88 +3025,125 @@
     'app.server $ %{} 'FileEntry
       :defs $ {}
         '*app-server $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *app-server nil
+          :code $ quote $ defatom *app-server (%none)
           :examples $ []
           :schema $ :: 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (println "|start web server") (start-server!)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+          :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
         'on-request $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-request (req)
-            case-default (:url req)
-              do
-                eprintln "|unknown url" $ :url req
-                {} (:code 404)
-                  :body $ str "|unkown url " $ :url req
-              |/compact-data $ let
-                  content $ read-file |calcit.cirru
-                {} (:code 200) (:headers cors-headers) (:body content)
-              |/compact-inc $ case-default (:method req)
-                do
-                  println "|Unknown method" $ :method req
-                  {} (:code 400) (:headers cors-headers)
-                    :body $ format-cirru-edn $ {} (:ok? false)
-                      :message $ str "|Unknown method " $ :method req
-                :PUT $ let
-                    body $ :body req
-                    changes $ parse-cirru-edn body
-                    new-compact-data $ patch-compact-data
-                      parse-cirru-edn $ read-file |calcit.cirru
-                      , changes
-                  write-file |calcit.cirru $ format-cirru-edn new-compact-data
-                  write-file |.calcit-inc.cirru body
-                  println "|wrote to" |.calcit-inc.cirru |and |calcit.cirru
-                  ; println |data $ :body req
-                  {} (:code 200) (:headers cors-headers)
-                    :body $ format-cirru-edn $ {} (:ok? true) (:data |wrote)
-                :OPTIONS $ {} (:code 200) (:headers cors-headers) (:body |OK)
+            let
+                url $ assert-type
+                  option:unwrap-or (get req :url) |
+                  , 'String
+                method $ assert-type
+                  option:unwrap-or (get req :method) :GET
+                  , 'Tag
+                request-body $ assert-type
+                  option:unwrap-or (get req :body) |
+                  , 'String
+              case-default url
+                do (eprintln "|unknown url" url)
+                  {} (:code 404)
+                    :body $ str "|unkown url " url
+                |/compact-data $ let
+                    content $ read-file |calcit.cirru
+                  {} (:code 200) (:headers cors-headers) (:body content)
+                |/compact-inc $ case-default method
+                  do (println "|Unknown method" method)
+                    {} (:code 400) (:headers cors-headers)
+                      :body $ format-cirru-edn $ {} (:ok? false)
+                        :message $ str "|Unknown method " method
+                  :PUT $ let
+                      body request-body
+                      changes $ parse-cirru-edn body
+                      new-compact-data $ patch-compact-data
+                        parse-cirru-edn $ read-file |calcit.cirru
+                        , changes
+                    write-file |calcit.cirru $ format-cirru-edn new-compact-data
+                    write-file |.calcit-inc.cirru body
+                    println "|wrote to" |.calcit-inc.cirru |and |calcit.cirru
+                    ; println |data $ :body req
+                    {} (:code 200) (:headers cors-headers)
+                      :body $ format-cirru-edn $ {} (:ok? true) (:data |wrote)
+                  :OPTIONS $ {} (:code 200) (:headers cors-headers) (:body |OK)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
+            :return $ :: 'Map 'Tag 'Dynamic
         'patch-compact-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn patch-compact-data (compact-data inc-changes)
             let
-                removed $ or (:removed inc-changes) (#{})
-                added $ or (:added inc-changes) ({})
-                changed $ or (:changed inc-changes) ({})
+                removed $ assert-type
+                  option:unwrap-or (get inc-changes :removed) (#{})
+                  :: 'Set 'String
+                added $ assert-type
+                  option:unwrap-or (get inc-changes :added) ({})
+                  :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                changed $ assert-type
+                  option:unwrap-or (get inc-changes :changed) ({})
+                  :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
               ; println "|inc changes:" changed
-              update compact-data :files $ fn (files)
+              assoc compact-data :files $ let
+                  files $ assert-type
+                    option:unwrap-or (get compact-data :files) ({})
+                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                 let
-                    c1 $ -> files (unselect-keys removed) (merge added)
+                    c1 $ -> files
+                      unselect-keys $ &set:to-list removed
+                      merge added
                   loop
                       files-data c1
-                      changes $ .to-list changed
+                      changes $ &map:to-list changed
                     list-match changes
                       () files-data
                       (c0 xs)
                         let
-                            target-ns $ nth c0 0
-                            target $ nth c0 1
-                            removed-defs $ :removed-defs target
-                            added-defs $ :added-defs target
-                            changed-defs $ :changed-defs target
-                            ns-change $ :ns target
-                            next $ update files-data target-ns $ fn (file)
-                              -> file
-                                update :ns $ fn (ns)
-                                  if (some? ns-change) ns-change ns
-                                update :defs $ fn (defs)
-                                  -> defs (unselect-keys removed-defs) (merge added-defs changed-defs)
+                            target-ns $ option:unwrap-or (nth c0 0) |
+                            target $ assert-type
+                              option:unwrap-or (nth c0 1) ({})
+                              :: 'Map 'Tag 'Dynamic
+                            removed-defs $ assert-type
+                              option:unwrap-or (get target :removed-defs) ([])
+                              :: 'List 'String
+                            added-defs $ assert-type
+                              option:unwrap-or (get target :added-defs) ({})
+                              :: 'Map 'String 'Dynamic
+                            changed-defs $ assert-type
+                              option:unwrap-or (get target :changed-defs) ({})
+                              :: 'Map 'String 'Dynamic
+                            ns-change $ option:unwrap-or (get target :ns) nil
+                            next $ let
+                                file $ assert-type
+                                  option:unwrap-or (get files-data target-ns) ({})
+                                  :: 'Map 'Tag 'Dynamic
+                                defs $ assert-type
+                                  option:unwrap-or (get file :defs) ({})
+                                  :: 'Map 'String 'Dynamic
+                                next-ns $ if (some? ns-change) ns-change $ option:unwrap-or (get file :ns) nil
+                              assoc files-data target-ns $ -> file (assoc :ns next-ns)
+                                assoc :defs $ merge (unselect-keys defs removed-defs) added-defs changed-defs
                           recur next xs
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :return $ :: 'Map 'Tag 'Dynamic
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (println |reload...)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'start-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn start-server! ()
-            reset! *app-server $ serve-http!
+            reset! *app-server $ %some $ serve-http!
               {} (:port 6101) (:host |0.0.0.0)
               fn (req) (on-request req)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.server
           :require
@@ -3168,8 +3234,7 @@
                         , .unwrap-or 0
                     if (contains? stack pointer)
                       -> editor
-                        update :pointer $ fn (idx)
-                          if (= 0 idx) 0 $ dec idx
+                        assoc :pointer $ if (= 0 pointer) 0 $ dec pointer
                         update :stack $ fn (xs) (dissoc xs idx)
                       , editor
               (:call-cirru-edit op-data)
@@ -3205,7 +3270,7 @@
                       ; js/console.log op-data result
                       if-let
                         warning $ get result :warning
-                        js/console.warn warning
+                        do (js/console.warn warning) nil
                       -> store
                         assoc-in def-path $ assoc def-entry :code $ :: 'quote
                           (get result :tree) .unwrap-or $ []
@@ -3247,7 +3312,7 @@
                           nth quoted-code 1
                           , .unwrap-or $ []
                       assoc-in store
-                        (assert-type (conj def-path :code) (:: 'List 'String))
+                        assert-type (conj def-path :code) (:: 'List 'Dynamic)
                         :: 'quote $ assoc-in tree
                           assert-type focus $ :: 'List 'Number
                           , code
@@ -3296,11 +3361,15 @@
                   update store :files $ fn (files)
                     if (contains? files ns)
                       update-in files ([] ns :defs)
-                        fn (defs)
-                          let
-                              defs-value $ option:unwrap-or defs $ {}
-                            if (contains? defs-value def-name) defs-value $ assoc defs-value def-name $ %{} schema/CodeEntry (:doc |)
-                              :code $ :: 'quote $ [] |defn def-name ([])
+                        hint-fn
+                          {:args
+                            [] $ :: 'Option $ :: 'Map 'String 'Dynamic
+                            , :return (:: 'Map 'String 'Dynamic) }
+                          :: fn (defs)
+                            let
+                                defs-value $ option:unwrap-or defs $ {}
+                              if (contains? defs-value def-name) defs-value $ assoc defs-value def-name $ %{} schema/CodeEntry (:doc |)
+                                :code $ :: 'quote $ [] |defn def-name ([])
                       , files
               (:rm-def op-data)
                 let[] (ns def-name)
@@ -3308,10 +3377,14 @@
                   update store :files $ fn (files)
                     if (contains? files ns)
                       update-in files ([] ns :defs)
-                        fn (defs)
-                          let
-                              defs-value $ option:unwrap-or defs $ {}
-                            if (contains? defs-value def-name) (dissoc defs-value def-name) defs-value
+                        hint-fn
+                          {:args
+                            [] $ :: 'Option $ :: 'Map 'String 'Dynamic
+                            , :return (:: 'Map 'String 'Dynamic) }
+                          :: fn (defs)
+                            let
+                                defs-value $ option:unwrap-or defs $ {}
+                              if (contains? defs-value def-name) (dissoc defs-value def-name) defs-value
                       , files
               (:mv-ns op-data)
                 let[] (from to) op-data $ if
@@ -3322,15 +3395,19 @@
                           get files from
                           , .unwrap-or $ {}
                         update-in ([] :ns 1)
-                          fn (code-option)
-                            let
-                                code $ option:unwrap-or code-option $ []
-                              if
-                                string? $
-                                  get code 1
-                                  , .unwrap-or nil
-                                assoc code 1 to
-                                do (js/console.warn "|ns name not found in:" code) code
+                          hint-fn
+                            {:args
+                              [] $ :: 'Option $ :: 'List 'Dynamic
+                              , :return (:: 'List 'Dynamic) }
+                            :: fn (code-option)
+                              let
+                                  code $ option:unwrap-or code-option $ []
+                                if
+                                  string? $
+                                    get code 1
+                                    , .unwrap-or nil
+                                  assoc code 1 to
+                                  do (js/console.warn "|ns name not found in:" code) code
                   assoc store :warning $ str "|unknown ns: " from
               (:mv-def op-data)
                 let-sugar
@@ -3351,15 +3428,19 @@
                             ->
                                 get-in files $ [] from-ns :defs from-def
                                 , .unwrap-or nil
-                              update 1 $ fn (code-option)
-                                let
-                                    code $ option:unwrap-or code-option $ []
-                                  if
-                                    string? $
-                                      get code 1
-                                      , .unwrap-or nil
-                                    assoc code 1 to-def
-                                    do (js/console.warn "|def not found in:" code) code
+                              update 1 $ hint-fn
+                                {:args
+                                  [] $ :: 'Option $ :: 'List 'Dynamic
+                                  , :return (:: 'List 'Dynamic) }
+                                :: fn (code-option)
+                                  let
+                                      code $ option:unwrap-or code-option $ []
+                                    if
+                                      string? $
+                                        get code 1
+                                        , .unwrap-or nil
+                                      assoc code 1 to-def
+                                      do (js/console.warn "|def not found in:" code) code
                       assoc :warning nil
                     assoc store :warning $ str "|unknown ns/def: " from
               (:picker-mode op-data)
@@ -3378,8 +3459,10 @@
                   if picker-mode?
                     let
                         def-path $ assert-type
+                          option:unwrap-or
                             get-in editor $ [] :stack pointer
-                          (:: 'List 'String)
+                            []
+                          :: 'List 'Dynamic
                         item $
                           get-in store $ concat ([] :files) def-path ([] :code 1) ([] op-data)
                           , .unwrap-or nil
@@ -3389,14 +3472,18 @@
                       -> store
                         update-in
                           concat ([] :files) def-path $ [] :code
-                          fn (pair-option)
-                            let
-                                pair $ option:unwrap-or pair-option $ :: 'quote ([])
-                              :: 'quote $ assoc-in
-                                  nth pair 1
-                                  , .unwrap-or $ []
-                                assert-type focus $ :: 'List 'Number
-                                , item
+                          hint-fn
+                            {:args
+                              [] $ :: 'Option 'Enum
+                              , :return 'Enum}
+                            :: fn (pair-option)
+                              let
+                                  pair $ option:unwrap-or pair-option $ :: 'quote ([])
+                                :: 'quote $ assoc-in
+                                    nth pair 1
+                                    , .unwrap-or $ []
+                                  assert-type focus $ :: 'List 'Number
+                                  , item
                         assoc-in ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) op-data
               (:deps-tree op-data) (assoc store :deps-tree op-data)
