@@ -14,4 +14,5 @@ sandbox/
 
 .DS_Store
 
-.calcit-snippets/
+.calcit-snippets/.pnp.cjs
+.pnp.loader.mjs
