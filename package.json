@@ -1,12 +1,14 @@
 {
   "name": "hovernia-editor",
   "version": "0.1.1",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.18.0",
   "description": "Fancy Cirru Editor",
   "main": "index.js",
   "scripts": {
-    "compile": "caps --strict --ci && calcit calcit.cirru js",
-    "release": "yarn vite build --base=./"
+    "compile": "calcit calcit.cirru js",
+    "build": "vite build",
+    "release": "yarn compile && yarn build",
+    "dev": "vite"
   },
   "repository": {
     "type": "git",
@@ -15,10 +17,10 @@
   "license": "MIT",
   "devDependencies": {
     "nanoid": "^5.1.16",
-    "vite": "^6.4.3"
+    "vite": "8.2.2"
   },
   "dependencies": {
-    "@calcit/procs": "0.18.1",
+    "@calcit/procs": "0.27.0",
     "@quamolit/phlox-utils": "^0.0.2",
     "@quamolit/touch-control": "^0.0.13",
     "bottom-tip": "^0.1.5",
