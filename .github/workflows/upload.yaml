@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: upload-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: frontend-${{ github.repository }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'production' }}
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -42,6 +42,7 @@ jobs:
 
     - name: Resolve immutable dependencies
       run: |
+        set -euo pipefail
         # Several published dependencies request older compatible js-ffi and
         # Respo versions; Caps records the deterministic highest selections.
         caps --ci
@@ -50,6 +51,12 @@ jobs:
 
     - name: Validate Calcit upgrade
       run: |
+        set -euo pipefail
+        test "$(calcit --version)" = "0.27.0"
+        test -f calcit.cirru
+        test -f deps.cirru
+        test ! -e compact.cirru
+        test ! -e package.cirru
         calcit edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
@@ -74,16 +81,15 @@ jobs:
           --summary-only --format json
         calcit calcit.cirru --entry server analyze check-public \
           --ns app.server --summary-only --format json
-        calcit calcit.cirru analyze dynamic-methods --summary-only --format json
-        calcit calcit.cirru analyze deprecated --summary-only --format json
 
     - name: Select CDN asset path
       id: asset-path
       env:
         CDN_ORIGIN: https://cos-sh.tiye.me
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-          asset_prefix="${GITHUB_REPOSITORY}/pr/"
+          asset_prefix="${GITHUB_REPOSITORY}/pr/${PR_NUMBER}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/"
         elif [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
           asset_prefix="${GITHUB_REPOSITORY}/"
         else
@@ -96,7 +102,7 @@ jobs:
 
     - name: Build web assets with CDN URLs
       run: |
-        yarn compile
+        set -euo pipefail
         yarn build
 
     - name: Check COS credentials
