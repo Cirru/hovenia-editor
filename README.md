@@ -57,13 +57,18 @@ no extra process manager or npm dependency is needed.
 
 CI keeps strict frontend entry/all-public checks, the existing server public
 contract check and actual frontend build. Repeated diagnostic reports are removed
-without a new verifier or test suite. Vite and COS action v1.1.1 share the
+without a new verifier or test suite. Vite and COS action v1.2.0 share the
 frontend base: production `Cirru/hovenia-editor/`, preview
 `pr/<number>/<run-id>/<attempt>/`. Per-PR and separate production concurrency
-does not cancel active uploads. The action handles upload/public verification.
+does not cancel active uploads; `queue: max` retains pending runs as well. The
+action is pinned to the reviewed release commit and handles upload/public
+verification through the existing `public-base-url`, without another script.
 The original upload policy and server `dist/*` source/destination remain; COS
 only handles frontend resources, not the native editor server. Snapshot, editor
 and server code are unchanged. PR success is not production/editor acceptance.
+This workflow update retains Calcit/procs 0.27.0 and the existing non-strict
+Caps resolution policy; it does not certify a completed 0.28 source migration
+or a conflict-free strict dependency graph.
 
 Workflow https://github.com/Phlox-GL/phlox-workflow
 
