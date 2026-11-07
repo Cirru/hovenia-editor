@@ -8,7 +8,8 @@ globalThis.window = {
   location: { hostname: "localhost", search: "" },
 };
 globalThis.document = {
-  createElement: () => ({ getContext: () => ({ measureText: (s) => ({ width: s.length * 8 }) }) }),
+  body: {},
+  createElement: () => ({ getContext: () => ({ font: "", measureText: (s) => ({ width: s.length * 8 }) }) }),
 };
 const editor = await import("../js-out/app.comp.editor.mjs");
 const { _$L_: list, to_js_data: toJS } = await import("@calcit/procs");

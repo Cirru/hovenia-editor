@@ -44,16 +44,14 @@ jobs:
     - name: Resolve immutable dependencies
       run: |
         set -euo pipefail
-        # Several published dependencies request older compatible js-ffi and
-        # Respo versions; Caps records the deterministic highest selections.
-        caps --ci
+        caps --strict --ci
         yarn install --immutable
         caps verify --toolchain
 
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        test "$(calcit --version)" = "0.36.0"
+        test "$(calcit --version)" = "0.37.0"
         test -f calcit.cirru
         test -f deps.cirru
         test ! -e compact.cirru

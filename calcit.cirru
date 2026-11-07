@@ -55,11 +55,11 @@
             :code $ quote $ let
                 raw $ decode-map-as
                   parse-cirru-edn "|{} $ :files $ {}\n  |app.demo $ %{} :FileEntry\n    :ns $ %{} :CodeEntry\n      :code $ quote $ ns app.demo $ :require (app.other :as other) (lib.core :refer $ external)\n    :defs $ {}\n      |main $ %{} :CodeEntry\n        :code $ quote $ defn main () (helper) (external)\n      |helper $ %{} :CodeEntry\n        :code $ quote $ defn helper () |ok"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
                 files $ decode-map-as
                   .unwrap $ get loaded :files
-                  quote $ Map String Dynamic
+                  Map String Dynamic
                 graph $ analyze-deps files
                 deps $ .unwrap $ get graph ([] |app.demo |main)
               assert= true $ includes? deps $ [] |app.demo |helper :file
@@ -574,7 +574,7 @@
                   List Dynamic
                 set-box-text! $ fn (v d!)
                   hint-fn $ Fn String
-                    Fn AnyEnum $ -> Unit
+                    Fn app.schema/Op $ -> Unit
                     -> Unit
                     :features :js-ffi
                   let
@@ -595,7 +595,7 @@
                       :value content
                       :on-input $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         d! $ :: :states cursor $ assoc state :content
                           str $
@@ -604,7 +604,7 @@
                         , &unit
                       :on-keydown $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         cond
                             = 13 $
@@ -617,7 +617,7 @@
                                     , |
                                   , 'Dynamic
                               if (list? code) (run-command code store d!)
-                                d! $ :: :warn $ str "|invalid command:" code
+                                d! $ app.schema/Op :warn $ str "|invalid command:" code
                               on-close d!
                           (= |Escape ((app.schema/event-field e :key) .unwrap-or |))
                             on-close d!
@@ -629,7 +629,7 @@
                     button $ {} (:class-name css/button) (:inner-text |Run)
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         let
                             code $ decode-map-as
@@ -638,7 +638,7 @@
                                 , |
                               , 'Dynamic
                           if (list? code) (run-command code store d!)
-                            d! $ :: :warn $ str "|invalid command:" code
+                            d! $ app.schema/Op :warn $ str "|invalid command:" code
                           on-close d!
                         , &unit
                     space-x 16
@@ -650,21 +650,21 @@
                             :inner-text $ str piece
                             :on-click $ fn (e d!)
                               hint-fn $ Fn respo.schema/RespoEvent
-                                Fn AnyEnum $ -> Unit
+                                Fn app.schema/Op $ -> Unit
                                 -> Unit
                               set-box-text! (str piece) d!
                               , &unit
                   space-y 8
                   comp-command-tips $ fn (v d!)
                     hint-fn $ Fn String
-                      Fn AnyEnum $ -> Unit
+                      Fn app.schema/Op $ -> Unit
                       -> Unit
                     set-box-text! v d!
                     , &unit
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic) (Map Tag Dynamic)
             Fn
-              Fn AnyEnum $ -> Unit
+              Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
             :features :js-ffi
@@ -680,7 +680,7 @@
                     span
                       {} $ :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         set-text!
                             get info :fill
@@ -693,7 +693,7 @@
           :examples $ []
           :schema $ quote $ Fn
             Fn String
-              Fn AnyEnum $ -> Unit
+              Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'css-command-box $ %{} 'CodeEntry (:doc |)
@@ -737,17 +737,17 @@
                     if
                       decode-map-as (.-ok response) 'Bool
                       do
-                        d! $ :: :files-synced files
-                        d! $ :: :ok
+                        d! $ app.schema/Op :files-synced files
+                        d! $ app.schema/Op :ok
                       raise $ str "|Save failed: HTTP " $ decode-map-as (.-status response) 'Number
                     , &unit
                   .?!catch $ fn (error)
-                    d! $ :: :warn $ decode-map-as (js/String error) 'String
+                    d! $ app.schema/Op :warn $ decode-map-as (js/String error) 'String
                     , &unit
             , &unit
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic) (Map String Dynamic)
-            Fn AnyEnum $ -> Unit
+            Fn app.schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
         'run-command $ %{} 'CodeEntry (:doc |)
@@ -766,12 +766,12 @@
               match
                   first code
                   , .unwrap-or |
-                |add-ns $ d! $ :: :add-ns p1
-                |rm-ns $ d! $ :: :rm-ns p1
-                |add-def $ d! $ :: :add-def ([] p1 p2)
-                |rm-def $ d! $ :: :rm-def ([] p1 p2)
-                |mv-ns $ d! $ :: :mv-ns ([] p1 p2)
-                |mv-def $ d! $ :: :mv-def ([] p1 p2)
+                |add-ns $ d! $ app.schema/Op :add-ns p1
+                |rm-ns $ d! $ app.schema/Op :rm-ns p1
+                |add-def $ d! $ app.schema/Op :add-def ([] p1 p2)
+                |rm-def $ d! $ app.schema/Op :rm-def ([] p1 p2)
+                |mv-ns $ d! $ app.schema/Op :mv-ns ([] p1 p2)
+                |mv-def $ d! $ app.schema/Op :mv-def ([] p1 p2)
                 |load $ load-files! d! false
                 |save $ on-save files
                   decode-map-as
@@ -780,14 +780,14 @@
                     Map String Dynamic
                   , d!
                 |pick $ if (= p1 |off)
-                  d! $ :: :picker-mode false
-                  d! $ :: :picker-mode true
+                  d! $ app.schema/Op :picker-mode false
+                  d! $ app.schema/Op :picker-mode true
                 |deps-tree $ do
-                  d! $ :: :deps-tree $ analyze-deps files
-                  d! $ :: :router $ {} (:name :deps-tree)
+                  d! $ app.schema/Op :deps-tree $ analyze-deps files
+                  d! $ app.schema/Op :router $ {} (:name :deps-tree)
                 |deps-of $ do
-                  d! $ :: :deps-tree $ analyze-deps files
-                  d! $ :: :router $ {} (:name :deps-of)
+                  d! $ app.schema/Op :deps-tree $ analyze-deps files
+                  d! $ app.schema/Op :router $ {} (:name :deps-of)
                     :data $ if (.some? maybe-p2) ([] p1 p2)
                       let
                           editor $
@@ -801,8 +801,8 @@
                             , .unwrap-or |
                           (nth def-path 2) .unwrap-or |
                 |call-tree $ do
-                  d! $ :: :deps-tree $ analyze-deps files
-                  d! $ :: :router $ {} (:name :call-tree)
+                  d! $ app.schema/Op :deps-tree $ analyze-deps files
+                  d! $ app.schema/Op :router $ {} (:name :call-tree)
                     :data $ if (.some? maybe-p2) ([] p1 p2)
                       let
                           editor $
@@ -815,20 +815,19 @@
                             nth def-path 0
                             , .unwrap-or |
                           (nth def-path 2) .unwrap-or |
-                _ $ d! $ :: :warn (str "|invalid command: " code)
+                _ $ d! $ app.schema/Op :warn (str "|invalid command: " code)
             , &unit
           :examples $ []
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic)
-            Fn AnyEnum $ -> Unit
+            Fn app.schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
           :tests $ [] $ %{} 'TestEntry
             :name |commands-dispatch-current-enums-and-selected-target
             :code $ quote $ let
-                ops $ ref $ decode-map-as ([])
-                  quote $ List Dynamic
+                ops $ ref $ decode-map-as ([]) (List app.schema/Op)
                 capture $ fn (op)
-                  hint-fn $ Fn AnyEnum $ -> Unit
+                  hint-fn $ Fn app.schema/Op $ -> Unit
                   swap! ops conj op
                   , &unit
                 store $ {}
@@ -843,16 +842,16 @@
               run-command ([] |call-tree) store capture
               run-command ([] |unknown) store capture
               assert=
-                [] (:: :add-ns |new.ns)
-                  :: :mv-def $ [] |app.demo/alpha |app.other/beta
-                  :: :picker-mode false
-                  :: :deps-tree $ {}
-                  :: :router $ {} (:name :deps-of)
+                [] (app.schema/Op :add-ns |new.ns)
+                  app.schema/Op :mv-def $ [] |app.demo/alpha |app.other/beta
+                  app.schema/Op :picker-mode false
+                  app.schema/Op :deps-tree $ {}
+                  app.schema/Op :router $ {} (:name :deps-of)
                     :data $ [] |app.demo |alpha
-                  :: :deps-tree $ {}
-                  :: :router $ {} (:name :call-tree)
+                  app.schema/Op :deps-tree $ {}
+                  app.schema/Op :router $ {} (:name :call-tree)
                     :data $ [] |app.demo |beta
-                  :: :warn $ str "|invalid command: " $ [] |unknown
+                  app.schema/Op :warn $ str "|invalid command: " $ [] |unknown
                 , @ops
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.command
@@ -961,7 +960,7 @@
                         :on $ {} $ :pointertap
                           fn (e d!)
                             hint-fn $ Fn Dynamic
-                              Fn AnyEnum $ -> Unit
+                              Fn app.schema/Op $ -> Unit
                               -> Unit
                               :features :js-ffi
                             if
@@ -969,12 +968,12 @@
                                 decode-map-as (.-metaKey e) 'Bool
                                 decode-map-as (.-ctrlKey e) 'Bool
                               do
-                                d! $ :: :def-path $ []
+                                d! $ app.schema/Op :def-path $ []
                                   .unwrap $ get (dependency-key item) 0
                                   , :defs
                                     .unwrap $ get (dependency-key item) 1
-                                d! $ :: :router $ {} (:name :editor)
-                              d! $ :: :router $ {} (:name :deps-of)
+                                d! $ app.schema/Op :router $ {} (:name :editor)
+                              d! $ app.schema/Op :router $ {} (:name :deps-of)
                                 :data $ dependency-key item
                             , &unit
                   create-list :container
@@ -998,7 +997,7 @@
                         :on $ {} $ :pointertap
                           fn (e d!)
                             hint-fn $ Fn Dynamic
-                              Fn AnyEnum $ -> Unit
+                              Fn app.schema/Op $ -> Unit
                               -> Unit
                               :features :js-ffi
                             if
@@ -1006,12 +1005,12 @@
                                 decode-map-as (.-metaKey e) 'Bool
                                 decode-map-as (.-ctrlKey e) 'Bool
                               do
-                                d! $ :: :def-path $ []
+                                d! $ app.schema/Op :def-path $ []
                                   .unwrap $ get (dependency-key item) 0
                                   , :defs
                                     .unwrap $ get (dependency-key item) 1
-                                d! $ :: :router $ {} (:name :editor)
-                              d! $ :: :router $ {} (:name :deps-of)
+                                d! $ app.schema/Op :router $ {} (:name :editor)
+                              d! $ app.schema/Op :router $ {} (:name :deps-of)
                                 :data $ dependency-key item
                             , &unit
               text $ {}
@@ -1136,10 +1135,8 @@
               let
                   nodes $ build-defs-metrics a graph 0 |app
                   root $ .unwrap $ get @*defs-metrics-states a
-                  scoped $ decode-map-as (root :scoped-defs)
-                    quote $ List Dynamic
-                  external $ decode-map-as (root :thirdpart-defs)
-                    quote $ List Dynamic
+                  scoped $ decode-map-as (root :scoped-defs) (List Dynamic)
+                  external $ decode-map-as (root :thirdpart-defs) (List Dynamic)
                 assert= 2 $ count nodes
                 assert= 2 $ count @*defs-metrics-states
                 assert= 2 $ count scoped
@@ -1215,13 +1212,13 @@
                                     :on $ {} $ :pointertap
                                       fn (event d!)
                                         hint-fn $ Fn Dynamic
-                                          Fn AnyEnum $ -> Unit
+                                          Fn app.schema/Op $ -> Unit
                                           -> Unit
                                           :features :js-ffi
                                         when
                                           decode-map-as (.-metaKey event) 'Bool
-                                          d! $ :: :router $ {} (:name :editor)
-                                          d! $ :: :def-path $ []
+                                          d! $ app.schema/Op :router $ {} (:name :editor)
+                                          d! $ app.schema/Op :def-path $ []
                                             .unwrap $ nth key 0
                                             , :defs
                                               .unwrap $ nth key 1
@@ -1345,7 +1342,7 @@
                 {} $ :on-keyboard $ {}
                   :down $ fn (e d!)
                     hint-fn $ Fn (Map Tag Dynamic)
-                      Fn AnyEnum $ -> Unit
+                      Fn app.schema/Op $ -> Unit
                       -> Unit
                       :features :js-ffi
                     let
@@ -1426,41 +1423,41 @@
                   , 'Bool
               cond
                   = |Backspace key
-                  d! $ :: :call-cirru-edit $ :: :remove-node focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :remove-node focus
                 (= key |ArrowUp)
-                  d! $ :: :call-cirru-edit $ :: :node-up focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-up focus
                 (= key |ArrowLeft)
-                  d! $ :: :call-cirru-edit $ :: :node-left focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-left focus
                 (= key |ArrowRight)
-                  d! $ :: :call-cirru-edit $ :: :node-right focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-right focus
                 (= key |ArrowDown)
-                  d! $ :: :call-cirru-edit $ :: :expression-down focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :expression-down focus
                 (= key |Enter)
                   if meta?
                     if shift?
-                      d! $ :: :call-cirru-edit $ :: :append-expression focus
-                      d! $ :: :call-cirru-edit $ :: :prepend-expression focus
+                      d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :append-expression focus
+                      d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :prepend-expression focus
                     if shift?
-                      d! $ :: :call-cirru-edit $ :: :before-expression focus
-                      d! $ :: :call-cirru-edit $ :: :after-expression focus
+                      d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :before-expression focus
+                      d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :after-expression focus
                 (= key "| ")
                   if shift?
-                    d! $ :: :call-cirru-edit $ :: :before-token focus
-                    d! $ :: :call-cirru-edit $ :: :after-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :before-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :after-token focus
                 (= |Tab key)
                   if shift?
-                    d! $ :: :call-cirru-edit $ :: :unfold-expression focus
-                    d! $ :: :call-cirru-edit $ :: :fold-node focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :unfold-expression focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :fold-node focus
                 (and meta? (= |b key))
-                  d! $ :: :call-cirru-edit $ :: :duplicate-expression focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :duplicate-expression focus
                 (and meta? (= |c key))
-                  d! $ :: :call-cirru-edit $ :: :command-copy focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :command-copy focus
                 (and meta? (= |x key))
-                  d! $ :: :call-cirru-edit $ :: :command-cut focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :command-cut focus
                 (and meta? (= |v key))
-                  d! $ :: :call-cirru-edit $ :: :command-paste focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :command-paste focus
                 (and meta? (= |e key))
-                  d! $ :: :def-path $ []
+                  d! $ app.schema/Op :def-path $ []
                     decode-map-as
                       .unwrap $ first def-path
                       , 'String
@@ -1469,7 +1466,7 @@
             , &unit
           :examples $ []
           :schema $ quote $ Fn (List Number) (List Dynamic) (Map Tag Dynamic)
-            Fn AnyEnum $ -> Unit
+            Fn app.schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
         'handle-leaf-event $ %{} 'CodeEntry (:doc |)
@@ -1497,58 +1494,55 @@
                   = |Backspace key
                   if
                     or meta? $ empty? token
-                    d! $ :: :call-cirru-edit $ :: :remove-node focus
-                    d! $ :: :call-cirru-edit $ :: :update-token
-                      [] focus $ &str:slice token 0 $ dec (count token)
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :remove-node focus
+                    d! $ app.schema/Op :call-cirru-edit $ app.schema/update-token-op focus
+                      &str:slice token 0 $ dec $ count token
                 (and (>= code 65) (<= code 90) (not meta?))
-                  d! $ :: :call-cirru-edit $ :: :update-token
-                    [] focus $ str token key
+                  d! $ app.schema/Op :call-cirru-edit $ app.schema/update-token-op focus (str token key)
                 (= key |ArrowUp)
-                  d! $ :: :call-cirru-edit $ :: :node-up focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-up focus
                 (= key |ArrowLeft)
-                  d! $ :: :call-cirru-edit $ :: :node-left focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-left focus
                 (= key |ArrowRight)
-                  d! $ :: :call-cirru-edit $ :: :node-right focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :node-right focus
                 (= key |ArrowDown) (js/console.warn "|unknown keydown")
                 (= key |Enter)
                   if shift?
-                    d! $ :: :call-cirru-edit $ :: :before-token focus
-                    d! $ :: :call-cirru-edit $ :: :after-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :before-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :after-token focus
                 (= key "| ")
                   if shift?
-                    d! $ :: :call-cirru-edit $ :: :update-token
-                      [] focus $ str token "| "
-                    d! $ :: :call-cirru-edit $ :: :after-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ app.schema/update-token-op focus (str token "| ")
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :after-token focus
                 (= |Tab key)
                   if shift?
-                    d! $ :: :call-cirru-edit $ :: :unfold-token focus
-                    d! $ :: :call-cirru-edit $ :: :fold-node focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :unfold-token focus
+                    d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :fold-node focus
                 (= key |d)
-                  d! $ :: :effect-goto-def $ strip-at token
+                  d! $ app.schema/Op :effect-goto-def $ strip-at token
                 (and meta? (= |v key))
-                  d! $ :: :call-cirru-edit $ :: :command-paste focus
+                  d! $ app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :command-paste focus
                 (and meta? (= |e key))
-                  d! $ :: :def-path $ []
+                  d! $ app.schema/Op :def-path $ []
                     decode-map-as
                       .unwrap $ first def-path
                       , 'String
                     , :ns
                 (and (= 1 (count key)) (not meta?))
-                  d! $ :: :call-cirru-edit $ :: :update-token
-                    [] focus $ str token $ char-keymap key
+                  d! $ app.schema/Op :call-cirru-edit $ app.schema/update-token-op focus
+                    str token $ char-keymap key
                 true $ ;nil js/console.warn "|unknown event:" e
             , &unit
           :examples $ []
           :schema $ quote $ Fn (List Number) (List Dynamic) String (Map Tag Dynamic)
-            Fn AnyEnum $ -> Unit
+            Fn app.schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
           :tests $ [] $ %{} 'TestEntry (:name |keyboard-produces-current-enum-operations)
             :code $ quote $ let
-                events $ ref $ decode-map-as ([])
-                  quote $ List Dynamic
+                events $ ref $ decode-map-as ([]) (List app.schema/Op)
                 capture $ fn (operation)
-                  hint-fn $ Fn AnyEnum $ -> Unit
+                  hint-fn $ Fn app.schema/Op $ -> Unit
                   swap! events conj operation
                   , &unit
                 focus $ [] 1
@@ -1567,10 +1561,10 @@
                 , capture
               assert=
                 []
-                  :: :call-cirru-edit $ :: :after-token focus
-                  :: :call-cirru-edit $ :: :append-expression focus
-                  :: :call-cirru-edit $ :: :update-token $ [] focus |ab
-                  :: :def-path $ [] |app.demo :ns
+                  app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :after-token focus
+                  app.schema/Op :call-cirru-edit $ cirru-editor.schema/EditOp :append-expression focus
+                  app.schema/Op :call-cirru-edit $ app.schema/update-token-op focus |ab
+                  app.schema/Op :def-path $ [] |app.demo :ns
                 , @events
         'is-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn is-linear? (xs)
@@ -1610,15 +1604,15 @@
                   match
                     first $ parse-cirru-list content
                     (:some tree)
-                      d! $ :: :cirru-edit-node $ [] coord tree
+                      d! $ app.schema/replace-node-op coord tree
                     (:none)
-                      d! $ :: :warn "|Empty expression; existing code was not changed"
+                      d! $ app.schema/Op :warn "|Empty expression; existing code was not changed"
                   , &unit
-              d! $ :: :focus-or-pick coord
+              d! $ app.schema/Op :focus-or-pick coord
             , &unit
           :examples $ []
           :schema $ quote $ Fn Dynamic (List Dynamic) (List Number)
-            Fn AnyEnum $ -> Unit
+            Fn app.schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
@@ -1717,7 +1711,7 @@
                         :on $ {} $ :pointertap
                           fn (e d!)
                             hint-fn $ Fn Dynamic
-                              Fn AnyEnum $ -> Unit
+                              Fn app.schema/Op $ -> Unit
                               -> Unit
                             on-expr-click e xs coord d!
                       if focused? shape-focus $ container $ {}
@@ -1817,7 +1811,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn AnyEnum $ -> Unit
+                                Fn app.schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -1862,7 +1856,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn AnyEnum $ -> Unit
+                                    Fn app.schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if focused? shape-focus $ container $ {}
@@ -1893,7 +1887,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn AnyEnum $ -> Unit
+                                    Fn app.schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if (= next-coord focus) shape-focus $ container $ {}
@@ -1971,7 +1965,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn AnyEnum $ -> Unit
+                                      Fn app.schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2010,7 +2004,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn AnyEnum $ -> Unit
+                                      Fn app.schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2045,7 +2039,7 @@
                     :on $ {} $ :pointertap
                       fn (e d!)
                         hint-fn $ Fn Dynamic
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                           :features :js-ffi
                         if
@@ -2056,8 +2050,8 @@
                             {} (:initial s)
                               :style $ {} $ :font-family code-font
                             fn (content)
-                              d! $ :: :cirru-edit-node $ [] coord content
-                          d! $ :: :focus-or-pick coord
+                              d! $ app.schema/replace-node-op coord content
+                          d! $ app.schema/Op :focus-or-pick coord
                         , &unit
                   if (= coord focus)
                     rect $ {}
@@ -2101,7 +2095,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn AnyEnum $ -> Unit
+                                Fn app.schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -2154,13 +2148,13 @@
               span $ {} $ :on-keydown
                 fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn AnyEnum $ -> Unit
+                    Fn app.schema/Op $ -> Unit
                     -> Unit
                   on-event e d!
           :examples $ []
           :schema $ quote $ Fn
             Fn respo.schema/RespoEvent
-              Fn AnyEnum $ -> Unit
+              Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'effect-listen-keyboard $ %{} 'CodeEntry (:doc |)
@@ -2233,7 +2227,7 @@
                           {}
                             :style $ {} $ :cursor :pointer
                             :on-click $ fn (e d!)
-                              d! $ :: :def-path $ [] ns :ns
+                              d! $ app.schema/Op :def-path $ [] ns :ns
                           <> (str ns)
                             {} $ :font-family ui/font-code
                         space-y 8
@@ -2244,9 +2238,9 @@
                                 :style $ merge $ {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
                                 :on-click $ fn (e d!)
                                   hint-fn $ Fn respo.schema/RespoEvent
-                                    Fn AnyEnum $ -> Unit
+                                    Fn app.schema/Op $ -> Unit
                                     -> Unit
-                                  d! $ :: :def-path $ [] ns :defs def-name
+                                  d! $ app.schema/Op :def-path $ [] ns :defs def-name
                                   on-close d!
                               <> $ str def-name
                     <> |
@@ -2254,7 +2248,7 @@
           :examples $ []
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic) (Map String Dynamic)
             Fn
-              Fn AnyEnum $ -> Unit
+              Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'comp-menu $ %{} 'CodeEntry (:doc |)
@@ -2290,7 +2284,7 @@
                       :autofocus true
                       :on-keydown $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         match
                             app.schema/event-field e :key
@@ -2304,7 +2298,7 @@
                           |Enter $ if-let
                             target $ get entries select-idx
                             do
-                              d! $ :: :def-path target
+                              d! $ app.schema/Op :def-path target
                               on-close d!
                               d! $ :: :states cursor $ assoc state :query |
                           |Escape $ on-close d!
@@ -2315,7 +2309,7 @@
                         :color $ hsl 0 100 30
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         on-close d!
                   space-y 8
@@ -2323,7 +2317,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic) (Map String Dynamic)
             Fn
-              Fn AnyEnum $ -> Unit
+              Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'comp-navbar $ %{} 'CodeEntry (:doc |)
@@ -2345,7 +2339,7 @@
                     :render $ fn (on-close)
                       hint-fn $ Fn
                         Fn
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         -> respo.schema/Component
                       comp-command (>> states :command) store on-close
@@ -2370,10 +2364,10 @@
                     :inner-text |Hovernia
                     :on-click $ fn (e d!)
                       hint-fn $ Fn respo.schema/RespoEvent
-                        Fn AnyEnum $ -> Unit
+                        Fn app.schema/Op $ -> Unit
                         -> Unit
                       d! $ :: :states cursor $ assoc state :menu? true
-                      d! $ :: :router $ {} (:name :editor)
+                      d! $ app.schema/Op :router $ {} (:name :editor)
                       match (app.schema/event-field e :event)
                         (:some event) (.!preventDefault event)
                         (:none) &unit
@@ -2388,7 +2382,7 @@
                         :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn AnyEnum $ -> Unit
+                            Fn app.schema/Op $ -> Unit
                             -> Unit
                           on-save
                             decode-map-as
@@ -2406,7 +2400,7 @@
                       :class-name $ str-spaced css/link css/font-fancy
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         .show command-plugin d!
                         , &unit
@@ -2429,15 +2423,15 @@
                       {} (:style style-error)
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn AnyEnum $ -> Unit
+                            Fn app.schema/Op $ -> Unit
                             -> Unit
-                          d! $ :: :warn nil
+                          d! $ app.schema/Op :ok
                       <> warning
                     space-x 16
                     a $ {} (:class-name css/link) (:inner-text "|Try 6011")
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn AnyEnum $ -> Unit
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         load-files! d! true
                         , &unit
@@ -2467,7 +2461,7 @@
                   Option :none
                 comp-key-event $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn AnyEnum $ -> Unit
+                    Fn app.schema/Op $ -> Unit
                     -> Unit
                   cond
                       and
@@ -2507,14 +2501,14 @@
                   :border $ str "|2px solid " $ hsl 180 30 60
                   :background-color $ hsl 120 80 80
                 :on-click $ fn (e d!)
-                  d! $ :: :picker-mode false
+                  d! $ app.schema/Op :picker-mode false
               <> "|Picker Mode"
               comp-key-event $ fn (e d!)
                 if
                   = |Escape $
                     app.schema/event-field e :key
                     , .unwrap-or |
-                  d! $ :: :picker-mode false
+                  d! $ app.schema/Op :picker-mode false
                   , &unit
           :examples $ []
           :schema $ quote $ Fn (-> respo.schema/Component)
@@ -2540,9 +2534,9 @@
                             , style-selected
                           :on-click $ fn (e d!)
                             hint-fn $ Fn respo.schema/RespoEvent
-                              Fn AnyEnum $ -> Unit
+                              Fn app.schema/Op $ -> Unit
                               -> Unit
-                            d! $ :: :def-path entry
+                            d! $ app.schema/Op :def-path entry
                             on-close d!
                             d! $ :: :states cursor $ assoc state :query |
                         if
@@ -2563,7 +2557,7 @@
             List $ List Dynamic
             , Number
               Fn
-                Fn AnyEnum $ -> Unit
+                Fn app.schema/Op $ -> Unit
                 -> Unit
               -> respo.schema/Component
         'css-menu $ %{} 'CodeEntry (:doc |)
@@ -2701,7 +2695,7 @@
                       [] idx $ div
                         {} (:class-name css-hover-entry)
                           :on-click $ fn (e d!)
-                            d! $ :: :stack-pointer idx
+                            d! $ app.schema/Op :stack-pointer idx
                           :style $ merge
                             {} (:cursor :pointer) (:padding "|4px 8px") (:border-radius |6px)
                             , selected-style
@@ -2740,11 +2734,11 @@
                         , .unwrap-or |
                     cond
                         and meta? $ = |k key
-                        d! $ :: :pointer-shrink pointer
+                        d! $ app.schema/Op :pointer-shrink pointer
                       (and meta? (= |j key))
-                        d! $ :: :pointer-down pointer
+                        d! $ app.schema/Op :pointer-down pointer
                       (and meta? (= |i key))
-                        d! $ :: :pointer-up pointer
+                        d! $ app.schema/Op :pointer-up pointer
                       true &unit
           :examples $ []
           :schema $ quote $ Fn
@@ -2982,13 +2976,13 @@
                       {} (:CodeEntry schema/CodeEntry) (:FileEntry schema/FileEntry)
                   if (non-nil? compact-files)
                     do
-                      d! $ :: :load-files $ transform-cirru-quoted
+                      d! $ app.schema/Op :load-files $ transform-cirru-quoted
                         decode-map-as compact-files $ Map Tag Dynamic
-                      d! $ :: :ok
+                      d! $ app.schema/Op :ok
                     do (js/console.log "|unknown data:" compact-files)
-                      d! $ :: :warn "|unknown data"
+                      d! $ app.schema/Op :warn "|unknown data"
               .?!catch $ fn (err)
-                d! $ :: :warn $ decode-map-as (js/String err) 'String
+                d! $ app.schema/Op :warn $ decode-map-as (js/String err) 'String
           :examples $ []
           :schema $ quote $ Fn Dynamic Bool (-> Dynamic) (:features :js-ffi)
         'snapshot-key $ %{} 'CodeEntry
@@ -3029,13 +3023,13 @@
             :code $ quote $ let
                 input $ decode-map-as
                   parse-cirru-edn "|{} (:package |app)\n  :files $ {}\n    |app.demo $ %{} :FileEntry (:extra |kept-file)\n      :ns $ %{} :CodeEntry (:doc |namespace) (:schema 'String) (:tests $ [] |kept-test)\n        :code $ quote $ ns app.demo\n      :defs $ {}\n        |demo $ %{} :CodeEntry (:doc |definition) (:schema 'String) (:tests $ [] |kept-test)\n          :code $ quote $ defn demo () |ok"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ transform-cirru-quoted input
                 file $ .unwrap $ app.schema/path-value loaded ([] :files |app.demo)
                 fields $ if (struct? file) (&struct:to-map file) (raise "|Expected loaded file Struct")
                 defs $ decode-map-as
                   .unwrap $ get fields :defs
-                  quote $ Map String Dynamic
+                  Map String Dynamic
                 entry $ .unwrap $ get defs |demo
                 data $ if (struct? entry) (&struct:to-map entry) (raise "|Expected loaded definition Struct")
               assert= (Option :some |app) (get loaded :package)
@@ -3101,7 +3095,7 @@
                       (:some target)
                         dispatch! $ :: :def-path target
                       (:none)
-                        dispatch! $ :: :warn $ str "|not found: " token
+                        dispatch! $ app.schema/Op :warn $ str "|not found: " token
                 _ $ reset! *store $ updater @*store operation
               raise "|Expected one application operation Enum"
             , &unit
@@ -3112,14 +3106,14 @@
                 before @*store
                 raw $ decode-map-as
                   parse-cirru-edn "|{} (:package |app)\n  :files $ {}\n    |app.demo $ %{} :FileEntry\n      :ns $ %{} :CodeEntry\n        :code $ quote $ ns app.demo\n      :defs $ {}\n        |main $ %{} :CodeEntry\n          :code $ quote $ defn main () (helper)\n        |helper $ %{} :CodeEntry\n          :code $ quote $ defn helper () |ok"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
               reset! *store schema/store
               try
                 do
                   dispatch! $ :: :load-files loaded
                   dispatch! $ :: :def-path $ [] |app.demo :defs |main
-                  dispatch! $ :: :effect-goto-def |helper
+                  dispatch! $ app.schema/Op :effect-goto-def |helper
                   assert=
                     Option :some $ [] |app.demo :defs |helper
                     app.schema/path-value @*store $ [] :editor :stack 1
@@ -3411,11 +3405,11 @@
             :code $ quote $ let
                 raw $ decode-map-as
                   parse-cirru-edn "|{} (:package |app) (:extra-root |kept-root)\n  :configs $ {} (:init-fn |app.keep/main)\n  :files $ {}\n    |app.keep $ %{} :FileEntry (:extra |kept-file)\n      :ns $ %{} :CodeEntry (:doc |namespace)\n        :code $ quote $ ns app.keep\n      :defs $ {}\n        |main $ %{} :CodeEntry (:doc |kept-doc) (:schema 'String)\n          :tests $ []\n            {} (:name |returns-label) (:tags $ #{} :unit)\n              :code $ quote $ assert= |old main\n          :code $ quote $ def main |old\n        |gone $ %{} :CodeEntry (:doc |remove-me)\n          :code $ quote $ def gone 1\n        |same $ %{} :CodeEntry (:doc |untouched)\n          :code $ quote $ def same 2\n    |app.meta $ %{} :FileEntry (:extra |old-meta)\n      :ns $ %{} :CodeEntry (:doc |metadata)\n        :code $ quote $ ns app.meta\n      :defs $ {}\n    |app.removed $ %{} :FileEntry\n      :ns $ %{} :CodeEntry (:doc |removed)\n        :code $ quote $ ns app.removed\n      :defs $ {}\n"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
                 before $ decode-map-as
                   .unwrap $ get loaded :files
-                  quote $ Map String Dynamic
+                  Map String Dynamic
                 path $ [] |app.keep :defs |main
                 original $ .unwrap $ schema/definition-at before path
                 changed $ &struct:assoc original :code $ :: 'quote ([] |def |main ||new)
@@ -3434,12 +3428,12 @@
                 patch $ build-patch after before
                 wire $ decode-map-as
                   parse-cirru-edn $ format-cirru-edn patch
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 saved $ apply-patch raw wire
                 restored $ app.fetch/transform-cirru-quoted saved
                 saved-files $ decode-map-as
                   .unwrap $ get saved :files
-                  quote $ Map String Dynamic
+                  Map String Dynamic
                 saved-entry $ .unwrap $ schema/definition-at saved-files path
                 fields $ schema/entry-fields saved-entry
                 noop $ build-patch before before
@@ -3464,12 +3458,12 @@
               assert= true $ contains?
                 decode-map-as
                   .unwrap $ get patch :removed
-                  quote $ Set String
+                  Set String
                 , |app.meta
               assert= true $ contains?
                 decode-map-as
                   .unwrap $ get patch :added
-                  quote $ Map String Dynamic
+                  Map String Dynamic
                 , |app.meta
               assert= ({})
                 .unwrap $ get noop :added
@@ -3524,32 +3518,32 @@
           :examples $ []
           :schema $ quote StructDef
         'Op $ %{} 'CodeEntry
-          :doc "|Application operations the store accepts. Handlers dispatch through AnyEnum because Phlox and Cirru edit commands share the channel."
+          :doc "|Application actions used by UI callbacks. Dispatch also accepts legacy anonymous actions at the Phlox and Respo boundary."
           :code $ quote $ defenum Op
-            :states (List Dynamic) Dynamic
+            :states (List respo.schema/CoordKey) Dynamic
             :ok
             :load-files Dynamic
             :files-synced Dynamic
             :router Dynamic
-            :stack-pointer Dynamic
-            :pointer-down Dynamic
-            :pointer-up Dynamic
-            :pointer-shrink Dynamic
-            :call-cirru-edit Dynamic
-            :cirru-edit-node Dynamic
+            :stack-pointer Number
+            :pointer-down Number
+            :pointer-up Number
+            :pointer-shrink Number
+            :call-cirru-edit cirru-editor.schema/EditOp
+            :cirru-edit-node $ Tuple (List Number) calcit.core/CirruNode
             :def-path Dynamic
-            :focus Dynamic
-            :warn Dynamic
+            :focus $ List Number
+            :warn String
             :add-ns Dynamic
             :rm-ns Dynamic
             :add-def Dynamic
             :rm-def Dynamic
             :mv-ns Dynamic
             :mv-def Dynamic
-            :picker-mode Dynamic
-            :focus-or-pick Dynamic
+            :picker-mode Bool
+            :focus-or-pick $ List Number
             :deps-tree Dynamic
-            :effect-goto-def Dynamic
+            :effect-goto-def String
           :examples $ []
           :schema $ quote EnumDef
         'assoc-definition $ %{} 'CodeEntry
@@ -3706,6 +3700,12 @@
                 raise "|Expected a named Snapshot code entry"
           :examples $ []
           :schema $ quote $ Fn Dynamic String (-> AnyStruct)
+        'replace-node-op $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn replace-node-op (focus node)
+            Op :cirru-edit-node $ decode-map-as ([] focus node)
+              Tuple (List Number) calcit.core/CirruNode
+          :examples $ []
+          :schema $ quote $ Fn (List Number) calcit.core/CirruNode (-> app.schema/Op)
         'store $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def store
             let
@@ -3729,6 +3729,12 @@
                 :deps-tree nil
           :examples $ []
           :schema $ quote $ Map Tag Dynamic
+        'update-token-op $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn update-token-op (focus token)
+            cirru-editor.schema/EditOp :update-token $ decode-map-as ([] focus token)
+              Tuple (List Number) String
+          :examples $ []
+          :schema $ quote $ Fn (List Number) String (-> cirru-editor.schema/EditOp)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.schema
     'app.server $ %{} 'FileEntry
@@ -3795,7 +3801,9 @@
         'start-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn start-server! ()
             reset! *app-server $ Option :some $ serve-http!
-              {} (:port 6101) (:host |0.0.0.0)
+              Option :some $ decode-map-as
+                {} (:port 6101) (:host |0.0.0.0)
+                Map Tag http.core/ServerOptionValue
               fn (req) (on-request req)
             , &unit
           :examples $ []
@@ -3882,7 +3890,7 @@
             :code $ quote $ let
                 raw $ decode-map-as
                   parse-cirru-edn "|{} $ :files $ {}\n  |app.demo $ %{} :FileEntry (:extra |file-kept)\n    :ns $ %{} :CodeEntry (:doc |namespace)\n      :code $ quote $ ns app.demo\n    :defs $ {}\n      |main $ %{} :CodeEntry (:doc |kept-doc) (:schema 'String) (:tests $ [] |kept-test)\n        :code $ quote $ defn main () (println |old)"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
                 path $ [] |app.demo :defs |main
                 initial $ -> schema/store
@@ -4209,7 +4217,7 @@
             :code $ quote $ let
                 raw $ decode-map-as
                   parse-cirru-edn "|{} $ :files $ {}\n  |app.demo $ %{} :FileEntry (:extra |kept-file)\n    :ns $ %{} :CodeEntry (:doc |namespace)\n      :code $ quote $ ns app.demo\n    :defs $ {}\n      |main $ %{} :CodeEntry (:doc |kept-doc) (:schema 'String) (:tests $ [] |kept-test)\n        :code $ quote $ defn main () (println |old)"
-                  quote $ Map Tag Dynamic
+                  Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
                 initial $ assoc schema/store :files $ .unwrap (get loaded :files)
                 run $ fn (state operation)
