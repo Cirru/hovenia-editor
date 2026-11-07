@@ -623,7 +623,7 @@
                             on-close d!
                           true nil
                         , &unit
-                  =< nil 16
+                  space-y 16
                   div
                     {} $ :style ui/row-middle
                     button $ {} (:class-name css/button) (:inner-text |Run)
@@ -641,7 +641,7 @@
                             d! $ :: :warn $ str "|invalid command:" code
                           on-close d!
                         , &unit
-                    =< 16 nil
+                    space-x 16
                     if (list? def-path)
                       list->
                         {} $ :style $ {} (:line-height |20px)
@@ -654,7 +654,7 @@
                                 -> Unit
                               set-box-text! (str piece) d!
                               , &unit
-                  =< nil 8
+                  space-y 8
                   comp-command-tips $ fn (v d!)
                     hint-fn $ Fn String
                       Fn AnyEnum $ -> Unit
@@ -859,7 +859,7 @@
           :require (respo-ui.core :as ui)
             respo-ui.core :refer $ hsl
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-            respo.comp.space :refer $ =<
+            respo.comp.space :refer $ space-x space-y
             app.config :refer $ dev? api-host mocked?
             app.widget :as widget
             app.fetch :refer $ load-files!
@@ -2193,7 +2193,7 @@
           :require (respo-ui.core :as ui)
             respo-ui.core :refer $ hsl
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-            respo.comp.space :refer $ =<
+            respo.comp.space :refer $ space-x space-y
             app.config :refer $ dev? api-host
             js-ffi.browser :as browser
     'app.comp.nav $ %{} 'FileEntry
@@ -2217,7 +2217,7 @@
                         :on-click $ fn (e d!)
                           d! $ :: :states cursor $ assoc state :ns ns
                       <> $ str ns
-                =< 8 nil
+                space-x 8
                 if-let
                   ns $ get state :ns
                   if-let
@@ -2236,7 +2236,7 @@
                               d! $ :: :def-path $ [] ns :ns
                           <> (str ns)
                             {} $ :font-family ui/font-code
-                        =< nil 8
+                        space-y 8
                         list-> ({})
                           -> defs keys &set:to-list sort $ map $ fn (def-name)
                             [] def-name $ div
@@ -2318,7 +2318,7 @@
                           Fn AnyEnum $ -> Unit
                           -> Unit
                         on-close d!
-                  =< nil 8
+                  space-y 8
                   if (blank? query) (comp-files-entry cursor state files on-close) (comp-search-entry cursor state entries select-idx on-close)
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic) (Map String Dynamic)
@@ -2401,7 +2401,7 @@
                               Map String Dynamic
                             , d!
                       Option :none
-                    =< 8 nil
+                    space-x 8
                     a $ {} (:inner-text |Command)
                       :class-name $ str-spaced css/link css/font-fancy
                       :on-click $ fn (e d!)
@@ -2433,7 +2433,7 @@
                             -> Unit
                           d! $ :: :warn nil
                       <> warning
-                    =< 16 nil
+                    space-x 16
                     a $ {} (:class-name css/link) (:inner-text "|Try 6011")
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
@@ -2553,7 +2553,7 @@
                             , "| :ns"
                           div ({})
                             <> $ str $ .unwrap-or (last entry) |
-                            =< 8 nil
+                            space-x 8
                             <>
                               str $ .unwrap-or (first entry) |
                               {} (:font-size 10)
@@ -2667,7 +2667,7 @@
           :require (respo-ui.core :as ui)
             respo-ui.core :refer $ hsl
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-            respo.comp.space :refer $ =<
+            respo.comp.space :refer $ space-x space-y
             app.config :refer $ dev? api-host
             app.widget :as widget
             respo-alerts.core :refer $ use-prompt use-modal
@@ -2755,7 +2755,7 @@
           :require (respo-ui.core :as ui)
             respo-ui.core :refer $ hsl
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input a list->
-            respo.comp.space :refer $ =<
+            respo.comp.space :refer $ space-x space-y
             app.widget :as widget
             app.comp.key-event :refer $ comp-key-event
             app.analyze :refer $ analyze-deps
@@ -3203,7 +3203,7 @@
             app.comp.nav :refer $ comp-navbar on-save
             respo.core :refer $ defcomp defeffect <> >> div button textarea span input
             respo.core :as respo
-            respo.comp.space :refer $ =<
+            respo.comp.space :refer $ space-x space-y
             app.fetch :refer $ load-files!
             app.analyze :refer $ lookup-target-def
             respo.ffi.browser :as respo-browser
