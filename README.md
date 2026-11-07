@@ -9,9 +9,22 @@ Mocked example(with fake API) http://repo.cirru.org/hovenia-editor/?mocked=true 
 
 ![demo of hovenia-editor](./assets/demo.png)
 
+### 迁移状态
+
+已配对正式 Calcit / `@calcit/procs` 0.36.0、Respo 0.19.4、Phlox 0.9.1 和 Cirru Editor 0.7.1。
+
+```sh
+yarn build
+node --test tests/editor-layout.test.mjs
+calcit calcit.cirru test --require-match
+```
+
+载入时同时接受当前 Snapshot 的 symbol 键和旧格式的 string 键，编辑器内部统一按 string 寻址。把修改写回 symbol 键 Snapshot 的流程尚未验证。
+
 ### Usage
 
-Install dependencies in the Hovenia checkout with Calcit/procs 0.27.0,
+The following workflow describes the original deployment, not acceptance of this
+unfinished candidate. Original main used Calcit/procs 0.27.0,
 Node 24 and Yarn 4.18.0:
 
 ```bash
@@ -27,7 +40,9 @@ calcit /absolute/path/to/hovenia-editor/calcit.cirru --entry server
 ```
 
 The existing server reads/writes the edited project's `calcit.cirru` and writes
-its incremental `.calcit-inc.cirru`; its code and protocol are unchanged here.
+its old incremental `.calcit-inc.cirru`. HTTP paths and port remain unchanged;
+the candidate refactors pure patch handling, but file I/O and compiler watch
+integration above are not accepted yet.
 Maintain only canonical `calcit.cirru` / `deps.cirru` in Hovenia itself.
 
 Use Web UI from http://repo.cirru.org/hovenia-editor/ .
@@ -65,8 +80,8 @@ action is pinned to the reviewed release commit and handles upload/public
 verification through the existing `public-base-url`, without another script.
 The original upload policy and server `dist/*` source/destination remain; COS
 only handles frontend resources, not the native editor server. Snapshot, editor
-and server code are unchanged. PR success is not production/editor acceptance.
-This workflow update retains Calcit/procs 0.27.0 and the existing non-strict
+and server code were unchanged by the previous workflow-only update. PR success is not production/editor acceptance.
+That previous workflow update retained Calcit/procs 0.27.0 and the existing non-strict
 Caps resolution policy; it does not certify a completed 0.28 source migration
 or a conflict-free strict dependency graph.
 

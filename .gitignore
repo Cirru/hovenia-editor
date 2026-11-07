@@ -16,3 +16,4 @@ sandbox/
 
 .calcit-snippets/.pnp.cjs
 .pnp.loader.mjs
+.calcit/
