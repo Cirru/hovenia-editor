@@ -51,7 +51,7 @@ jobs:
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        test "$(calcit --version)" = "0.37.0"
+        test "$(calcit --version)" = "0.38.0"
         test -f calcit.cirru
         test -f deps.cirru
         test ! -e compact.cirru
