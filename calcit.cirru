@@ -2861,7 +2861,7 @@
                         []
                       []
                     selected-entry $ if (empty? def-path) (Option :none)
-                      definition-at files $ decode-map-as def-path $ List Dynamic
+                      definition-at files $ decode-map-as def-path $ List app.schema/DefinitionPathPart
                   match selected-entry
                     (:none)
                       text $ {} (:text "|No code selected")
@@ -3518,6 +3518,7 @@
         'DefinitionPathPart $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defunion DefinitionPathPart String Tag
           :examples $ []
+          :schema $ quote UnionDef
         'FileEntry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct FileEntry (:ns Dynamic) (:defs Dynamic)
           :examples $ []
@@ -3581,7 +3582,7 @@
                     raise "|Expected a Snapshot file Struct"
                 raise "|Expected a file map and definition Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic) Dynamic
+          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart) Dynamic
             -> $ Map Dynamic Dynamic
         'definition-at $ %{} 'CodeEntry
           :doc "|显式沿文件 Map 和 FileEntry Struct 读取 ns/defs 路径；只验证实际使用的节点，不对每次按键遍历整个文件图，也不让 get-in 跨 Struct。"
@@ -3610,7 +3611,7 @@
                         _ $ raise "|Unknown definition path kind"
                 raise "|Expected a Snapshot file map"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic)
+          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart)
             -> $ Option Dynamic
         'dissoc-definition $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dissoc-definition (files path)
@@ -3640,7 +3641,7 @@
                   _ $ raise "|Unknown definition path kind"
                 raise "|Expected a Snapshot file map"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic)
+          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart)
             -> $ Map Dynamic Dynamic
         'entry-fields $ %{} 'CodeEntry
           :doc "|只在原生/JS Snapshot 数据入口检查实际 Struct，再以开放字段 Map 读取；不是伪装成完整 CodeEntry/FileEntry 的断言。"
@@ -3855,7 +3856,7 @@
                   .unwrap-or
                     app.schema/path-value editor $ [] :stack pointer
                     []
-                  List Dynamic
+                  List app.schema/DefinitionPathPart
                 files $ .unwrap-or (get store :files) ({})
                 selected $ if (empty? path) (Option :none) (schema/definition-at files path)
               match selected
@@ -3931,13 +3932,11 @@
         'replace-node $ %{} 'CodeEntry
           :doc "|按 Number 游标替换选定代码节点，经显式 Struct 寻址回写；不会将路径穿过 Struct 或丢弃定义的 schema/tests 等字段。"
           :code $ quote $ defn replace-node (store focus code)
-            if-not
-              or (string? code) (list? code)
-              raise "|Expected a Cirru String token or expression List"
-            if
-              and (empty? focus)
-                not $ list? code
-              raise "|The definition code root must remain an expression List"
+            when (empty? focus)
+              match code
+                (String _token)
+                  raise "|The definition code root must remain an expression List"
+                (List _expression) &unit
             let
                 editor $ decode-map-as
                   .unwrap-or (get store :editor) ({})
@@ -3949,7 +3948,7 @@
                   .unwrap-or
                     app.schema/path-value editor $ [] :stack pointer
                     []
-                  List Dynamic
+                  List app.schema/DefinitionPathPart
                 files $ .unwrap-or (get store :files) ({})
                 selected $ if (empty? path) (Option :none) (schema/definition-at files path)
               match selected
@@ -3963,7 +3962,7 @@
                       assoc store :files $ schema/assoc-definition files path next-entry
                     assoc store :warning $ str "|target not found at: " path
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (List Number) Dynamic
+          :schema $ quote $ Fn (Map Tag Dynamic) (List Number) calcit.core/CirruNode
             -> $ Map Tag Dynamic
         'updater $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn updater (store op)
@@ -4046,11 +4045,13 @@
                     focus $ decode-map-as
                       .unwrap $ get args 0
                       List Number
-                    code $ .unwrap $ get args 1
+                    code $ decode-map-as
+                      .unwrap $ get args 1
+                      , calcit.core/CirruNode
                   replace-node store focus code
               (:def-path op-data)
                 let
-                    path $ decode-map-as op-data $ List Dynamic
+                    path $ decode-map-as op-data $ List app.schema/DefinitionPathPart
                     editor $ decode-map-as
                       .unwrap-or (get store :editor) ({})
                       Map Tag Dynamic
@@ -4059,13 +4060,12 @@
                       , 'Number
                     stack $ decode-map-as
                       .unwrap-or (get editor :stack) ([])
-                      List Dynamic
+                      List $ List app.schema/DefinitionPathPart
                     next-pointer $ inc pointer
                     next-editor $ if
                       and (contains? stack next-pointer)
                         match (get stack next-pointer)
-                          (:some existing)
-                            = path $ decode-map-as existing $ List Dynamic
+                          (:some existing) (= path existing)
                           (:none) false
                       assoc editor :pointer next-pointer
                       -> editor
@@ -4101,7 +4101,7 @@
                       List String
                     ns-name $ .unwrap $ get names 0
                     name $ .unwrap $ get names 1
-                    path $ [] ns-name :defs name
+                    path $ decode-map-as ([] ns-name :defs name) (List app.schema/DefinitionPathPart)
                     files $ .unwrap-or (get store :files) ({})
                   if
                     .some? $ schema/definition-at files $ [] ns-name :ns
@@ -4115,9 +4115,11 @@
                     names $ decode-map-as
                       or op-data $ [] |TODO_NS |TODO_DEF
                       List String
-                    path $ []
-                      .unwrap $ get names 0
-                      , :defs $ .unwrap (get names 1)
+                    path $ decode-map-as
+                      []
+                        .unwrap $ get names 0
+                        , :defs $ .unwrap $ get names 1
+                      List app.schema/DefinitionPathPart
                   assoc store :files $ schema/dissoc-definition
                     .unwrap-or (get store :files) ({})
                     , path
@@ -4150,12 +4152,16 @@
                     to $ split
                       .unwrap $ get names 1
                       , |/
-                    from-path $ []
-                      .unwrap $ get from 0
-                      , :defs $ .unwrap (get from 1)
-                    to-path $ []
-                      .unwrap $ get to 0
-                      , :defs $ .unwrap (get to 1)
+                    from-path $ decode-map-as
+                      []
+                        .unwrap $ get from 0
+                        , :defs $ .unwrap $ get from 1
+                      List app.schema/DefinitionPathPart
+                    to-path $ decode-map-as
+                      []
+                        .unwrap $ get to 0
+                        , :defs $ .unwrap $ get to 1
+                      List app.schema/DefinitionPathPart
                     files $ .unwrap-or (get store :files) ({})
                   if (= from-path to-path) store $ match (schema/definition-at files from-path)
                     (:none) (assoc store :warning "|unknown source definition")
@@ -4194,7 +4200,7 @@
                           .unwrap-or
                             app.schema/path-value editor $ [] :stack pointer
                             []
-                          List Dynamic
+                          List app.schema/DefinitionPathPart
                         files $ .unwrap-or (get store :files) ({})
                       match
                         if (empty? path) (Option :none) (schema/definition-at files path)
@@ -4208,7 +4214,7 @@
                                   focus $ decode-map-as
                                     .unwrap-or (get editor :focus) ([])
                                     List Number
-                                  changed $ replace-node store focus item
+                                  changed $ replace-node store focus $ decode-map-as item calcit.core/CirruNode
                                 assoc-in changed ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) picked
               (:deps-tree op-data) (assoc store :deps-tree op-data)
