@@ -770,8 +770,10 @@
                 |rm-ns $ d! $ app.schema/Op :rm-ns p1
                 |add-def $ d! $ app.schema/Op :add-def ([] p1 p2)
                 |rm-def $ d! $ app.schema/Op :rm-def ([] p1 p2)
-                |mv-ns $ d! $ app.schema/Op :mv-ns ([] p1 p2)
-                |mv-def $ d! $ app.schema/Op :mv-def ([] p1 p2)
+                |mv-ns $ d! $ app.schema/Op :mv-ns
+                  [] p1 $ decode-map-as p2 String
+                |mv-def $ d! $ app.schema/Op :mv-def
+                  [] p1 $ decode-map-as p2 String
                 |load $ load-files! d! false
                 |save $ on-save files
                   decode-map-as
@@ -2227,7 +2229,7 @@
                           {}
                             :style $ {} $ :cursor :pointer
                             :on-click $ fn (e d!)
-                              d! $ app.schema/Op :def-path $ [] ns :ns
+                              d! $ app.schema/Op :def-path $ decode-map-as ([] ns :ns) (List app.schema/DefinitionPathPart)
                           <> (str ns)
                             {} $ :font-family ui/font-code
                         space-y 8
@@ -2240,7 +2242,7 @@
                                   hint-fn $ Fn respo.schema/RespoEvent
                                     Fn app.schema/Op $ -> Unit
                                     -> Unit
-                                  d! $ app.schema/Op :def-path $ [] ns :defs def-name
+                                  d! $ app.schema/Op :def-path $ decode-map-as ([] ns :defs def-name) (List app.schema/DefinitionPathPart)
                                   on-close d!
                               <> $ str def-name
                     <> |
@@ -2298,7 +2300,7 @@
                           |Enter $ if-let
                             target $ get entries select-idx
                             do
-                              d! $ app.schema/Op :def-path target
+                              d! $ app.schema/Op :def-path $ decode-map-as target (List app.schema/DefinitionPathPart)
                               on-close d!
                               d! $ :: :states cursor $ assoc state :query |
                           |Escape $ on-close d!
@@ -2536,7 +2538,7 @@
                             hint-fn $ Fn respo.schema/RespoEvent
                               Fn app.schema/Op $ -> Unit
                               -> Unit
-                            d! $ app.schema/Op :def-path entry
+                            d! $ app.schema/Op :def-path $ decode-map-as entry (List app.schema/DefinitionPathPart)
                             on-close d!
                             d! $ :: :states cursor $ assoc state :query |
                         if
@@ -3513,6 +3515,9 @@
           :code $ quote $ defstruct CodeEntry (:doc Dynamic) (:code Dynamic)
           :examples $ []
           :schema $ quote StructDef
+        'DefinitionPathPart $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defunion DefinitionPathPart String Tag
+          :examples $ []
         'FileEntry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct FileEntry (:ns Dynamic) (:defs Dynamic)
           :examples $ []
@@ -3522,27 +3527,27 @@
           :code $ quote $ defenum Op
             :states (List respo.schema/CoordKey) Dynamic
             :ok
-            :load-files Dynamic
-            :files-synced Dynamic
-            :router Dynamic
+            :load-files $ Map Tag Dynamic
+            :files-synced $ Map String Dynamic
+            :router $ Map Tag Dynamic
             :stack-pointer Number
             :pointer-down Number
             :pointer-up Number
             :pointer-shrink Number
             :call-cirru-edit cirru-editor.schema/EditOp
             :cirru-edit-node $ Tuple (List Number) calcit.core/CirruNode
-            :def-path Dynamic
+            :def-path $ List app.schema/DefinitionPathPart
             :focus $ List Number
             :warn String
             :add-ns Dynamic
             :rm-ns Dynamic
             :add-def Dynamic
             :rm-def Dynamic
-            :mv-ns Dynamic
-            :mv-def Dynamic
+            :mv-ns $ List String
+            :mv-def $ List String
             :picker-mode Bool
             :focus-or-pick $ List Number
-            :deps-tree Dynamic
+            :deps-tree $ Map (List String) (List Dynamic)
             :effect-goto-def String
           :examples $ []
           :schema $ quote EnumDef
