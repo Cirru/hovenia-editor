@@ -127,6 +127,7 @@ test("cyclic dependency graph draws numeric curves and navigates with an unwrapp
 
 test("default container selects an actual Snapshot Struct without crossing it as a Map", async () => {
   const { comp_container } = await import("../js-out/app.container.mjs");
+  const { updater } = await import("../js-out/app.updater.mjs");
   const schema = await import("../js-out/app.schema.mjs");
   const p = await import("@calcit/procs");
   const map = p._$n__$M_, fromMap = p._$n_struct_$o_from_map;
@@ -137,6 +138,8 @@ test("default container selects an actual Snapshot Struct without crossing it as
   const store = map(t.files, map("app.demo", file), t.editor,
     map(t.stack, list(list("app.demo", t.defs, "demo")), t.pointer, 0, t.focus, list()));
   assert.deepEqual(texts(toJS(comp_container(store))), ["def", "demo", "1"]);
+  const changed = updater(store, schema.replace_node_op(list(2), "2"));
+  assert.deepEqual(texts(toJS(comp_container(changed))), ["def", "demo", "2"]);
   assert.deepEqual(texts(toJS(comp_container(schema.store))), ["No code selected"]);
 });
 
