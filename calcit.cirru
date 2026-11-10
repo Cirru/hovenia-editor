@@ -700,7 +700,7 @@
           :code $ quote $ defstyle css-command-box
             {} $ |$0 $ {} (:font-family ui/font-code) (:line-height |40px) (:height |40px)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'css-path-tag $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-path-tag
             {}
@@ -708,7 +708,7 @@
                 :background-color $ hsl 200 50 70
               |$0:hover $ {} $ :background-color (hsl 200 50 60)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'css-tip $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-tip
             {}
@@ -717,7 +717,7 @@
                 :cursor :pointer
               |&:hover $ {} $ :opacity 1
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'effect-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defeffect effect-focus () (action el at?)
             if (= :mount action)
@@ -2570,24 +2570,24 @@
               :border $ str "|1px solid " $ hsl 0 0 30
               :background-color $ hsl 0 0 20
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'css-navbar $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-navbar
             {} $ |& $ {} (:padding "|0px 8px") (:position :absolute) (:top 16) (:left 0) (:width |100%) (:height 0)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'css-notice-area $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-notice-area
             {} $ |& $ {} (:position :fixed) (:bottom 0) (:left 0) (:font-size 14) (:font-family ui/font-code) (:padding "|8px 16px")
               :background-color $ hsl 0 0 0
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'css-query-box $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-query-box
             {} $ |& $ merge ui/input
               {} (:background-color :transparent) (:font-family ui/font-code) (:color :white)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'effect-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defeffect effect-focus (query) (action el at?)
             .?!select $ js/document.querySelector query
@@ -3836,7 +3836,7 @@
               |$0 $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height |2) (:padding "|0 8px")
               |$0:hover $ {} $ :background-color (hsl 0 0 100)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.style
           :require
