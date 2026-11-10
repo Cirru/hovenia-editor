@@ -51,7 +51,7 @@ jobs:
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        test "$(calcit --version)" = "0.38.0"
+        test "$(calcit --version)" = "0.40.0"
         test -f calcit.cirru
         test -f deps.cirru
         test ! -e compact.cirru
@@ -130,6 +130,7 @@ jobs:
       uses: worktools/cos-upload-action@8c4f3d09a4478b0d4c8698ffb94759b41831cba8 # v1.3.0
       with:
         source-dir: dist
+        part-size: '1'
         bucket: ${{ secrets.COS_BUCKET }}
         region: ap-shanghai
         prefix: ${{ steps.asset-path.outputs.prefix }}

@@ -768,8 +768,10 @@
                   , .unwrap-or |
                 |add-ns $ d! $ app.schema/Op :add-ns p1
                 |rm-ns $ d! $ app.schema/Op :rm-ns p1
-                |add-def $ d! $ app.schema/Op :add-def ([] p1 p2)
-                |rm-def $ d! $ app.schema/Op :rm-def ([] p1 p2)
+                |add-def $ d! $ app.schema/Op :add-def
+                  [] p1 $ decode-map-as p2 String
+                |rm-def $ d! $ app.schema/Op :rm-def
+                  [] p1 $ decode-map-as p2 String
                 |mv-ns $ d! $ app.schema/Op :mv-ns
                   [] p1 $ decode-map-as p2 String
                 |mv-def $ d! $ app.schema/Op :mv-def
@@ -3056,7 +3058,7 @@
                 &struct:assoc entry :code $ :: 'quote $ &cirru-quote:to-list quoted
               raise "|Expected a Snapshot CodeEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct)
+          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.fetch
           :require
@@ -3481,6 +3483,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic)
             -> $ Map String AnyStruct
+            :open :reflect
         'serialize-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-entry (entry)
             let
@@ -3490,7 +3493,7 @@
                   , 'CirruQuote
               if (struct? entry) (&struct:assoc entry :code code) (raise "|Expected a Snapshot CodeEntry Struct")
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct)
+          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
         'serialize-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-file (file)
             let
@@ -3505,7 +3508,7 @@
                   &struct:assoc :defs $ serialize-defs defs
                 raise "|Expected a Snapshot FileEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct)
+          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.persistence
           :require $ app.schema :as schema
@@ -3540,10 +3543,10 @@
             :def-path $ List app.schema/DefinitionPathPart
             :focus $ List Number
             :warn String
-            :add-ns Dynamic
-            :rm-ns Dynamic
-            :add-def Dynamic
-            :rm-def Dynamic
+            :add-ns String
+            :rm-ns String
+            :add-def $ List String
+            :rm-def $ List String
             :mv-ns $ List String
             :mv-def $ List String
             :picker-mode Bool
@@ -3705,7 +3708,7 @@
                 &struct:assoc entry :code $ :: 'quote $ assoc tree 1 name
                 raise "|Expected a named Snapshot code entry"
           :examples $ []
-          :schema $ quote $ Fn Dynamic String (-> AnyStruct)
+          :schema $ quote $ Fn Dynamic String (-> AnyStruct) (:open :reflect)
         'replace-node-op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn replace-node-op (focus node)
             Op :cirru-edit-node $ decode-map-as ([] focus node)
@@ -3891,6 +3894,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
             -> $ Map Tag Dynamic
+            :open :decode
           :tests $ [] $ %{} 'TestEntry
             :name |edits-copy-and-node-replacement-preserve-metadata
             :code $ quote $ let
@@ -4224,6 +4228,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
             -> $ Map Tag Dynamic
+            :open :decode
           :tests $ [] $ %{} 'TestEntry (:name |mutations-preserve-metadata-and-history)
             :code $ quote $ let
                 raw $ decode-map-as
