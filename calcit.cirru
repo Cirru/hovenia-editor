@@ -2765,23 +2765,23 @@
               .unwrap-or (get-env |host) |localhost
               , |: $ .unwrap-or (get-env |port) |6101
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'api-host-6011 $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-host-6011
             str |http://
               .unwrap-or (get-env |host) |localhost
               , |: $ .unwrap-or (get-env |port) |6011
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'code-font $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def code-font "|Roboto Mono, monospace"
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'cors-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def cors-headers
             {} (:Content-Type |data/cirru-edn) (:Access-Control-Allow-Origin |*) (:Access-Control-Allow-Methods |*)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
         'dot-radius $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def dot-radius 4
           :examples $ []
@@ -2802,7 +2802,7 @@
           :code $ quote $ def mocked?
             &= |true $ .unwrap-or (get-env |mocked) |false
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote Bool
         'read-window-width $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn read-window-width () (decode-map-as js/window.innerWidth 'Number)
           :examples $ []
@@ -2811,7 +2811,7 @@
           :code $ quote $ def site
             {} (:title |Phlox) (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |phlox-workflow)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
         'twist-distance $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def twist-distance
             * 0.8 $ read-window-width
