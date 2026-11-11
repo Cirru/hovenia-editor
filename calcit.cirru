@@ -1346,7 +1346,7 @@
                 {} $ :on-keyboard $ {}
                   :down $ fn (e d!)
                     hint-fn $ Fn (Map Tag Dynamic)
-                      Fn app.schema/Op $ -> Unit
+                      Fn schema/Op $ -> Unit
                       -> Unit
                       :features :js-ffi
                     let
@@ -1546,7 +1546,7 @@
             :code $ quote $ let
                 events $ ref $ decode-map-as ([]) (List app.schema/Op)
                 capture $ fn (operation)
-                  hint-fn $ Fn app.schema/Op $ -> Unit
+                  hint-fn $ Fn schema/Op $ -> Unit
                   swap! events conj operation
                   , &unit
                 focus $ [] 1
@@ -1696,7 +1696,7 @@
               hint-fn $ Fn
                 List $ List Dynamic
                 List Dynamic
-                , Number Number Number Number (Option Number) Bool (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+                , Number Number Number Number (Option Number) Bool (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
                   let
@@ -1715,7 +1715,7 @@
                         :on $ {} $ :pointertap
                           fn (e d!)
                             hint-fn $ Fn Dynamic
-                              Fn app.schema/Op $ -> Unit
+                              Fn schema/Op $ -> Unit
                               -> Unit
                             on-expr-click e xs coord d!
                       if focused? shape-focus $ container $ {}
@@ -1798,7 +1798,7 @@
               hint-fn $ Fn
                 List $ List Dynamic
                 List Dynamic
-                , Number Number Number Number Number Bool (Option Number) (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+                , Number Number Number Number Number Bool (Option Number) (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
                   let
@@ -1815,7 +1815,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn app.schema/Op $ -> Unit
+                                Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -1860,7 +1860,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if focused? shape-focus $ container $ {}
@@ -1891,7 +1891,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if (= next-coord focus) shape-focus $ container $ {}
@@ -1969,7 +1969,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn app.schema/Op $ -> Unit
+                                      Fn schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2008,7 +2008,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn app.schema/Op $ -> Unit
+                                      Fn schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2043,7 +2043,7 @@
                     :on $ {} $ :pointertap
                       fn (e d!)
                         hint-fn $ Fn Dynamic
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                           :features :js-ffi
                         if
@@ -2099,7 +2099,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn app.schema/Op $ -> Unit
+                                Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -2168,7 +2168,7 @@
                 stored $ aget el |_dirtyEventListener
                 handler $ if (js-present? stored) (browser/event-listener-host stored)
                   fn (event)
-                    hint-fn $ Fn js-ffi.browser/EventHost (-> Unit) (:features :js-ffi)
+                    hint-fn $ Fn browser/EventHost (-> Unit) (:features :js-ffi)
                     let
                         keyboard $ browser/keyboard-event-host event
                         key $ keyboard :key
@@ -2242,7 +2242,7 @@
                                 :style $ merge $ {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
                                 :on-click $ fn (e d!)
                                   hint-fn $ Fn respo.schema/RespoEvent
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   d! $ app.schema/Op :def-path $ decode-map-as ([] ns :defs def-name) (List app.schema/DefinitionPathPart)
                                   on-close d!
@@ -2288,7 +2288,7 @@
                       :autofocus true
                       :on-keydown $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         match
                             app.schema/event-field e :key
@@ -2313,7 +2313,7 @@
                         :color $ hsl 0 100 30
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         on-close d!
                   space-y 8
@@ -2343,7 +2343,7 @@
                     :render $ fn (on-close)
                       hint-fn $ Fn
                         Fn
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         -> respo.schema/Component
                       comp-command (>> states :command) store on-close
@@ -2368,7 +2368,7 @@
                     :inner-text |Hovernia
                     :on-click $ fn (e d!)
                       hint-fn $ Fn respo.schema/RespoEvent
-                        Fn app.schema/Op $ -> Unit
+                        Fn schema/Op $ -> Unit
                         -> Unit
                       d! $ :: :states cursor $ assoc state :menu? true
                       d! $ app.schema/Op :router $ {} (:name :editor)
@@ -2386,7 +2386,7 @@
                         :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           on-save
                             decode-map-as
@@ -2404,7 +2404,7 @@
                       :class-name $ str-spaced css/link css/font-fancy
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         .show command-plugin d!
                         , &unit
@@ -2427,7 +2427,7 @@
                       {} (:style style-error)
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           d! $ app.schema/Op :ok
                       <> warning
@@ -2435,7 +2435,7 @@
                     a $ {} (:class-name css/link) (:inner-text "|Try 6011")
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         load-files! d! true
                         , &unit
@@ -2465,7 +2465,7 @@
                   , None
                 comp-key-event $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn app.schema/Op $ -> Unit
+                    Fn schema/Op $ -> Unit
                     -> Unit
                   cond
                       and
@@ -2538,7 +2538,7 @@
                             , style-selected
                           :on-click $ fn (e d!)
                             hint-fn $ Fn respo.schema/RespoEvent
-                              Fn app.schema/Op $ -> Unit
+                              Fn schema/Op $ -> Unit
                               -> Unit
                             d! $ app.schema/Op :def-path $ decode-map-as entry (List app.schema/DefinitionPathPart)
                             on-close d!
@@ -3691,6 +3691,13 @@
           :schema $ quote $ Macro (Expr String)
             -> $ Expr String
             :capabilities :fs-read
+        'map-field $ %{} 'CodeEntry
+          :doc "|Read an optional Map field and preserve the value type."
+          :code $ quote $ defn map-field (data key) (get data key)
+          :examples $ []
+          :schema $ quote $ Fn (Map K V) K
+            -> $ Option V
+            :generics K V
         'path-value $ %{} 'CodeEntry
           :doc "|Nested read for optional paths: a missing path or a wrong shape reads as None."
           :code $ quote $ defn path-value (base path)
@@ -3854,17 +3861,17 @@
           :code $ quote $ defn apply-cirru-edit (store operation)
             let
                 editor $ decode-map-as
-                  .unwrap-or (get store :editor) ({})
+                  .unwrap-or (schema/map-field store :editor) ({})
                   Map Tag Dynamic
                 pointer $ decode-map-as
-                  .unwrap-or (get editor :pointer) 0
+                  .unwrap-or (schema/map-field editor :pointer) 0
                   , 'Number
                 path $ decode-map-as
                   .unwrap-or
                     app.schema/path-value editor $ [] :stack pointer
                     []
                   List app.schema/DefinitionPathPart
-                files $ .unwrap-or (get store :files) ({})
+                files $ .unwrap-or (schema/map-field store :files) ({})
                 selected $ if (empty? path) None $ schema/definition-at files path
               match selected
                 (:none)
@@ -3873,18 +3880,18 @@
                   if (struct? entry)
                     let
                         previous-focus $ decode-map-as
-                          .unwrap-or (get editor :focus) ([])
+                          .unwrap-or (schema/map-field editor :focus) ([])
                           List Number
                         snapshot $ {}
                           :tree $ schema/entry-tree entry
-                          :clipboard $ .unwrap-or (get editor :clipboard) ([])
+                          :clipboard $ .unwrap-or (schema/map-field editor :clipboard) ([])
                           :focus previous-focus
                         result $ cirru-edit snapshot operation
                         tree $ decode-map-as
-                          .unwrap $ get result :tree
+                          .unwrap $ schema/map-field result :tree
                           List calcit.core/CirruNode
                         focus $ decode-map-as
-                          match (get result :focus)
+                          match (schema/map-field result :focus)
                             (:some value) (or value previous-focus)
                             (:none) previous-focus
                           List Number
@@ -3892,8 +3899,8 @@
                       -> store
                         assoc :files $ schema/assoc-definition files path next-entry
                         assoc :editor $ -> editor (assoc :focus focus)
-                          assoc :clipboard $ .unwrap-or (get result :clipboard) ([])
-                        assoc :warning $ .unwrap-or (get result :warning) |
+                          assoc :clipboard $ .unwrap-or (schema/map-field result :clipboard) ([])
+                        assoc :warning $ .unwrap-or (schema/map-field result :warning) |
                     assoc store :warning $ str "|target not found at: " path
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
@@ -3908,7 +3915,7 @@
                 loaded $ app.fetch/transform-cirru-quoted raw
                 path $ [] |app.demo :defs |main
                 initial $ -> schema/store
-                  assoc :files $ .unwrap $ get loaded :files
+                  assoc :files $ .unwrap $ schema/map-field loaded :files
                   assoc :editor $ {} (:pointer 0)
                     :stack $ [] path
                     :focus $ [] 3 1
@@ -3920,16 +3927,16 @@
                   :: :command-copy $ [] 3
                 replaced $ updater copied $ :: :cirru-edit-node
                   [] ([] 3 1) ||again
-                files $ .unwrap $ get replaced :files
+                files $ .unwrap $ schema/map-field replaced :files
                 entry $ .unwrap $ schema/definition-at files path
                 fields $ schema/entry-fields entry
               assert= (Some ||again)
                 app.schema/path-value (schema/entry-tree entry) ([] 3 1)
-              assert= (Some |kept-doc) (get fields :doc)
-              assert= (Some 'String) (get fields :schema)
+              assert= (Some |kept-doc) (schema/map-field fields :doc)
+              assert= (Some 'String) (schema/map-field fields :schema)
               assert=
                 Some $ [] |kept-test
-                get fields :tests
+                schema/map-field fields :tests
               assert=
                 Some $ [] |println ||new
                 app.schema/path-value replaced $ [] :editor :clipboard
