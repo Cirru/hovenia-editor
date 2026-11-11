@@ -79,17 +79,9 @@
               assert= None $ lookup-target-def |missing files ([] |app.demo :defs |main) |app
         'dependency-key $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dependency-key (dependency)
-            let
-                parts $ decode-map-as dependency $ List Dynamic
-              []
-                decode-map-as
-                  .unwrap $ get parts 0
-                  , 'String
-                decode-map-as
-                  .unwrap $ get parts 1
-                  , 'String
+            let[] (ns name _kind) dependency $ [] ns name
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn (Tuple String String Tag)
             -> $ List String
         'digit-pattern $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn digit-pattern () (new js/RegExp |^\d$)
@@ -344,8 +336,8 @@
                     fn (acc dependency)
                       hint-fn $ Fn
                         List $ Map Tag Dynamic
-                        , Dynamic $ ->
-                          List $ Map Tag Dynamic
+                        Tuple String String Tag
+                        -> $ List $ Map Tag Dynamic
                       let
                           child-entry $ dependency-key dependency
                         if (contains? deps-tree child-entry)
@@ -355,17 +347,21 @@
               assoc result :size $ count-tree result
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             Set $ List String
             -> $ Map Tag Dynamic
           :tests $ [] $ %{} 'TestEntry (:name |keeps-cycle-marker-and-skips-external-nodes)
             :code $ quote $ let
-                graph $ {}
-                    [] |app.main |a
-                    [] ([] |app.main |b :file) ([] |external.lib |x :def)
-                  ([] |app.main |b)
-                    [] $ [] |app.main |a :file
+                graph $ decode-map-as
+                  {}
+                      [] |app.main |a
+                      [] ([] |app.main |b :file) ([] |external.lib |x :def)
+                    ([] |app.main |b)
+                      [] $ [] |app.main |a :file
+                  Map (List String)
+                    List $ Tuple String String Tag
                 tree $ build-call-tree graph ([] |app.main |a) (#{})
               assert= (Some 3) (get tree :size)
               assert= (Some true)
@@ -409,7 +405,8 @@
                       d! $ :: :states cursor $ assoc state :spin-pos pos
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic)
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'comp-sector $ %{} 'CodeEntry (:doc |)
@@ -923,7 +920,9 @@
                         , pkg
                   dependants $ -> deps-tree
                     &map:filter-kv $ fn (k v)
-                      hint-fn $ Fn (List String) (List Dynamic) (-> Bool)
+                      hint-fn $ Fn (List String)
+                        List $ Tuple String String Tag
+                        -> Bool
                       any? v $ fn (piece)
                         = (dependency-key piece) entry
                     keys
@@ -955,17 +954,11 @@
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ str
-                          .unwrap-or
-                            nth (dependency-key item) 0
-                            , |
+                          .unwrap-or (nth item 0) |
                           , |/
-                            .unwrap-or
-                              nth (dependency-key item) 1
-                              , |
+                            .unwrap-or (nth item 1) |
                             , "|  " $ count
-                              .unwrap-or
-                                get deps-tree $ dependency-key item
-                                []
+                              .unwrap-or (get deps-tree item) ([])
                         :position $ [] 0 $ * idx 40
                         :align-right? true
                         :on $ {} $ :pointertap
@@ -980,12 +973,11 @@
                                 decode-map-as (.-ctrlKey e) 'Bool
                               do
                                 d! $ app.schema/Op :def-path $ []
-                                  .unwrap $ get (dependency-key item) 0
+                                  .unwrap $ get item 0
                                   , :defs
-                                    .unwrap $ get (dependency-key item) 1
+                                    .unwrap $ get item 1
                                 d! $ app.schema/Op :router $ {} (:name :editor)
-                              d! $ app.schema/Op :router $ {} (:name :deps-of)
-                                :data $ dependency-key item
+                              d! $ app.schema/Op :router $ {} (:name :deps-of) (:data item)
                             , &unit
                   create-list :container
                     {} $ :position $ [] 320 -40
@@ -1030,7 +1022,8 @@
                 :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
       :ns $ %{} 'NsEntry (:doc |)
@@ -1060,9 +1053,9 @@
             Map (List String) DefMetrics
         'DefMetrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct DefMetrics (:depth Number) (:y Number)
-            :entry $ List Dynamic
-            :scoped-defs $ List $ List Dynamic
-            :thirdpart-defs $ List $ List Dynamic
+            :entry $ List String
+            :scoped-defs $ List $ Tuple String String Tag
+            :thirdpart-defs $ List $ Tuple String String Tag
           :examples $ []
           :schema $ quote StructDef
         'build-connections $ %{} 'CodeEntry (:doc |)
@@ -1100,35 +1093,32 @@
               :features :js-ffi
         'build-defs-metrics $ %{} 'CodeEntry
           :doc "|只以依赖记录的前两个 String 构成缓存键；先缓存节点再递归，循环及共享节点不重复布局。内部和第三方依赖互斥分组，保留原三元组类别。"
-          :code $ quote $ defn build-defs-metrics (entry3 deps-tree depth pkg)
-            let
-                entry $ dependency-key entry3
-              if
-                .some? $ get @*defs-metrics-states entry
-                []
-                let
-                    info $ decode-map-as
-                      .unwrap-or (get deps-tree entry) ([])
-                      List $ List Dynamic
-                    scoped-defs $ filter info $ fn (item)
-                      starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    thirdpart-defs $ filter info $ fn (item)
-                      not $ starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    partial-self $ DefMetrics :depth depth :y
-                      new-def-stack-y-of depth $ + 2 $ count scoped-defs
-                      , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry3
-                  swap! *defs-metrics-states assoc entry partial-self
-                  prepend
-                    mapcat scoped-defs $ fn (child)
-                      build-defs-metrics child deps-tree (inc depth) pkg
-                    , partial-self
+          :code $ quote $ defn build-defs-metrics (entry deps-tree depth pkg)
+            if
+              .some? $ get @*defs-metrics-states entry
+              []
+              let
+                  info $ .unwrap-or (get deps-tree entry) ([])
+                  scoped-defs $ filter info $ fn (item)
+                    starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  thirdpart-defs $ filter info $ fn (item)
+                    not $ starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  partial-self $ DefMetrics :depth depth :y
+                    new-def-stack-y-of depth $ + 2 $ count scoped-defs
+                    , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry
+                swap! *defs-metrics-states assoc entry partial-self
+                prepend
+                  mapcat scoped-defs $ fn (child)
+                    build-defs-metrics (dependency-key child) deps-tree (inc depth) pkg
+                  , partial-self
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
-            Map (List String) (List Dynamic)
+          :schema $ quote $ Fn (List String)
+            Map (List String)
+              List $ Tuple String String Tag
             , Number String
               -> $ List DefMetrics
           :tests $ [] $ %{} 'TestEntry
@@ -1136,18 +1126,21 @@
             :code $ quote $ let
                 a $ [] |app.main |a
                 b $ [] |app.main |b
-                graph $ {}
-                    [] |app.main |a
-                    [] ([] |app.main |b :file) ([] |external.lib |x :def) ([] |app.main |b :file)
-                  ([] |app.main |b)
-                    [] $ [] |app.main |a :file
+                graph $ decode-map-as
+                  {}
+                      [] |app.main |a
+                      [] ([] |app.main |b :file) ([] |external.lib |x :def) ([] |app.main |b :file)
+                    ([] |app.main |b)
+                      [] $ [] |app.main |a :file
+                  Map (List String)
+                    List $ Tuple String String Tag
               reset! *defs-layout-stack $ {}
               reset! *defs-metrics-states $ {}
               let
                   nodes $ build-defs-metrics a graph 0 |app
                   root $ .unwrap $ get @*defs-metrics-states a
-                  scoped $ decode-map-as (root :scoped-defs) (List Dynamic)
-                  external $ decode-map-as (root :thirdpart-defs) (List Dynamic)
+                  scoped $ root :scoped-defs
+                  external $ root :thirdpart-defs
                 assert= 2 $ count nodes
                 assert= 2 $ count @*defs-metrics-states
                 assert= 2 $ count scoped
@@ -1170,7 +1163,11 @@
             reset! *defs-layout-stack $ {}
             reset! *defs-metrics-states $ {}
             let
-                metrics $ build-defs-metrics (split init-fn |/) deps-tree 0 pkg
+                init-parts $ split init-fn |/
+                entry $ []
+                  .unwrap $ nth init-parts 0
+                  .unwrap $ nth init-parts 1
+                metrics $ build-defs-metrics entry deps-tree 0 pkg
                 connections $ build-connections metrics @*defs-metrics-states pkg
               container ({})
                 graphics $ {} $ :ops
@@ -1195,9 +1192,7 @@
                   map-indexed metrics $ fn (idx info)
                     let
                         position $ expand-layout-xy info
-                        label $ str-def-entry
-                          dependency-key $ info :entry
-                          , pkg
+                        label $ str-def-entry (info :entry) pkg
                       [] idx $ container ({})
                         rect $ {} (:position position)
                           :size $ [] (measure-text-width! label 14 |Hind) 20
@@ -1241,7 +1236,8 @@
                                       :fill $ hslx 180 30 40
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             , String String (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'expand-layout-xy $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn expand-layout-xy (info)
@@ -2887,7 +2883,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-tree
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         app.schema/path-value store $ [] :configs :init-fn
                         , .unwrap-or |
@@ -2898,7 +2895,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-of
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         .unwrap-or (get router :data) ([])
                       List String
@@ -2908,7 +2906,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-call-tree (>> states :call-tree)
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         .unwrap-or (get router :data) ([])
                       List String
@@ -3560,7 +3559,8 @@
             :mv-def $ List String
             :picker-mode Bool
             :focus-or-pick $ List Number
-            :deps-tree $ Map (List String) (List Dynamic)
+            :deps-tree $ Map (List String)
+              List $ Tuple String String Tag
             :effect-goto-def String
           :examples $ []
           :schema $ quote EnumDef
