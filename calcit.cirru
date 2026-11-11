@@ -1651,19 +1651,19 @@
                 :color $ hslx 60 80 80
                 :alpha 0.8
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote phlox.schema/PhloxElement
         'style-active-line $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def style-active-line
             {} (:width 2) (:alpha 1)
               :color $ hslx 20 100 70
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag Number
         'style-shadow-line $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def style-shadow-line
             {} (:width 1) (:alpha 0.7)
               :color $ hslx 200 70 54
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag Number
         'with-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn with-linear? (xs)
             cond
@@ -2658,7 +2658,7 @@
           :code $ quote $ def style-error
             {} $ :color $ hsl 0 90 70
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.nav
           :require (respo-ui.core :as ui)
