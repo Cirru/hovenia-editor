@@ -47,7 +47,9 @@
                     let
                         code $ schema/entry-tree entry
                       assoc acc ([] ns def-name)
-                        lookup-body-deps (slice code 2) ns-imports ns def-name $ keys defs
+                        lookup-body-deps
+                          decode-map-as (slice code 2) (List CirruNode)
+                          , ns-imports ns def-name $ keys defs
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic)
             -> $ Map (List String) (List Dynamic)
@@ -91,10 +93,11 @@
           :schema $ quote $ Fn (-> Dynamic) (:features :js-ffi)
         'flatten $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn flatten (xs)
-            if (list? xs) (mapcat xs flatten)
-              [] $ decode-map-as xs 'String
+            match xs
+              (String token) ([] token)
+              (List children) (mapcat children flatten)
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn CirruNode
             -> $ List String
         'lookup-body-deps $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-body-deps (body imports-dict ns def-name def-names)
@@ -167,7 +170,7 @@
                       true nil
                   filter non-nil?
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
+          :schema $ quote $ Fn (List CirruNode)
             Map Tag $ Map String String
             , String String (Set String)
               -> $ List Dynamic
