@@ -47,9 +47,7 @@
                     let
                         code $ schema/entry-tree entry
                       assoc acc ([] ns def-name)
-                        lookup-body-deps
-                          decode-map-as (slice code 2) (List CirruNode)
-                          , ns-imports ns def-name $ keys defs
+                        lookup-body-deps (slice code 2) ns-imports ns def-name $ keys defs
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic)
             -> $ Map (List String) (List Dynamic)
@@ -3667,12 +3665,12 @@
                   = 'quote $ .unwrap $ get code 0
                   decode-map-as
                     .unwrap $ get code 1
-                    List Dynamic
+                    List calcit.core/CirruNode
                   raise "|Expected quote code Enum"
                 raise "|Expected transformed Snapshot code Enum"
           :examples $ []
           :schema $ quote $ Fn Dynamic
-            -> $ List Dynamic
+            -> $ List CirruNode
         'event-field $ %{} 'CodeEntry
           :doc "|Read one event field as an Option. Respo passes RespoEvent structs, Phlox passes maps, and host fields may be nil."
           :code $ quote $ defn event-field (e field)
@@ -3706,10 +3704,12 @@
           :code $ quote $ defn rename-entry (entry name)
             let
                 tree $ entry-tree entry
-              if
-                and (struct? entry)
-                  string? $ .unwrap $ get tree 1
-                &struct:assoc entry :code $ :: 'quote $ assoc tree 1 name
+              if (struct? entry)
+                match
+                  .unwrap $ get tree 1
+                  (String _)
+                    &struct:assoc entry :code $ :: 'quote $ assoc tree 1 name
+                  (List _) (raise "|Expected a named Snapshot code entry")
                 raise "|Expected a named Snapshot code entry"
           :examples $ []
           :schema $ quote $ Fn Dynamic String (-> AnyStruct) (:open :reflect)
@@ -3882,7 +3882,7 @@
                         result $ cirru-edit snapshot operation
                         tree $ decode-map-as
                           .unwrap $ get result :tree
-                          List Dynamic
+                          List calcit.core/CirruNode
                         focus $ decode-map-as
                           match (get result :focus)
                             (:some value) (or value previous-focus)
