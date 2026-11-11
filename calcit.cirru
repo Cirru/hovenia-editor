@@ -65,13 +65,12 @@
               assert= true $ includes? deps $ [] |app.demo |helper :file
               assert= true $ includes? deps $ [] |lib.core |external :def
               assert=
-                Option :some $ [] |app.demo :defs |helper
+                Some $ [] |app.demo :defs |helper
                 lookup-target-def |helper files ([] |app.demo :defs |main) |app
               assert=
-                Option :some $ [] |app.other :defs |entry
+                Some $ [] |app.other :defs |entry
                 lookup-target-def |other/entry files ([] |app.demo :defs |main) |app
-              assert= (Option :none)
-                lookup-target-def |missing files ([] |app.demo :defs |main) |app
+              assert= None $ lookup-target-def |missing files ([] |app.demo :defs |main) |app
         'dependency-key $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dependency-key (dependency)
             let
@@ -206,12 +205,12 @@
                 namespaces $ .unwrap $ get dict :namespaces
                 referred $ .unwrap $ get dict :defs
               if (contains? file-defs token)
-                Option :some $ [] ns :defs token
+                Some $ decode-map-as ([] ns :defs token) (List app.schema/DefinitionPathPart)
                 match (get referred token)
                   (:some target-ns)
                     if (starts-with? target-ns pkg)
-                      Option :some $ [] target-ns :defs token
-                      Option :none
+                      Some $ decode-map-as ([] target-ns :defs token) (List app.schema/DefinitionPathPart)
+                      , None
                   (:none)
                     if
                       and
@@ -224,13 +223,13 @@
                         match (get namespaces ns-part)
                           (:some target-ns)
                             if (starts-with? target-ns pkg)
-                              Option :some $ [] target-ns :defs def-part
-                              Option :none
-                          (:none) (Option :none)
-                      Option :none
+                              Some $ decode-map-as ([] target-ns :defs def-part) (List app.schema/DefinitionPathPart)
+                              , None
+                          (:none) None
+                      , None
           :examples $ []
           :schema $ quote $ Fn String (Map String Dynamic) (List Dynamic) String
-            -> $ Option $ List Dynamic
+            -> $ Option $ List schema/DefinitionPathPart
         'parse-import-dict $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-import-dict (ns-form)
             let
@@ -291,11 +290,11 @@
                     [] |[] |respo.core |:refer $ [] |[] |render!
                     [] |respo.cursor |:as |cursor
                     [] "|\"bottom-tip" |:default |hud!
-              assert= (Option :some |respo.core)
+              assert= (Some |respo.core)
                 app.schema/path-value imports $ [] :defs |render!
-              assert= (Option :some |respo.cursor)
+              assert= (Some |respo.cursor)
                 app.schema/path-value imports $ [] :namespaces |cursor
-              assert= (Option :some "|\"bottom-tip")
+              assert= (Some "|\"bottom-tip")
                 app.schema/path-value imports $ [] :npm-defaults |hud!
         'regularize-rule $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn regularize-rule (rule)
@@ -360,11 +359,11 @@
                   ([] |app.main |b)
                     [] $ [] |app.main |a :file
                 tree $ build-call-tree graph ([] |app.main |a) (#{})
-              assert= (Option :some 3) (get tree :size)
-              assert= (Option :some true)
+              assert= (Some 3) (get tree :size)
+              assert= (Some true)
                 app.schema/path-value tree $ [] :children 0 :children 0 :looped?
               assert=
-                Option :some $ []
+                Some $ []
                 app.schema/path-value tree $ [] :children 0 :children 0 :children
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
@@ -568,8 +567,8 @@
                     , .unwrap-or $ {}
                   Map Tag Dynamic
                 def-path $ decode-map-as
-                  option:unwrap-or
-                    app.schema/path-value editor $ [] :stack $ option:unwrap-or (get editor :pointer) 0
+                  .unwrap-or
+                    app.schema/path-value editor $ [] :stack $ .unwrap-or (get editor :pointer) 0
                     []
                   List Dynamic
                 set-box-text! $ fn (v d!)
@@ -797,8 +796,8 @@
                           editor $
                             get store :editor
                             , .unwrap-or $ {}
-                          def-path $ option:unwrap-or
-                            app.schema/path-value editor $ [] :stack $ option:unwrap-or (get editor :pointer) 0
+                          def-path $ .unwrap-or
+                            app.schema/path-value editor $ [] :stack $ .unwrap-or (get editor :pointer) 0
                             []
                         []
                             nth def-path 0
@@ -812,8 +811,8 @@
                           editor $
                             get store :editor
                             , .unwrap-or $ {}
-                          def-path $ option:unwrap-or
-                            app.schema/path-value editor $ [] :stack $ option:unwrap-or (get editor :pointer) 0
+                          def-path $ .unwrap-or
+                            app.schema/path-value editor $ [] :stack $ .unwrap-or (get editor :pointer) 0
                             []
                         []
                             nth def-path 0
@@ -899,18 +898,18 @@
           :code $ quote $ defn comp-deps-of (deps-tree entry pkg) (; js/console.log deps-tree entry)
             if (contains? deps-tree entry)
               let
-                  deps $ option:unwrap-or (get deps-tree entry) ([])
+                  deps $ .unwrap-or (get deps-tree entry) ([])
                   internal-deps $ -> deps $ filter
                     fn (item)
                       starts-with?
-                        option:unwrap-or
+                        .unwrap-or
                           nth (dependency-key item) 0
                           , |
                         , pkg
                   external-deps $ -> deps $ filter
                     fn (item)
                       not $ starts-with?
-                        option:unwrap-or
+                        .unwrap-or
                           nth (dependency-key item) 0
                           , |
                         , pkg
@@ -921,8 +920,8 @@
                         = (dependency-key piece) entry
                     keys
                   mid-text $ str
-                    option:unwrap-or (nth entry 0) |
-                    , |/ $ option:unwrap-or (nth entry 1) |
+                    .unwrap-or (nth entry 0) |
+                    , |/ $ .unwrap-or (nth entry 1) |
                   button-width $ + 16 $ measure-text-width! mid-text 14 "|Josefin Sans"
                   connections $ concat
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
@@ -948,15 +947,15 @@
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ str
-                          option:unwrap-or
+                          .unwrap-or
                             nth (dependency-key item) 0
                             , |
                           , |/
-                            option:unwrap-or
+                            .unwrap-or
                               nth (dependency-key item) 1
                               , |
                             , "|  " $ count
-                              option:unwrap-or
+                              .unwrap-or
                                 get deps-tree $ dependency-key item
                                 []
                         :position $ [] 0 $ * idx 40
@@ -985,14 +984,14 @@
                     -> internal-deps $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ let
-                            item-ns $ option:unwrap-or
+                            item-ns $ .unwrap-or
                               nth (dependency-key item) 0
                               , |
-                            item-def $ option:unwrap-or
+                            item-def $ .unwrap-or
                               nth (dependency-key item) 1
                               , |
                           if (starts-with? item-ns pkg)
-                            str item-ns |/ item-def "|  " $ count $ option:unwrap-or
+                            str item-ns |/ item-def "|  " $ count $ .unwrap-or
                               get deps-tree $ dependency-key item
                               []
                             str item-ns |/ item-def
@@ -1050,7 +1049,7 @@
           :code $ quote $ defref *defs-metrics-states ({})
           :examples $ []
           :schema $ quote $ Ref
-            Map (List String) app.comp.deps-tree/DefMetrics
+            Map (List String) DefMetrics
         'DefMetrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct DefMetrics (:depth Number) (:y Number)
             :entry $ List Dynamic
@@ -1086,8 +1085,8 @@
                                 + 10 $ * 20 $ inc idx
                               complex/add (expand-layout-xy target) ([] 0 10)
           :examples $ []
-          :schema $ quote $ Fn (List app.comp.deps-tree/DefMetrics)
-            Map (List String) app.comp.deps-tree/DefMetrics
+          :schema $ quote $ Fn (List DefMetrics)
+            Map (List String) DefMetrics
             , String
               -> $ List $ List (List Number)
               :features :js-ffi
@@ -1123,7 +1122,7 @@
           :schema $ quote $ Fn (List Dynamic)
             Map (List String) (List Dynamic)
             , Number String
-              -> $ List app.comp.deps-tree/DefMetrics
+              -> $ List DefMetrics
           :tests $ [] $ %{} 'TestEntry
             :name |cycles-share-layout-and-separate-external-dependencies
             :code $ quote $ let
@@ -1154,7 +1153,7 @@
         'calcit-def? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn calcit-def? (item)
             let
-                kind $ option:unwrap-or (nth item 2) :unknown
+                kind $ .unwrap-or (nth item 2) :unknown
               or (= :def kind) (= :ns kind)
           :examples $ []
           :schema $ quote $ Fn Dynamic (-> Bool)
@@ -1245,7 +1244,7 @@
               [] (* 320 depth)
                 * 20 $ - y $ * 0.4 max-y
           :examples $ []
-          :schema $ quote $ Fn app.comp.deps-tree/DefMetrics
+          :schema $ quote $ Fn DefMetrics
             -> $ List Number
         'get-def-stack-y-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-def-stack-y-of (depth)
@@ -1470,7 +1469,7 @@
             , &unit
           :examples $ []
           :schema $ quote $ Fn (List Number) (List Dynamic) (Map Tag Dynamic)
-            Fn app.schema/Op $ -> Unit
+            Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
         'handle-leaf-event $ %{} 'CodeEntry (:doc |)
@@ -1539,7 +1538,7 @@
             , &unit
           :examples $ []
           :schema $ quote $ Fn (List Number) (List Dynamic) String (Map Tag Dynamic)
-            Fn app.schema/Op $ -> Unit
+            Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
           :tests $ [] $ %{} 'TestEntry (:name |keyboard-produces-current-enum-operations)
@@ -1616,7 +1615,7 @@
             , &unit
           :examples $ []
           :schema $ quote $ Fn Dynamic (List Dynamic) (List Number)
-            Fn app.schema/Op $ -> Unit
+            Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
@@ -1652,19 +1651,19 @@
                 :color $ hslx 60 80 80
                 :alpha 0.8
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote phlox.schema/PhloxElement
         'style-active-line $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def style-active-line
             {} (:width 2) (:alpha 1)
               :color $ hslx 20 100 70
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag Number
         'style-shadow-line $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def style-shadow-line
             {} (:width 1) (:alpha 0.7)
               :color $ hslx 200 70 54
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag Number
         'with-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn with-linear? (xs)
             cond
@@ -1691,7 +1690,7 @@
                 y-stack 0
                 idx 0
                 prev-width 0
-                winding-x $ Option :none
+                winding-x None
                 prev-leaf? false
               hint-fn $ Fn
                 List $ List Dynamic
@@ -1782,7 +1781,7 @@
                         if (= 0 idx) (info :winding-x) winding-x
                         string? item
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) (-> LayoutInfo) (:features :js-ffi)
         'wrap-expr-with-linear $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
@@ -1794,7 +1793,7 @@
                 y-stack-extend-x 0
                 idx 0
                 winding-okay? parent-winding-okay?
-                winding-x $ Option :none
+                winding-x None
               hint-fn $ Fn
                 List $ List Dynamic
                 List Dynamic
@@ -1872,7 +1871,7 @@
                           , y-stack y-stack-max
                             &max y-stack-extend-x $ + x-position $ info :width
                             inc idx
-                            , false $ Option :some x-position
+                            , false $ Some x-position
                     (and (is-linear? (as-list item)) (not= 1 (count ys)))
                       let
                           focused? $ = next-coord focus
@@ -1940,8 +1939,8 @@
                             (:none)
                               match (info :winding-x)
                                 (:some x)
-                                  Option :some $ + x-position x
-                                (:none) (Option :none)
+                                  Some $ + x-position x
+                                (:none) None
                     (and (> acc-x twist-distance) (= 1 (count ys)))
                       let
                           info $ cond
@@ -2023,9 +2022,9 @@
                     true $ LayoutInfo :tree
                       create-list :container ({})
                         conj acc $ [] idx $ comp-error ys
-                      , :width x-position :y-stack y-stack :winding-x $ Option :none
+                      , :width x-position :y-stack y-stack :winding-x None
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool Bool Number (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool Bool Number (-> LayoutInfo) (:features :js-ffi)
         'wrap-leaf $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-leaf (s coord focus head?)
             let
@@ -2072,9 +2071,9 @@
                       :fill $ pick-leaf-color s head?
                       :font-size 14
                       :font-family "|Roboto Mono"
-                , :width width :y-stack 1 :winding-x $ Option :none
+                , :width width :y-stack 1 :winding-x None
           :examples $ []
-          :schema $ quote $ Fn String (List Number) (List Number) Bool (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn String (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
         'wrap-linear-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-linear-expr (xs coord focus smaller?)
             loop
@@ -2106,7 +2105,7 @@
                         and focused? $ not smaller?
                         , shape-focus $ container $ {}
                       create-list :container ({}) acc
-                  , :width x-position :y-stack y-stack :winding-x $ Option :none
+                  , :width x-position :y-stack y-stack :winding-x None
                 let
                     item $ .unwrap $ first ys
                     next-coord $ conj coord idx
@@ -2115,7 +2114,7 @@
                         wrap-leaf item next-coord focus $ = idx 0
                       (is-linear? (as-list item))
                         wrap-linear-expr (as-list item) next-coord focus false
-                      true $ LayoutInfo :tree (comp-error item) :width 20 :y-stack 1 :winding-x $ Option :none
+                      true $ LayoutInfo :tree (comp-error item) :width 20 :y-stack 1 :winding-x None
                     width $ info :width
                     tree $ info :tree
                   recur
@@ -2127,7 +2126,7 @@
                     &max y-stack $ info :y-stack
                     inc idx
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.editor
           :require
@@ -2209,7 +2208,7 @@
                     [] ns $ div
                       {} (:class-name css-hover-entry)
                         :style $ merge $ if
-                          = selected-ns $ Option :some ns
+                          = selected-ns $ Some ns
                           {} $ :background-color $ hsl 0 0 100
                           {}
                         :on-click $ fn (e d!)
@@ -2252,7 +2251,7 @@
           :examples $ []
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic) (Map String Dynamic)
             Fn
-              Fn app.schema/Op $ -> Unit
+              Fn schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'comp-menu $ %{} 'CodeEntry (:doc |)
@@ -2321,7 +2320,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic) (Map String Dynamic)
             Fn
-              Fn app.schema/Op $ -> Unit
+              Fn schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
         'comp-navbar $ %{} 'CodeEntry (:doc |)
@@ -2382,7 +2381,7 @@
                           get store :files
                           , .unwrap-or $ {}
                         (get store :saved-files) .unwrap-or $ {}
-                      Option :some $ a $ {} (:inner-text |Save)
+                      Some $ a $ {} (:inner-text |Save)
                         :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
@@ -2398,7 +2397,7 @@
                                 , .unwrap-or $ {}
                               Map String Dynamic
                             , d!
-                      Option :none
+                      , None
                     space-x 8
                     a $ {} (:inner-text |Command)
                       :class-name $ str-spaced css/link css/font-fancy
@@ -2411,17 +2410,17 @@
                 if
                     get state :menu?
                     , .unwrap-or false
-                  Option :some $ memof1-call comp-menu (>> states :menu)
+                  Some $ memof1-call comp-menu (>> states :menu)
                     decode-map-as
                         get store :files
                         , .unwrap-or $ {}
                       Map String Dynamic
                     fn (d!)
                       d! $ :: :states cursor $ assoc state :menu? false
-                  Option :none
+                  , None
                 if
                   not $ blank? warning
-                  Option :some $ div
+                  Some $ div
                     {} $ :class-name $ str-spaced css/row-middle css-notice-area
                     div
                       {} (:style style-error)
@@ -2439,7 +2438,7 @@
                           -> Unit
                         load-files! d! true
                         , &unit
-                  Option :none
+                  , None
                 if
                   and
                     = :editor $
@@ -2448,7 +2447,7 @@
                     not $
                       get state :menu?
                       , .unwrap-or false
-                  Option :some $ comp-stack
+                  Some $ comp-stack
                     decode-map-as
                         get editor :stack
                         , .unwrap-or $ []
@@ -2457,12 +2456,12 @@
                         get editor :pointer
                         , .unwrap-or 0
                       , 'Number
-                  Option :none
+                  , None
                 if
                     get editor :picker-mode?
                     , .unwrap-or false
-                  Option :some $ comp-picker-mode
-                  Option :none
+                  Some $ comp-picker-mode
+                  , None
                 comp-key-event $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
                     Fn app.schema/Op $ -> Unit
@@ -2561,7 +2560,7 @@
             List $ List Dynamic
             , Number
               Fn
-                Fn app.schema/Op $ -> Unit
+                Fn schema/Op $ -> Unit
                 -> Unit
               -> respo.schema/Component
         'css-menu $ %{} 'CodeEntry (:doc |)
@@ -2659,7 +2658,7 @@
           :code $ quote $ def style-error
             {} $ :color $ hsl 0 90 70
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.nav
           :require (respo-ui.core :as ui)
@@ -2763,26 +2762,26 @@
         'api-host $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-host
             str |http://
-              option:unwrap-or (get-env |host) |localhost
-              , |: $ option:unwrap-or (get-env |port) |6101
+              .unwrap-or (get-env |host) |localhost
+              , |: $ .unwrap-or (get-env |port) |6101
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'api-host-6011 $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def api-host-6011
             str |http://
-              option:unwrap-or (get-env |host) |localhost
-              , |: $ option:unwrap-or (get-env |port) |6011
+              .unwrap-or (get-env |host) |localhost
+              , |: $ .unwrap-or (get-env |port) |6011
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'code-font $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def code-font "|Roboto Mono, monospace"
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote String
         'cors-headers $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def cors-headers
             {} (:Content-Type |data/cirru-edn) (:Access-Control-Allow-Origin |*) (:Access-Control-Allow-Methods |*)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
         'dot-radius $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def dot-radius 4
           :examples $ []
@@ -2801,9 +2800,9 @@
           :schema $ quote Number
         'mocked? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def mocked?
-            &= |true $ option:unwrap-or (get-env |mocked) |false
+            &= |true $ .unwrap-or (get-env |mocked) |false
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote Bool
         'read-window-width $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn read-window-width () (decode-map-as js/window.innerWidth 'Number)
           :examples $ []
@@ -2812,7 +2811,7 @@
           :code $ quote $ def site
             {} (:title |Phlox) (:icon |http://cdn.tiye.me/logo/quamolit.png) (:storage-key |phlox-workflow)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag String
         'twist-distance $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def twist-distance
             * 0.8 $ read-window-width
@@ -2856,14 +2855,14 @@
                   , .unwrap-or :editor
                 :editor $ let
                     def-path $ either
-                      option:unwrap-or
+                      .unwrap-or
                         app.schema/path-value editor $ [] :stack $ decode-map-as
                           .unwrap-or (get editor :pointer) 0
                           , 'Number
                         []
                       []
-                    selected-entry $ if (empty? def-path) (Option :none)
-                      definition-at files $ decode-map-as def-path $ List app.schema/DefinitionPathPart
+                    selected-entry $ if (empty? def-path) None $ definition-at files
+                      decode-map-as def-path $ List app.schema/DefinitionPathPart
                   match selected-entry
                     (:none)
                       text $ {} (:text "|No code selected")
@@ -2916,12 +2915,12 @@
           :code $ quote $ defn comp-hint (states focus target)
             let
                 typed-states $ decode-map-as states $ Map Tag Dynamic
-                cursor $ option:unwrap-or (get typed-states :cursor) ([])
-                state0 $ option:unwrap-or (get typed-states :data)
+                cursor $ .unwrap-or (get typed-states :cursor) ([])
+                state0 $ .unwrap-or (get typed-states :data)
                   {} $ :p1 $ [] 400 -100
                 state $ decode-map-as state0 $ Map Tag Dynamic
                 position $ decode-map-as
-                  option:unwrap-or (get state :p1) ([] 400 -100)
+                  .unwrap-or (get state :p1) ([] 400 -100)
                   List Number
               container ({})
                 comp-drag-point (>> typed-states :p1)
@@ -2932,7 +2931,7 @@
                 text $ {}
                   :text $ slice
                     format-to-lisp $ turn-quoted target
-                    , 0 $ Option :some 200
+                    , 0 $ Some 200
                   :position $ complex/add position $ [] 12 -6
                   :style $ {}
                     :fill $ hslx 200 40 50
@@ -2988,7 +2987,9 @@
               .?!catch $ fn (err)
                 d! $ app.schema/Op :warn $ decode-map-as (js/String err) 'String
           :examples $ []
-          :schema $ quote $ Fn Dynamic Bool (-> Dynamic) (:features :js-ffi)
+          :schema $ quote $ Fn
+            Fn schema/Op $ -> Unit
+            , Bool (-> Dynamic) (:features :js-ffi)
         'snapshot-key $ %{} 'CodeEntry
           :doc "|Current snapshots key files and definitions by symbol, older ones by string. The editor addresses them by string."
           :code $ quote $ defn snapshot-key (key)
@@ -3036,15 +3037,15 @@
                   Map String Dynamic
                 entry $ .unwrap $ get defs |demo
                 data $ if (struct? entry) (&struct:to-map entry) (raise "|Expected loaded definition Struct")
-              assert= (Option :some |app) (get loaded :package)
-              assert= (Option :some |kept-file) (get fields :extra)
-              assert= (Option :some |definition) (get data :doc)
-              assert= (Option :some 'String) (get data :schema)
+              assert= (Some |app) (get loaded :package)
+              assert= (Some |kept-file) (get fields :extra)
+              assert= (Some |definition) (get data :doc)
+              assert= (Some 'String) (get data :schema)
               assert=
-                Option :some $ [] |kept-test
+                Some $ [] |kept-test
                 get data :tests
               assert=
-                Option :some $ :: 'quote $ [] |defn |demo ([]) ||ok
+                Some $ :: 'quote $ [] |defn |demo ([]) ||ok
                 get data :code
         'transform-code-entry $ %{} 'CodeEntry
           :doc "|保留解码得到的原 Struct 及其全部字段，只将 CirruQuote :code 转为编辑器使用的 quote Enum；不伪造完整 Snapshot schema。"
@@ -3097,7 +3098,7 @@
                         , 'String
                     match (lookup-target-def token files path package-name)
                       (:some target)
-                        dispatch! $ :: :def-path target
+                        dispatch! $ app.schema/Op :def-path target
                       (:none)
                         dispatch! $ app.schema/Op :warn $ str "|not found: " token
                 _ $ reset! *store $ updater @*store operation
@@ -3119,11 +3120,11 @@
                   dispatch! $ :: :def-path $ [] |app.demo :defs |main
                   dispatch! $ app.schema/Op :effect-goto-def |helper
                   assert=
-                    Option :some $ [] |app.demo :defs |helper
+                    Some $ [] |app.demo :defs |helper
                     app.schema/path-value @*store $ [] :editor :stack 1
                   assert= &unit $ dispatch! $ :: :states ([] :demo 0 :drag)
                     {} $ :ready? true
-                  assert= (Option :some true)
+                  assert= (Some true)
                     app.schema/path-value @*store $ [] :states :demo 0 :drag :data :ready?
                   reset! *store before
                   , &unit
@@ -3227,10 +3228,10 @@
           :code $ quote $ defn divide-x (point x)
             []
               /
-                option:unwrap-or (first point) 0
+                .unwrap-or (first point) 0
                 , x
               /
-                option:unwrap-or (last point) 0
+                .unwrap-or (last point) 0
                 , x
           :examples $ []
           :schema $ quote $ Fn (List Number) Number
@@ -3257,7 +3258,7 @@
         'rand-point $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn rand-point (n & xs)
             let
-                m0 $ option:unwrap-or (first xs) n
+                m0 $ .unwrap-or (first xs) n
               []
                 -
                   round $ * 0.2 n
@@ -3441,24 +3442,24 @@
                 saved-entry $ .unwrap $ schema/definition-at saved-files path
                 fields $ schema/entry-fields saved-entry
                 noop $ build-patch before before
-              assert= (Option :some |kept-root) (get saved :extra-root)
+              assert= (Some |kept-root) (get saved :extra-root)
               assert= (get raw :configs) (get saved :configs)
-              assert= (Option :some after) (get restored :files)
-              assert= (Option :some |kept-doc) (get fields :doc)
-              assert= (Option :some 'String) (get fields :schema)
+              assert= (Some after) (get restored :files)
+              assert= (Some |kept-doc) (get fields :doc)
+              assert= (Some 'String) (get fields :schema)
               assert=
                 get (schema/entry-fields original) :tests
                 get fields :tests
               assert= true $ cirru-quote? $ .unwrap (get fields :code)
-              assert= (Option :some |kept-file)
+              assert= (Some |kept-file)
                 get
                   schema/entry-fields $ .unwrap $ get saved-files |app.keep
                   , :extra
-              assert= (Option :some |new-meta)
+              assert= (Some |new-meta)
                 get
                   schema/entry-fields $ .unwrap $ get saved-files |app.meta
                   , :extra
-              assert= (Option :none) (get saved-files |app.removed)
+              assert= None $ get saved-files |app.removed
               assert= true $ contains?
                 decode-map-as
                   .unwrap $ get patch :removed
@@ -3585,7 +3586,7 @@
                     raise "|Expected a Snapshot file Struct"
                 raise "|Expected a file map and definition Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart) Dynamic
+          :schema $ quote $ Fn Dynamic (List DefinitionPathPart) Dynamic
             -> $ Map Dynamic Dynamic
         'definition-at $ %{} 'CodeEntry
           :doc "|显式沿文件 Map 和 FileEntry Struct 读取 ns/defs 路径；只验证实际使用的节点，不对每次按键遍历整个文件图，也不让 get-in 跨 Struct。"
@@ -3599,7 +3600,7 @@
                   , 'Tag
               if (map? files)
                 match (get files ns-name)
-                  (:none) (Option :none)
+                  (:none) None
                   (:some file)
                     let
                         fields $ entry-fields file
@@ -3614,7 +3615,7 @@
                         _ $ raise "|Unknown definition path kind"
                 raise "|Expected a Snapshot file map"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart)
+          :schema $ quote $ Fn Dynamic (List DefinitionPathPart)
             -> $ Option Dynamic
         'dissoc-definition $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dissoc-definition (files path)
@@ -3644,7 +3645,7 @@
                   _ $ raise "|Unknown definition path kind"
                 raise "|Expected a Snapshot file map"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List app.schema/DefinitionPathPart)
+          :schema $ quote $ Fn Dynamic (List DefinitionPathPart)
             -> $ Map Dynamic Dynamic
         'entry-fields $ %{} 'CodeEntry
           :doc "|只在原生/JS Snapshot 数据入口检查实际 Struct，再以开放字段 Map 读取；不是伪装成完整 CodeEntry/FileEntry 的断言。"
@@ -3677,8 +3678,8 @@
                   decode-map-as e $ Map Tag Dynamic
               match (get fields field)
                 (:some value)
-                  if (nil? value) (Option :none) (Option :some value)
-                (:none) (Option :none)
+                  if (nil? value) None $ Some value
+                (:none) None
           :examples $ []
           :schema $ quote $ Fn Dynamic Tag
             -> $ Option Dynamic
@@ -3693,8 +3694,8 @@
           :doc "|Nested read for optional paths: a missing path or a wrong shape reads as None."
           :code $ quote $ defn path-value (base path)
             match (get-in base path)
-              (:ok value) (Option :some value)
-              (:err _error) (Option :none)
+              (:ok value) (Some value)
+              (:err _error) None
           :examples $ []
           :schema $ quote $ Fn Dynamic (List Dynamic)
             -> $ Option Dynamic
@@ -3714,7 +3715,7 @@
             Op :cirru-edit-node $ decode-map-as ([] focus node)
               Tuple (List Number) calcit.core/CirruNode
           :examples $ []
-          :schema $ quote $ Fn (List Number) calcit.core/CirruNode (-> app.schema/Op)
+          :schema $ quote $ Fn (List Number) CirruNode (-> Op)
         'store $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def store
             let
@@ -3749,7 +3750,7 @@
     'app.server $ %{} 'FileEntry
       :defs $ {}
         '*app-server $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defref *app-server (Option :none)
+          :code $ quote $ defref *app-server None
           :examples $ []
           :schema $ quote $ Ref (Option FfiTask)
         'main! $ %{} 'CodeEntry (:doc |)
@@ -3760,13 +3761,13 @@
           :code $ quote $ defn on-request (req)
             let
                 url $ decode-map-as
-                  option:unwrap-or (get req :url) |
+                  .unwrap-or (get req :url) |
                   , 'String
                 method $ decode-map-as
-                  option:unwrap-or (get req :method) :GET
+                  .unwrap-or (get req :method) :GET
                   , 'Tag
                 request-body $ decode-map-as
-                  option:unwrap-or (get req :body) |
+                  .unwrap-or (get req :body) |
                   , 'String
               match url
                 |/compact-data $ let
@@ -3809,8 +3810,8 @@
           :schema $ quote $ Fn (-> Unit)
         'start-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn start-server! ()
-            reset! *app-server $ Option :some $ serve-http!
-              Option :some $ decode-map-as
+            reset! *app-server $ Some $ serve-http!
+              Some $ decode-map-as
                 {} (:port 6101) (:host |0.0.0.0)
                 Map Tag http.core/ServerOptionValue
               fn (req) (on-request req)
@@ -3861,7 +3862,7 @@
                     []
                   List app.schema/DefinitionPathPart
                 files $ .unwrap-or (get store :files) ({})
-                selected $ if (empty? path) (Option :none) (schema/definition-at files path)
+                selected $ if (empty? path) None $ schema/definition-at files path
               match selected
                 (:none)
                   assoc store :warning $ str "|target not found at: " path
@@ -3919,17 +3920,17 @@
                 files $ .unwrap $ get replaced :files
                 entry $ .unwrap $ schema/definition-at files path
                 fields $ schema/entry-fields entry
-              assert= (Option :some ||again)
+              assert= (Some ||again)
                 app.schema/path-value (schema/entry-tree entry) ([] 3 1)
-              assert= (Option :some |kept-doc) (get fields :doc)
-              assert= (Option :some 'String) (get fields :schema)
+              assert= (Some |kept-doc) (get fields :doc)
+              assert= (Some 'String) (get fields :schema)
               assert=
-                Option :some $ [] |kept-test
+                Some $ [] |kept-test
                 get fields :tests
               assert=
-                Option :some $ [] |println ||new
+                Some $ [] |println ||new
                 app.schema/path-value replaced $ [] :editor :clipboard
-              assert= (Option :some |file-kept)
+              assert= (Some |file-kept)
                 get
                   schema/entry-fields $ .unwrap $ get files |app.demo
                   , :extra
@@ -3954,7 +3955,7 @@
                     []
                   List app.schema/DefinitionPathPart
                 files $ .unwrap-or (get store :files) ({})
-                selected $ if (empty? path) (Option :none) (schema/definition-at files path)
+                selected $ if (empty? path) None $ schema/definition-at files path
               match selected
                 (:none)
                   assoc store :warning $ str "|target not found at: " path
@@ -3966,7 +3967,7 @@
                       assoc store :files $ schema/assoc-definition files path next-entry
                     assoc store :warning $ str "|target not found at: " path
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (List Number) calcit.core/CirruNode
+          :schema $ quote $ Fn (Map Tag Dynamic) (List Number) CirruNode
             -> $ Map Tag Dynamic
         'updater $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn updater (store op)
@@ -4207,7 +4208,7 @@
                           List app.schema/DefinitionPathPart
                         files $ .unwrap-or (get store :files) ({})
                       match
-                        if (empty? path) (Option :none) (schema/definition-at files path)
+                        if (empty? path) None $ schema/definition-at files path
                         (:none) (assoc store :warning "|target definition not found")
                         (:some entry)
                           match
@@ -4267,49 +4268,46 @@
                 picked-entry $ .unwrap $ schema/definition-at
                   .unwrap $ get picked :files
                   [] |app.demo :defs |main
-              assert= (Option :none)
-                schema/definition-at files $ [] |app.demo :defs |main
-              assert= (Option :some |moved)
+              assert= None $ schema/definition-at files $ [] |app.demo :defs |main
+              assert= (Some |moved)
                 get (schema/entry-tree entry) 1
-              assert= (Option :some |kept-doc) (get fields :doc)
-              assert= (Option :some 'String) (get fields :schema)
+              assert= (Some |kept-doc) (get fields :doc)
+              assert= (Some 'String) (get fields :schema)
               assert=
-                Option :some $ [] |kept-test
+                Some $ [] |kept-test
                 get fields :tests
-              assert= (Option :some |app.renamed)
+              assert= (Some |app.renamed)
                 get
                   schema/entry-tree $ .unwrap $ schema/definition-at files ([] |app.renamed :ns)
                   , 1
-              assert= (Option :none)
-                schema/definition-at
-                  .unwrap $ get removed :files
-                  [] |app.renamed :defs |temporary
+              assert= None $ schema/definition-at
+                .unwrap $ get removed :files
+                [] |app.renamed :defs |temporary
               assert= (get removed :files) (get duplicate :files)
-              assert= (Option :none)
-                schema/definition-at
-                  .unwrap $ get deleted :files
-                  [] |app.renamed :ns
-              assert= (Option :some |kept-file)
+              assert= None $ schema/definition-at
+                .unwrap $ get deleted :files
+                [] |app.renamed :ns
+              assert= (Some |kept-file)
                 get
                   schema/entry-fields $ .unwrap $ get
                     .unwrap $ get deleted :files
                     , |app.demo
                   , :extra
-              assert= (Option :some 0)
+              assert= (Some 0)
                 app.schema/path-value future-closed $ [] :editor :pointer
               assert=
-                Option :some $ [] a b
+                Some $ [] a b
                 app.schema/path-value future-closed $ [] :editor :stack
-              assert= (Option :some 0)
+              assert= (Some 0)
                 app.schema/path-value current-closed $ [] :editor :pointer
               assert=
-                Option :some $ [] b
+                Some $ [] b
                 app.schema/path-value current-closed $ [] :editor :stack
-              assert= (Option :some true)
+              assert= (Some true)
                 app.schema/path-value state-updated $ [] :states :editor 0 :drag :data :active?
-              assert= (Option :some |println)
+              assert= (Some |println)
                 app.schema/path-value (schema/entry-tree picked-entry) ([] 3 1 0)
-              assert= (Option :some false)
+              assert= (Some false)
                 app.schema/path-value picked $ [] :editor :picker-mode?
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
