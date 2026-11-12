@@ -125,6 +125,20 @@ test("cyclic dependency graph draws numeric curves and navigates with an unwrapp
     ["router", { name: "editor" }]]);
 });
 
+test("call-tree sectors render cycles and omit external dependencies", async () => {
+  const { build_call_tree, comp_sector } = await import("../js-out/app.comp.call-tree.mjs");
+  const { _$n__$M_: map, _SHA__$M_: set, init_tags: tags } = await import("@calcit/procs");
+  const { def } = tags(["def"]);
+  const a = list("app.main", "a");
+  const b = list("app.main", "b");
+  const graph = map(
+    a, list(list("app.main", "b", def), list("external.lib", "x", def)),
+    b, list(list("app.main", "a", def)),
+  );
+  const tree = build_call_tree(graph, a, set());
+  assert.deepEqual(texts(toJS(comp_sector(tree, 40, 0, 2 * Math.PI, 0))).sort(), ["a", "a", "b"]);
+});
+
 test("default container selects an actual Snapshot Struct without crossing it as a Map", async () => {
   const { comp_container } = await import("../js-out/app.container.mjs");
   const { updater } = await import("../js-out/app.updater.mjs");

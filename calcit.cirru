@@ -26,12 +26,15 @@
                         get (schema/entry-fields file) :ns
                     MapEntryDecision :keep ns $ parse-import-dict form
                 initial $ decode-map-as ({})
-                  Map (List String) (List Dynamic)
+                  Map (List String)
+                    List $ Tuple String String Tag
               &map:fold-kv files initial $ fn (all ns file)
                 hint-fn $ Fn
-                  Map (List String) (List Dynamic)
+                  Map (List String)
+                    List $ Tuple String String Tag
                   , String Dynamic $ ->
-                    Map (List String) (List Dynamic)
+                    Map (List String)
+                      List $ Tuple String String Tag
                 let
                     defs $ decode-map-as
                       .unwrap-or
@@ -41,16 +44,19 @@
                     ns-imports $ .unwrap $ get imports ns
                   &map:fold-kv defs all $ fn (acc def-name entry)
                     hint-fn $ Fn
-                      Map (List String) (List Dynamic)
+                      Map (List String)
+                        List $ Tuple String String Tag
                       , String Dynamic $ ->
-                        Map (List String) (List Dynamic)
+                        Map (List String)
+                          List $ Tuple String String Tag
                     let
                         code $ schema/entry-tree entry
                       assoc acc ([] ns def-name)
                         lookup-body-deps (slice code 2) ns-imports ns def-name $ keys defs
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic)
-            -> $ Map (List String) (List Dynamic)
+            -> $ Map (List String)
+              List $ Tuple String String Tag
           :tests $ [] $ %{} 'TestEntry (:name |loaded-snapshot-dependencies-and-navigation)
             :code $ quote $ let
                 raw $ decode-map-as
@@ -73,17 +79,9 @@
               assert= None $ lookup-target-def |missing files ([] |app.demo :defs |main) |app
         'dependency-key $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dependency-key (dependency)
-            let
-                parts $ decode-map-as dependency $ List Dynamic
-              []
-                decode-map-as
-                  .unwrap $ get parts 0
-                  , 'String
-                decode-map-as
-                  .unwrap $ get parts 1
-                  , 'String
+            let[] (namespace name _kind) dependency $ [] namespace name
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn (Tuple String String Tag)
             -> $ List String
         'digit-pattern $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn digit-pattern () (new js/RegExp |^\d$)
@@ -123,55 +121,56 @@
                         , .unwrap-or |
                     not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (includes? |0123456789| token)
                 map strip-at
-                , distinct
-                  map $ fn (token)
-                    cond
-                        = token def-name
-                        , nil
-                      (contains? def-names token) ([] ns token :file)
-                      (contains? defs-imports token)
-                        []
-                            get defs-imports token
+                , distinct $ mapcat $ fn (token)
+                  hint-fn $ Fn String $ ->
+                    List $ Tuple String String Tag
+                  cond
+                      = token def-name
+                      []
+                    (contains? def-names token)
+                      [] $ [] ns token :file
+                    (contains? defs-imports token)
+                      [] $ []
+                          get defs-imports token
+                          , .unwrap-or |
+                        , token :def
+                    (contains? npm-defs token)
+                      [] $ []
+                          get npm-defs token
+                          , .unwrap-or |
+                        , token :npm-def
+                    (contains? npm-defaults token)
+                      [] $ []
+                          get npm-defaults token
+                          , .unwrap-or |
+                        , token :npm-default
+                    (and (not= ((get token 0) .unwrap-or |) |/) (includes? token |/))
+                      let
+                          pieces $ split token |/
+                          ns-alias $
+                            first pieces
                             , .unwrap-or |
-                          , token :def
-                      (contains? npm-defs token)
-                        []
-                            get npm-defs token
+                          def-part $
+                            nth pieces 1
                             , .unwrap-or |
-                          , token :npm-def
-                      (contains? npm-defaults token)
-                        []
-                            get npm-defaults token
-                            , .unwrap-or |
-                          , token :npm-default
-                      (and (not= ((get token 0) .unwrap-or |) |/) (includes? token |/))
-                        let
-                            pieces $ split token |/
-                            ns-alias $
-                              first pieces
-                              , .unwrap-or |
-                            def-part $
-                              nth pieces 1
-                              , .unwrap-or |
-                          cond
-                              contains? namespaces ns-alias
-                              []
-                                  get namespaces ns-alias
-                                  , .unwrap-or |
-                                , def-part :ns-def
-                            (contains? npm-namespaces ns-alias)
-                              []
-                                  get npm-namespaces ns-alias
-                                  , .unwrap-or |
-                                , def-part :npm-ns-def
-                            true nil
-                      true nil
-                  filter non-nil?
+                        cond
+                            contains? namespaces ns-alias
+                            [] $ []
+                                get namespaces ns-alias
+                                , .unwrap-or |
+                              , def-part :ns-def
+                          (contains? npm-namespaces ns-alias)
+                            [] $ []
+                                get npm-namespaces ns-alias
+                                , .unwrap-or |
+                              , def-part :npm-ns-def
+                          true $ []
+                    true $ []
           :examples $ []
           :schema $ quote $ Fn (List CirruNode)
             Map Tag $ Map String String
             , String String (Set String)
-              -> $ List Dynamic
+              -> $ List $ Tuple String String Tag
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
             -> deps-dict keys &set:to-list
@@ -325,6 +324,14 @@
           :require $ app.schema :as schema
     'app.comp.call-tree $ %{} 'FileEntry
       :defs $ {}
+        'CallTree $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct CallTree
+            :entry $ List String
+            :looped? Bool
+            :children $ List app.comp.call-tree/CallTree
+            :size Number
+          :examples $ []
+          :schema $ quote StructDef
         'build-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn build-call-tree (deps-tree entry parents)
             let
@@ -332,40 +339,40 @@
                 children $ if looped? ([])
                   foldl
                     .unwrap-or (get deps-tree entry) ([])
-                    decode-map-as ([])
-                      List $ Map Tag Dynamic
+                    decode-map-as ([]) (List app.comp.call-tree/CallTree)
                     fn (acc dependency)
-                      hint-fn $ Fn
-                        List $ Map Tag Dynamic
-                        , Dynamic $ ->
-                          List $ Map Tag Dynamic
+                      hint-fn $ Fn (List CallTree) (Tuple String String Tag)
+                        -> $ List CallTree
                       let
                           child-entry $ dependency-key dependency
                         if (contains? deps-tree child-entry)
                           conj acc $ build-call-tree deps-tree child-entry $ include parents entry
                           , acc
-                result $ {} (:entry entry) (:looped? looped?) (:children children)
-              assoc result :size $ count-tree result
+              CallTree :entry entry :looped? looped? :children children :size $ count-tree children
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             Set $ List String
-            -> $ Map Tag Dynamic
+            -> CallTree
           :tests $ [] $ %{} 'TestEntry (:name |keeps-cycle-marker-and-skips-external-nodes)
             :code $ quote $ let
-                graph $ {}
-                    [] |app.main |a
-                    [] ([] |app.main |b :file) ([] |external.lib |x :def)
-                  ([] |app.main |b)
-                    [] $ [] |app.main |a :file
+                graph $ decode-map-as
+                  {}
+                      [] |app.main |a
+                      [] ([] |app.main |b :file) ([] |external.lib |x :def)
+                    ([] |app.main |b)
+                      [] $ [] |app.main |a :file
+                  Map (List String)
+                    List $ Tuple String String Tag
                 tree $ build-call-tree graph ([] |app.main |a) (#{})
-              assert= (Some 3) (get tree :size)
-              assert= (Some true)
-                app.schema/path-value tree $ [] :children 0 :children 0 :looped?
-              assert=
-                Some $ []
-                app.schema/path-value tree $ [] :children 0 :children 0 :children
+                branch $ .unwrap $ .first (tree :children)
+                cycle $ .unwrap $ .first (branch :children)
+              assert= 3 $ tree :size
+              assert= 1 $ .len $ tree :children
+              assert= true $ cycle :looped?
+              assert= ([]) (cycle :children)
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
             let
@@ -402,53 +409,42 @@
                       d! $ :: :states cursor $ assoc state :spin-pos pos
           :examples $ []
           :schema $ quote $ Fn (Map Dynamic Dynamic)
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'comp-sector $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector (call-tree radius start-radian radian-size idx)
             let
-                children $ decode-map-as
-                    get call-tree :children
-                    , .unwrap-or $ []
-                  List $ Map Tag Dynamic
-                tree-size $ decode-map-as
-                    get call-tree :size
-                    , .unwrap-or 1
-                  , 'Number
-                entry $ decode-map-as
-                    get call-tree :entry
-                    , .unwrap-or $ []
-                  List String
+                children $ call-tree :children
+                tree-size $ call-tree :size
+                entry $ call-tree :entry
                 thickness $ + 10 (pow radius 0.7)
                   * 2 $ count children
               container ({})
                 create-list :container ({})
-                  loop
-                      acc $ decode-map-as ([]) (List Dynamic)
-                      xs children
-                      a0 start-radian
-                    match (destruct-list xs)
-                      (:none) acc
-                      (:some x0 xss)
-                        let
-                            delta $ * (- radian-size 0.01)
-                              /
-                                decode-map-as
-                                    get x0 :size
-                                    , .unwrap-or 0
-                                  , 'Number
-                                , tree-size
-                          recur
-                            conj acc $ let
-                                index $ count acc
-                              [] index $ comp-sector x0 (+ radius thickness 20) a0 delta index
-                            , xss $ + a0 delta
+                  map-indexed
+                    loop
+                        acc $ decode-map-as ([]) (List phlox.schema/PhloxElement)
+                        xs children
+                        a0 start-radian
+                      match (destruct-list xs)
+                        (:none) acc
+                        (:some x0 xss)
+                          let
+                              delta $ * (- radian-size 0.01)
+                                / (x0 :size) tree-size
+                            recur
+                              conj acc $ let
+                                  index $ count acc
+                                comp-sector x0 (+ radius thickness 20) a0 delta index
+                              , xss $ + a0 delta
+                    fn (index sector) ([] index sector)
                 comp-sector-curve radius start-radian radian-size
                   hslx
-                    &number:rem
-                      + radius $ * idx 77
-                      , 360
+                    let
+                        hue $ + radius $ * idx 77
+                      - hue $ * 360 $ floor (/ hue 360)
                     , 100 50
                   , thickness
                 text $ {}
@@ -461,7 +457,7 @@
                   :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
                   :rotation start-radian
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
+          :schema $ quote $ Fn CallTree Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'comp-sector-curve $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector-curve (radius start-radian radian-size color thickness)
             let
@@ -499,21 +495,18 @@
                   g :close-path nil
                   g :end-fill
           :examples $ []
-          :schema $ quote $ Fn Number Number Number Number Number (-> Dynamic) (:features :js-ffi)
+          :schema $ quote $ Fn Number Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'count-tree $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn count-tree (tree)
-            let
-                children $ decode-map-as
-                  .unwrap-or (get tree :children) ([])
-                  List $ Map Tag Dynamic
-              inc $ foldl (map children count-tree) 0 &+
+          :code $ quote $ defn count-tree (children)
+            foldl children 1 $ fn (size child)
+              + size $ child :size
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (-> Number)
+          :schema $ quote $ Fn (List CallTree) (-> Number)
           :tests $ [] $ %{} 'TestEntry (:name |counts-nested-call-nodes)
-            :code $ quote $ assert= 4
-              count-tree $ {} $ :children
-                [] ({})
-                  {} $ :children $ [] ({})
+            :code $ quote $ let
+                leaf $ CallTree :entry ([]) :looped? false :children ([]) :size 1
+                branch $ CallTree :entry ([]) :looped? false :children ([] leaf) :size 2
+              assert= 4 $ count-tree $ [] leaf branch
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.call-tree
           :require
@@ -916,7 +909,9 @@
                         , pkg
                   dependants $ -> deps-tree
                     &map:filter-kv $ fn (k v)
-                      hint-fn $ Fn (List String) (List Dynamic) (-> Bool)
+                      hint-fn $ Fn (List String)
+                        List $ Tuple String String Tag
+                        -> Bool
                       any? v $ fn (piece)
                         = (dependency-key piece) entry
                     keys
@@ -948,17 +943,11 @@
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ str
-                          .unwrap-or
-                            nth (dependency-key item) 0
-                            , |
+                          .unwrap-or (nth item 0) |
                           , |/
-                            .unwrap-or
-                              nth (dependency-key item) 1
-                              , |
+                            .unwrap-or (nth item 1) |
                             , "|  " $ count
-                              .unwrap-or
-                                get deps-tree $ dependency-key item
-                                []
+                              .unwrap-or (get deps-tree item) ([])
                         :position $ [] 0 $ * idx 40
                         :align-right? true
                         :on $ {} $ :pointertap
@@ -973,12 +962,11 @@
                                 decode-map-as (.-ctrlKey e) 'Bool
                               do
                                 d! $ app.schema/Op :def-path $ []
-                                  .unwrap $ get (dependency-key item) 0
+                                  .unwrap $ get item 0
                                   , :defs
-                                    .unwrap $ get (dependency-key item) 1
+                                    .unwrap $ get item 1
                                 d! $ app.schema/Op :router $ {} (:name :editor)
-                              d! $ app.schema/Op :router $ {} (:name :deps-of)
-                                :data $ dependency-key item
+                              d! $ app.schema/Op :router $ {} (:name :deps-of) (:data item)
                             , &unit
                   create-list :container
                     {} $ :position $ [] 320 -40
@@ -1023,7 +1011,8 @@
                 :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             List String
             , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
       :ns $ %{} 'NsEntry (:doc |)
@@ -1053,9 +1042,9 @@
             Map (List String) DefMetrics
         'DefMetrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct DefMetrics (:depth Number) (:y Number)
-            :entry $ List Dynamic
-            :scoped-defs $ List $ List Dynamic
-            :thirdpart-defs $ List $ List Dynamic
+            :entry $ List String
+            :scoped-defs $ List $ Tuple String String Tag
+            :thirdpart-defs $ List $ Tuple String String Tag
           :examples $ []
           :schema $ quote StructDef
         'build-connections $ %{} 'CodeEntry (:doc |)
@@ -1093,35 +1082,32 @@
               :features :js-ffi
         'build-defs-metrics $ %{} 'CodeEntry
           :doc "|只以依赖记录的前两个 String 构成缓存键；先缓存节点再递归，循环及共享节点不重复布局。内部和第三方依赖互斥分组，保留原三元组类别。"
-          :code $ quote $ defn build-defs-metrics (entry3 deps-tree depth pkg)
-            let
-                entry $ dependency-key entry3
-              if
-                .some? $ get @*defs-metrics-states entry
-                []
-                let
-                    info $ decode-map-as
-                      .unwrap-or (get deps-tree entry) ([])
-                      List $ List Dynamic
-                    scoped-defs $ filter info $ fn (item)
-                      starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    thirdpart-defs $ filter info $ fn (item)
-                      not $ starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    partial-self $ DefMetrics :depth depth :y
-                      new-def-stack-y-of depth $ + 2 $ count scoped-defs
-                      , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry3
-                  swap! *defs-metrics-states assoc entry partial-self
-                  prepend
-                    mapcat scoped-defs $ fn (child)
-                      build-defs-metrics child deps-tree (inc depth) pkg
-                    , partial-self
+          :code $ quote $ defn build-defs-metrics (entry deps-tree depth pkg)
+            if
+              .some? $ get @*defs-metrics-states entry
+              []
+              let
+                  info $ .unwrap-or (get deps-tree entry) ([])
+                  scoped-defs $ filter info $ fn (item)
+                    starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  thirdpart-defs $ filter info $ fn (item)
+                    not $ starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  partial-self $ DefMetrics :depth depth :y
+                    new-def-stack-y-of depth $ + 2 $ count scoped-defs
+                    , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry
+                swap! *defs-metrics-states assoc entry partial-self
+                prepend
+                  mapcat scoped-defs $ fn (child)
+                    build-defs-metrics (dependency-key child) deps-tree (inc depth) pkg
+                  , partial-self
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
-            Map (List String) (List Dynamic)
+          :schema $ quote $ Fn (List String)
+            Map (List String)
+              List $ Tuple String String Tag
             , Number String
               -> $ List DefMetrics
           :tests $ [] $ %{} 'TestEntry
@@ -1129,18 +1115,21 @@
             :code $ quote $ let
                 a $ [] |app.main |a
                 b $ [] |app.main |b
-                graph $ {}
-                    [] |app.main |a
-                    [] ([] |app.main |b :file) ([] |external.lib |x :def) ([] |app.main |b :file)
-                  ([] |app.main |b)
-                    [] $ [] |app.main |a :file
+                graph $ decode-map-as
+                  {}
+                      [] |app.main |a
+                      [] ([] |app.main |b :file) ([] |external.lib |x :def) ([] |app.main |b :file)
+                    ([] |app.main |b)
+                      [] $ [] |app.main |a :file
+                  Map (List String)
+                    List $ Tuple String String Tag
               reset! *defs-layout-stack $ {}
               reset! *defs-metrics-states $ {}
               let
                   nodes $ build-defs-metrics a graph 0 |app
                   root $ .unwrap $ get @*defs-metrics-states a
-                  scoped $ decode-map-as (root :scoped-defs) (List Dynamic)
-                  external $ decode-map-as (root :thirdpart-defs) (List Dynamic)
+                  scoped $ root :scoped-defs
+                  external $ root :thirdpart-defs
                 assert= 2 $ count nodes
                 assert= 2 $ count @*defs-metrics-states
                 assert= 2 $ count scoped
@@ -1188,9 +1177,7 @@
                   map-indexed metrics $ fn (idx info)
                     let
                         position $ expand-layout-xy info
-                        label $ str-def-entry
-                          dependency-key $ info :entry
-                          , pkg
+                        label $ str-def-entry (info :entry) pkg
                       [] idx $ container ({})
                         rect $ {} (:position position)
                           :size $ [] (measure-text-width! label 14 |Hind) 20
@@ -1234,7 +1221,8 @@
                                       :fill $ hslx 180 30 40
           :examples $ []
           :schema $ quote $ Fn
-            Map (List String) (List Dynamic)
+            Map (List String)
+              List $ Tuple String String Tag
             , String String (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'expand-layout-xy $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn expand-layout-xy (info)
@@ -1311,16 +1299,21 @@
           :ffi $ {} (:backend :js) (:kind :external-object)
           :schema $ quote Trait
         'all-block? $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn all-block? (item) (every? item list?)
+          :code $ quote $ defn all-block? (item)
+            every? item $ fn (node)
+              match node
+                (String _token) false
+                (List _children) true
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
         'as-list $ %{} 'CodeEntry
           :doc "|Treat one syntax tree item as a list after its leaf case has been ruled out."
           :code $ quote $ defn as-list (item)
-            decode-map-as item $ List Dynamic
+            decode-map-as item $ List calcit.core/CirruNode
           :examples $ []
-          :schema $ quote $ Fn Dynamic
-            -> $ List Dynamic
+          :schema $ quote $ Fn Input
+            -> $ List CirruNode
+            :generics Input
         'base-dot $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def base-dot
             {} (:radius dot-radius) (:alpha 1)
@@ -1346,7 +1339,7 @@
                 {} $ :on-keyboard $ {}
                   :down $ fn (e d!)
                     hint-fn $ Fn (Map Tag Dynamic)
-                      Fn app.schema/Op $ -> Unit
+                      Fn schema/Op $ -> Unit
                       -> Unit
                       :features :js-ffi
                     let
@@ -1546,7 +1539,7 @@
             :code $ quote $ let
                 events $ ref $ decode-map-as ([]) (List app.schema/Op)
                 capture $ fn (operation)
-                  hint-fn $ Fn app.schema/Op $ -> Unit
+                  hint-fn $ Fn schema/Op $ -> Unit
                   swap! events conj operation
                   , &unit
                 focus $ [] 1
@@ -1572,20 +1565,17 @@
                 , @events
         'is-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn is-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                let
-                    x0 $ .unwrap $ first xs
-                  if (string? x0) true $ recur $ decode-map-as x0 (List Dynamic)
-              true $ let
-                  x0 $ .unwrap $ first xs
-                if (string? x0)
-                  recur $ rest xs
+            if (.empty? xs) true $ match
+              .unwrap $ .first xs
+              (String _token)
+                recur $ .rest xs
+              (List children)
+                if
+                  = 1 $ .len xs
+                  recur children
                   , false
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
           :tests $ [] $ %{} 'TestEntry (:name |keeps-nested-linear-and-block-layout)
             :code $ quote $ do
               assert= true $ is-linear? $ [] |a |b
@@ -1620,9 +1610,10 @@
             -> Unit
             :features :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn pattern-number () (new js/RegExp "|^-?\\d+(\\.\\d+)?$")
+          :code $ quote $ defn pattern-number ()
+            js-cast (new js/RegExp "|^-?\\d+(\\.\\d+)?$") app.comp.editor/RegexHost
           :examples $ []
-          :schema $ quote $ Fn (-> JsObject) (:features :js-ffi)
+          :schema $ quote $ Fn (-> RegexHost) (:features :js-ffi)
         'pick-leaf-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pick-leaf-color (s head?)
             let
@@ -1637,7 +1628,7 @@
                 (= || first-char) (hslx 70 50 40)
                 (= |: first-char) (hslx 240 90 74)
                 (= |. first-char) (hslx 100 100 70)
-                (.!test (unsafe-coerce (pattern-number) RegexHost) s)
+                (let ((pattern (pattern-number))) (pattern .test s))
                   hslx 330 100 40
                 head? $ hslx 160 70 76
                 true $ hslx 190 50 50
@@ -1667,21 +1658,18 @@
           :schema $ quote $ Map Tag Number
         'with-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn with-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                , true
-              true $ let
-                  x0 $ .unwrap $ first xs
-                if (string? x0)
-                  recur $ rest xs
-                  if
-                    is-linear? $ decode-map-as x0 $ List Dynamic
-                    recur $ rest xs
+            if
+              <= (.len xs) 1
+              , true $ match
+                .unwrap $ .first xs
+                (String _token)
+                  recur $ .rest xs
+                (List children)
+                  if (is-linear? children)
+                    recur $ .rest xs
                     , false
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
         'wrap-block-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-block-expr (xs coord focus)
             loop
@@ -1696,7 +1684,7 @@
               hint-fn $ Fn
                 List $ List Dynamic
                 List Dynamic
-                , Number Number Number Number (Option Number) Bool (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+                , Number Number Number Number (Option Number) Bool (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
                   let
@@ -1715,7 +1703,7 @@
                         :on $ {} $ :pointertap
                           fn (e d!)
                             hint-fn $ Fn Dynamic
-                              Fn app.schema/Op $ -> Unit
+                              Fn schema/Op $ -> Unit
                               -> Unit
                             on-expr-click e xs coord d!
                       if focused? shape-focus $ container $ {}
@@ -1798,7 +1786,7 @@
               hint-fn $ Fn
                 List $ List Dynamic
                 List Dynamic
-                , Number Number Number Number Number Bool (Option Number) (-> app.comp.editor/LayoutInfo) (:features :js-ffi)
+                , Number Number Number Number Number Bool (Option Number) (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
                   let
@@ -1815,7 +1803,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn app.schema/Op $ -> Unit
+                                Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -1860,7 +1848,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if focused? shape-focus $ container $ {}
@@ -1891,7 +1879,7 @@
                               :on $ {} $ :pointertap
                                 fn (e d!)
                                   hint-fn $ Fn Dynamic
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   on-expr-click e (as-list item) next-coord d!
                             if (= next-coord focus) shape-focus $ container $ {}
@@ -1969,7 +1957,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn app.schema/Op $ -> Unit
+                                      Fn schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2008,7 +1996,7 @@
                                 :on $ {} $ :pointertap
                                   fn (e d!)
                                     hint-fn $ Fn Dynamic
-                                      Fn app.schema/Op $ -> Unit
+                                      Fn schema/Op $ -> Unit
                                       -> Unit
                                     on-expr-click e (as-list item) next-coord d!
                               if focused? shape-focus $ container $ {}
@@ -2043,7 +2031,7 @@
                     :on $ {} $ :pointertap
                       fn (e d!)
                         hint-fn $ Fn Dynamic
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                           :features :js-ffi
                         if
@@ -2099,7 +2087,7 @@
                           :on $ {} $ :pointertap
                             fn (e d!)
                               hint-fn $ Fn Dynamic
-                                Fn app.schema/Op $ -> Unit
+                                Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
                       if
@@ -2168,7 +2156,7 @@
                 stored $ aget el |_dirtyEventListener
                 handler $ if (js-present? stored) (browser/event-listener-host stored)
                   fn (event)
-                    hint-fn $ Fn js-ffi.browser/EventHost (-> Unit) (:features :js-ffi)
+                    hint-fn $ Fn browser/EventHost (-> Unit) (:features :js-ffi)
                     let
                         keyboard $ browser/keyboard-event-host event
                         key $ keyboard :key
@@ -2242,7 +2230,7 @@
                                 :style $ merge $ {} (:font-family ui/font-code) (:cursor :pointer) (:line-height 2) (:padding "|0 8px")
                                 :on-click $ fn (e d!)
                                   hint-fn $ Fn respo.schema/RespoEvent
-                                    Fn app.schema/Op $ -> Unit
+                                    Fn schema/Op $ -> Unit
                                     -> Unit
                                   d! $ app.schema/Op :def-path $ decode-map-as ([] ns :defs def-name) (List app.schema/DefinitionPathPart)
                                   on-close d!
@@ -2288,7 +2276,7 @@
                       :autofocus true
                       :on-keydown $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         match
                             app.schema/event-field e :key
@@ -2313,7 +2301,7 @@
                         :color $ hsl 0 100 30
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         on-close d!
                   space-y 8
@@ -2343,7 +2331,7 @@
                     :render $ fn (on-close)
                       hint-fn $ Fn
                         Fn
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         -> respo.schema/Component
                       comp-command (>> states :command) store on-close
@@ -2368,7 +2356,7 @@
                     :inner-text |Hovernia
                     :on-click $ fn (e d!)
                       hint-fn $ Fn respo.schema/RespoEvent
-                        Fn app.schema/Op $ -> Unit
+                        Fn schema/Op $ -> Unit
                         -> Unit
                       d! $ :: :states cursor $ assoc state :menu? true
                       d! $ app.schema/Op :router $ {} (:name :editor)
@@ -2386,7 +2374,7 @@
                         :class-name $ str-spaced css/link css/font-fancy
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           on-save
                             decode-map-as
@@ -2404,7 +2392,7 @@
                       :class-name $ str-spaced css/link css/font-fancy
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         .show command-plugin d!
                         , &unit
@@ -2427,7 +2415,7 @@
                       {} (:style style-error)
                         :on-click $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           d! $ app.schema/Op :ok
                       <> warning
@@ -2435,7 +2423,7 @@
                     a $ {} (:class-name css/link) (:inner-text "|Try 6011")
                       :on-click $ fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         load-files! d! true
                         , &unit
@@ -2465,7 +2453,7 @@
                   , None
                 comp-key-event $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn app.schema/Op $ -> Unit
+                    Fn schema/Op $ -> Unit
                     -> Unit
                   cond
                       and
@@ -2538,7 +2526,7 @@
                             , style-selected
                           :on-click $ fn (e d!)
                             hint-fn $ Fn respo.schema/RespoEvent
-                              Fn app.schema/Op $ -> Unit
+                              Fn schema/Op $ -> Unit
                               -> Unit
                             d! $ app.schema/Op :def-path $ decode-map-as entry (List app.schema/DefinitionPathPart)
                             on-close d!
@@ -2880,7 +2868,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-tree
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         app.schema/path-value store $ [] :configs :init-fn
                         , .unwrap-or |
@@ -2891,7 +2880,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-deps-of
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         .unwrap-or (get router :data) ([])
                       List String
@@ -2901,7 +2891,8 @@
                     :position $ [] 1 1
                     :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
                   comp-call-tree (>> states :call-tree)
-                    decode-map-as deps-tree $ Map (List String) (List Dynamic)
+                    decode-map-as deps-tree $ Map (List String)
+                      List $ Tuple String String Tag
                     decode-map-as
                         .unwrap-or (get router :data) ([])
                       List String
@@ -3553,7 +3544,8 @@
             :mv-def $ List String
             :picker-mode Bool
             :focus-or-pick $ List Number
-            :deps-tree $ Map (List String) (List Dynamic)
+            :deps-tree $ Map (List String)
+              List $ Tuple String String Tag
             :effect-goto-def String
           :examples $ []
           :schema $ quote EnumDef
@@ -3691,6 +3683,13 @@
           :schema $ quote $ Macro (Expr String)
             -> $ Expr String
             :capabilities :fs-read
+        'map-field $ %{} 'CodeEntry
+          :doc "|Read an optional Map field and preserve the value type."
+          :code $ quote $ defn map-field (data key) (get data key)
+          :examples $ []
+          :schema $ quote $ Fn (Map K V) K
+            -> $ Option V
+            :generics K V
         'path-value $ %{} 'CodeEntry
           :doc "|Nested read for optional paths: a missing path or a wrong shape reads as None."
           :code $ quote $ defn path-value (base path)
@@ -3854,17 +3853,17 @@
           :code $ quote $ defn apply-cirru-edit (store operation)
             let
                 editor $ decode-map-as
-                  .unwrap-or (get store :editor) ({})
+                  .unwrap-or (schema/map-field store :editor) ({})
                   Map Tag Dynamic
                 pointer $ decode-map-as
-                  .unwrap-or (get editor :pointer) 0
+                  .unwrap-or (schema/map-field editor :pointer) 0
                   , 'Number
                 path $ decode-map-as
                   .unwrap-or
                     app.schema/path-value editor $ [] :stack pointer
                     []
                   List app.schema/DefinitionPathPart
-                files $ .unwrap-or (get store :files) ({})
+                files $ .unwrap-or (schema/map-field store :files) ({})
                 selected $ if (empty? path) None $ schema/definition-at files path
               match selected
                 (:none)
@@ -3873,18 +3872,18 @@
                   if (struct? entry)
                     let
                         previous-focus $ decode-map-as
-                          .unwrap-or (get editor :focus) ([])
+                          .unwrap-or (schema/map-field editor :focus) ([])
                           List Number
                         snapshot $ {}
                           :tree $ schema/entry-tree entry
-                          :clipboard $ .unwrap-or (get editor :clipboard) ([])
+                          :clipboard $ .unwrap-or (schema/map-field editor :clipboard) ([])
                           :focus previous-focus
                         result $ cirru-edit snapshot operation
                         tree $ decode-map-as
-                          .unwrap $ get result :tree
+                          .unwrap $ schema/map-field result :tree
                           List calcit.core/CirruNode
                         focus $ decode-map-as
-                          match (get result :focus)
+                          match (schema/map-field result :focus)
                             (:some value) (or value previous-focus)
                             (:none) previous-focus
                           List Number
@@ -3892,8 +3891,8 @@
                       -> store
                         assoc :files $ schema/assoc-definition files path next-entry
                         assoc :editor $ -> editor (assoc :focus focus)
-                          assoc :clipboard $ .unwrap-or (get result :clipboard) ([])
-                        assoc :warning $ .unwrap-or (get result :warning) |
+                          assoc :clipboard $ .unwrap-or (schema/map-field result :clipboard) ([])
+                        assoc :warning $ .unwrap-or (schema/map-field result :warning) |
                     assoc store :warning $ str "|target not found at: " path
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
@@ -3908,7 +3907,7 @@
                 loaded $ app.fetch/transform-cirru-quoted raw
                 path $ [] |app.demo :defs |main
                 initial $ -> schema/store
-                  assoc :files $ .unwrap $ get loaded :files
+                  assoc :files $ .unwrap $ schema/map-field loaded :files
                   assoc :editor $ {} (:pointer 0)
                     :stack $ [] path
                     :focus $ [] 3 1
@@ -3920,16 +3919,16 @@
                   :: :command-copy $ [] 3
                 replaced $ updater copied $ :: :cirru-edit-node
                   [] ([] 3 1) ||again
-                files $ .unwrap $ get replaced :files
+                files $ .unwrap $ schema/map-field replaced :files
                 entry $ .unwrap $ schema/definition-at files path
                 fields $ schema/entry-fields entry
               assert= (Some ||again)
                 app.schema/path-value (schema/entry-tree entry) ([] 3 1)
-              assert= (Some |kept-doc) (get fields :doc)
-              assert= (Some 'String) (get fields :schema)
+              assert= (Some |kept-doc) (schema/map-field fields :doc)
+              assert= (Some 'String) (schema/map-field fields :schema)
               assert=
                 Some $ [] |kept-test
-                get fields :tests
+                schema/map-field fields :tests
               assert=
                 Some $ [] |println ||new
                 app.schema/path-value replaced $ [] :editor :clipboard

@@ -51,7 +51,7 @@ jobs:
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        test "$(calcit --version)" = "0.41.0"
+        test "$(calcit --version)" = "0.41.1"
         test -f calcit.cirru
         test -f deps.cirru
         test ! -e compact.cirru
@@ -59,6 +59,7 @@ jobs:
         calcit edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
+        calcit calcit.cirru test --require-match --summary-only
         calcit calcit.cirru --check-only \
           --ns app.analyze \
           --ns app.comp.call-tree \

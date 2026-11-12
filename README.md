@@ -11,7 +11,7 @@ Mocked example(with fake API) http://repo.cirru.org/hovenia-editor/?mocked=true 
 
 ### 迁移状态
 
-候选版配对 Calcit / `@calcit/procs` 0.41.0、Respo 0.19.5、Phlox 0.9.3 和 Cirru Editor 0.7.2。编辑、导航与命令框的内部回调使用具名 `Op`，Cirru 编辑命令使用具名 `EditOp`。原匿名操作仍可从框架边界进入。原生服务器使用 Calcit HTTP 0.4.0，并用 `Option` 包装原监听配置。
+候选版配对 Calcit / `@calcit/procs` 0.41.1、Respo 0.19.5、Phlox 0.9.3 和 Cirru Editor 0.7.2。编辑、导航与命令框的内部回调使用具名 `Op`，Cirru 编辑命令使用具名 `EditOp`。原匿名操作仍可从框架边界进入。原生服务器使用 Calcit HTTP 0.4.0，并用 `Option` 包装原监听配置。
 
 ```sh
 yarn build
@@ -23,7 +23,7 @@ calcit calcit.cirru test --require-match
 
 ### Usage
 
-Install the published dependencies with Calcit and `@calcit/procs` 0.41.0,
+Install the published dependencies with Calcit and `@calcit/procs` 0.41.1,
 Node 24 and Yarn 4.18.0:
 
 ```bash
