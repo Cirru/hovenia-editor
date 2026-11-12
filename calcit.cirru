@@ -1346,11 +1346,11 @@
             let
                 item $ schema/entry-tree entry
                 info $ cond
-                    is-linear? $ as-list item
-                    wrap-linear-expr (as-list item) ([]) focus false
-                  (with-linear? (as-list item))
-                    wrap-expr-with-linear (as-list item) ([]) focus true false 0
-                  true $ wrap-block-expr (as-list item) ([]) focus
+                    is-linear? item
+                    wrap-linear-expr item ([]) focus false
+                  (with-linear? item)
+                    wrap-expr-with-linear item ([]) focus true false 0
+                  true $ wrap-block-expr item ([]) focus
               container
                 {} $ :on-keyboard $ {}
                   :down $ fn (e d!)
@@ -1388,7 +1388,7 @@
                     , &unit
                 info :tree
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Number) (List Dynamic) String (-> phlox.schema/PhloxElement) (:features :js-ffi)
+          :schema $ quote $ Fn Dynamic (List Number) (List schema/DefinitionPathPart) String (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'comp-error $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-error (ys)
             circle
@@ -1478,7 +1478,7 @@
                 true $ ;nil js/console.log "|unknown event:" e
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (List Number) (List Dynamic) (Map Tag Dynamic)
+          :schema $ quote $ Fn (List Number) (List schema/DefinitionPathPart) (Map Tag Dynamic)
             Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
@@ -1547,7 +1547,7 @@
                 true $ ;nil js/console.warn "|unknown event:" e
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (List Number) (List Dynamic) String (Map Tag Dynamic)
+          :schema $ quote $ Fn (List Number) (List schema/DefinitionPathPart) String (Map Tag Dynamic)
             Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
@@ -2870,19 +2870,15 @@
                           , 'Number
                         []
                       []
-                    selected-entry $ if (empty? def-path) None $ definition-at files
-                      decode-map-as def-path $ List app.schema/DefinitionPathPart
+                    definition-path $ decode-map-as def-path $ List app.schema/DefinitionPathPart
+                    selected-entry $ if (empty? definition-path) None $ definition-at files definition-path
                   match selected-entry
                     (:none)
                       text $ {} (:text "|No code selected")
                         :position $ [] -60 0
                         :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
                     (:some entry)
-                      decode-map-as
-                        memof1-call comp-editor entry focus
-                          decode-map-as def-path $ List Dynamic
-                          , package-name
-                        , phlox.schema/PhloxElement
+                      decode-map-as (memof1-call comp-editor entry focus definition-path package-name) phlox.schema/PhloxElement
                 :deps-tree $ if (nil? deps-tree)
                   text $ {} (:text "|tree is empty")
                     :position $ [] 1 1
