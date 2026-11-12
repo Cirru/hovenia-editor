@@ -431,21 +431,23 @@
                   * 2 $ count children
               container ({})
                 create-list :container ({})
-                  loop
-                      acc $ decode-map-as ([]) (List Dynamic)
-                      xs children
-                      a0 start-radian
-                    match (destruct-list xs)
-                      (:none) acc
-                      (:some x0 xss)
-                        let
-                            delta $ * (- radian-size 0.01)
-                              / (x0 :size) tree-size
-                          recur
-                            conj acc $ let
-                                index $ count acc
-                              [] index $ comp-sector x0 (+ radius thickness 20) a0 delta index
-                            , xss $ + a0 delta
+                  map-indexed
+                    loop
+                        acc $ decode-map-as ([]) (List phlox.schema/PhloxElement)
+                        xs children
+                        a0 start-radian
+                      match (destruct-list xs)
+                        (:none) acc
+                        (:some x0 xss)
+                          let
+                              delta $ * (- radian-size 0.01)
+                                / (x0 :size) tree-size
+                            recur
+                              conj acc $ let
+                                  index $ count acc
+                                comp-sector x0 (+ radius thickness 20) a0 delta index
+                              , xss $ + a0 delta
+                    fn (index sector) ([] index sector)
                 comp-sector-curve radius start-radian radian-size
                   hslx
                     let
@@ -501,7 +503,7 @@
                   g :close-path nil
                   g :end-fill
           :examples $ []
-          :schema $ quote $ Fn Number Number Number Number Number (-> Dynamic) (:features :js-ffi)
+          :schema $ quote $ Fn Number Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'count-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn count-tree (children)
             foldl children 1 $ fn (size child)
