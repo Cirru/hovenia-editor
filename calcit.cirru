@@ -332,6 +332,14 @@
           :require $ app.schema :as schema
     'app.comp.call-tree $ %{} 'FileEntry
       :defs $ {}
+        'CallTree $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct CallTree
+            :entry $ List String
+            :looped? Bool
+            :children $ List app.comp.call-tree/CallTree
+            :size Number
+          :examples $ []
+          :schema $ quote StructDef
         'build-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn build-call-tree (deps-tree entry parents)
             let
@@ -339,27 +347,23 @@
                 children $ if looped? ([])
                   foldl
                     .unwrap-or (get deps-tree entry) ([])
-                    decode-map-as ([])
-                      List $ Map Tag Dynamic
+                    decode-map-as ([]) (List app.comp.call-tree/CallTree)
                     fn (acc dependency)
-                      hint-fn $ Fn
-                        List $ Map Tag Dynamic
-                        Tuple String String Tag
-                        -> $ List $ Map Tag Dynamic
+                      hint-fn $ Fn (List CallTree) (Tuple String String Tag)
+                        -> $ List CallTree
                       let
                           child-entry $ dependency-key dependency
                         if (contains? deps-tree child-entry)
                           conj acc $ build-call-tree deps-tree child-entry $ include parents entry
                           , acc
-                result $ {} (:entry entry) (:looped? looped?) (:children children)
-              assoc result :size $ count-tree result
+              CallTree :entry entry :looped? looped? :children children :size $ count-tree children
           :examples $ []
           :schema $ quote $ Fn
             Map (List String)
               List $ Tuple String String Tag
             List String
             Set $ List String
-            -> $ Map Tag Dynamic
+            -> CallTree
           :tests $ [] $ %{} 'TestEntry (:name |keeps-cycle-marker-and-skips-external-nodes)
             :code $ quote $ let
                 graph $ decode-map-as
@@ -371,12 +375,12 @@
                   Map (List String)
                     List $ Tuple String String Tag
                 tree $ build-call-tree graph ([] |app.main |a) (#{})
-              assert= (Some 3) (get tree :size)
-              assert= (Some true)
-                app.schema/path-value tree $ [] :children 0 :children 0 :looped?
-              assert=
-                Some $ []
-                app.schema/path-value tree $ [] :children 0 :children 0 :children
+                branch $ .unwrap $ .first (tree :children)
+                cycle $ .unwrap $ .first (branch :children)
+              assert= 3 $ tree :size
+              assert= 1 $ .len $ tree :children
+              assert= true $ cycle :looped?
+              assert= ([]) (cycle :children)
         'comp-call-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-call-tree (states deps-tree router pkg)
             let
@@ -420,18 +424,9 @@
         'comp-sector $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector (call-tree radius start-radian radian-size idx)
             let
-                children $ decode-map-as
-                    get call-tree :children
-                    , .unwrap-or $ []
-                  List $ Map Tag Dynamic
-                tree-size $ decode-map-as
-                    get call-tree :size
-                    , .unwrap-or 1
-                  , 'Number
-                entry $ decode-map-as
-                    get call-tree :entry
-                    , .unwrap-or $ []
-                  List String
+                children $ call-tree :children
+                tree-size $ call-tree :size
+                entry $ call-tree :entry
                 thickness $ + 10 (pow radius 0.7)
                   * 2 $ count children
               container ({})
@@ -445,12 +440,7 @@
                       (:some x0 xss)
                         let
                             delta $ * (- radian-size 0.01)
-                              /
-                                decode-map-as
-                                    get x0 :size
-                                    , .unwrap-or 0
-                                  , 'Number
-                                , tree-size
+                              / (x0 :size) tree-size
                           recur
                             conj acc $ let
                                 index $ count acc
@@ -458,9 +448,9 @@
                             , xss $ + a0 delta
                 comp-sector-curve radius start-radian radian-size
                   hslx
-                    &number:rem
-                      + radius $ * idx 77
-                      , 360
+                    let
+                        hue $ + radius $ * idx 77
+                      - hue $ * 360 $ floor (/ hue 360)
                     , 100 50
                   , thickness
                 text $ {}
@@ -473,7 +463,7 @@
                   :style $ {} (:fill 0xffffff) (:font-size 10) (:font-family |Hind)
                   :rotation start-radian
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
+          :schema $ quote $ Fn CallTree Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
         'comp-sector-curve $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector-curve (radius start-radian radian-size color thickness)
             let
@@ -513,19 +503,16 @@
           :examples $ []
           :schema $ quote $ Fn Number Number Number Number Number (-> Dynamic) (:features :js-ffi)
         'count-tree $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn count-tree (tree)
-            let
-                children $ decode-map-as
-                  .unwrap-or (get tree :children) ([])
-                  List $ Map Tag Dynamic
-              inc $ foldl (map children count-tree) 0 &+
+          :code $ quote $ defn count-tree (children)
+            foldl children 1 $ fn (size child)
+              + size $ child :size
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (-> Number)
+          :schema $ quote $ Fn (List CallTree) (-> Number)
           :tests $ [] $ %{} 'TestEntry (:name |counts-nested-call-nodes)
-            :code $ quote $ assert= 4
-              count-tree $ {} $ :children
-                [] ({})
-                  {} $ :children $ [] ({})
+            :code $ quote $ let
+                leaf $ CallTree :entry ([]) :looped? false :children ([]) :size 1
+                branch $ CallTree :entry ([]) :looped? false :children ([] leaf) :size 2
+              assert= 4 $ count-tree $ [] leaf branch
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.call-tree
           :require
