@@ -12,15 +12,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@calcit/procs@npm:0.42.0":
-  version: 0.42.0
-  resolution: "@calcit/procs@npm:0.42.0"
+"@calcit/procs@npm:0.42.1":
+  version: 0.42.1
+  resolution: "@calcit/procs@npm:0.42.1"
   dependencies:
     "@calcit/finger-vec": "npm:0.1.1"
     "@calcit/ternary-tree": "npm:0.0.26"
     "@cirru/parser.ts": "npm:0.0.10"
     "@cirru/writer.ts": "npm:^0.1.9"
-  checksum: 10c0/195f6d27a1fc24a1b72b8fbafc02d64eb6cee9f3729e893564e9acd33c2ecff742d56b1a0a5f3a4573403724668afe81c8ac4331eb18bbec99b45e72bdeaf407
+  checksum: 10c0/58e306e7bc72b258e07c33dae4d543241cd0c7ed6830262628bf61c734453d7907ef453af0b25a770ba911e9ce6ede19f869d9a78decea4589cf4ae1f7c40629
   languageName: node
   linkType: hard
 
@@ -886,7 +886,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "hovernia-editor@workspace:."
   dependencies:
-    "@calcit/procs": "npm:0.42.0"
+    "@calcit/procs": "npm:0.42.1"
     "@quamolit/phlox-utils": "npm:^0.0.2"
     "@quamolit/touch-control": "npm:^0.0.13"
     bottom-tip: "npm:^0.1.5"
