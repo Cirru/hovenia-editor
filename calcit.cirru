@@ -26,12 +26,15 @@
                         get (schema/entry-fields file) :ns
                     MapEntryDecision :keep ns $ parse-import-dict form
                 initial $ decode-map-as ({})
-                  Map (List String) (List Dynamic)
+                  Map (List String)
+                    List $ Tuple String String Tag
               &map:fold-kv files initial $ fn (all ns file)
                 hint-fn $ Fn
-                  Map (List String) (List Dynamic)
+                  Map (List String)
+                    List $ Tuple String String Tag
                   , String Dynamic $ ->
-                    Map (List String) (List Dynamic)
+                    Map (List String)
+                      List $ Tuple String String Tag
                 let
                     defs $ decode-map-as
                       .unwrap-or
@@ -41,16 +44,19 @@
                     ns-imports $ .unwrap $ get imports ns
                   &map:fold-kv defs all $ fn (acc def-name entry)
                     hint-fn $ Fn
-                      Map (List String) (List Dynamic)
+                      Map (List String)
+                        List $ Tuple String String Tag
                       , String Dynamic $ ->
-                        Map (List String) (List Dynamic)
+                        Map (List String)
+                          List $ Tuple String String Tag
                     let
                         code $ schema/entry-tree entry
                       assoc acc ([] ns def-name)
                         lookup-body-deps (slice code 2) ns-imports ns def-name $ keys defs
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic)
-            -> $ Map (List String) (List Dynamic)
+            -> $ Map (List String)
+              List $ Tuple String String Tag
           :tests $ [] $ %{} 'TestEntry (:name |loaded-snapshot-dependencies-and-navigation)
             :code $ quote $ let
                 raw $ decode-map-as
@@ -123,55 +129,56 @@
                         , .unwrap-or |
                     not $ or (= |: c) (= "|\"" c) (= |' c) (= |. c) (= |; c) (= token def-name) (= token |true) (= token |false) (= token |nil) (includes? |0123456789| token)
                 map strip-at
-                , distinct
-                  map $ fn (token)
-                    cond
-                        = token def-name
-                        , nil
-                      (contains? def-names token) ([] ns token :file)
-                      (contains? defs-imports token)
-                        []
-                            get defs-imports token
+                , distinct $ mapcat $ fn (token)
+                  hint-fn $ Fn String $ ->
+                    List $ Tuple String String Tag
+                  cond
+                      = token def-name
+                      []
+                    (contains? def-names token)
+                      [] $ [] ns token :file
+                    (contains? defs-imports token)
+                      [] $ []
+                          get defs-imports token
+                          , .unwrap-or |
+                        , token :def
+                    (contains? npm-defs token)
+                      [] $ []
+                          get npm-defs token
+                          , .unwrap-or |
+                        , token :npm-def
+                    (contains? npm-defaults token)
+                      [] $ []
+                          get npm-defaults token
+                          , .unwrap-or |
+                        , token :npm-default
+                    (and (not= ((get token 0) .unwrap-or |) |/) (includes? token |/))
+                      let
+                          pieces $ split token |/
+                          ns-alias $
+                            first pieces
                             , .unwrap-or |
-                          , token :def
-                      (contains? npm-defs token)
-                        []
-                            get npm-defs token
+                          def-part $
+                            nth pieces 1
                             , .unwrap-or |
-                          , token :npm-def
-                      (contains? npm-defaults token)
-                        []
-                            get npm-defaults token
-                            , .unwrap-or |
-                          , token :npm-default
-                      (and (not= ((get token 0) .unwrap-or |) |/) (includes? token |/))
-                        let
-                            pieces $ split token |/
-                            ns-alias $
-                              first pieces
-                              , .unwrap-or |
-                            def-part $
-                              nth pieces 1
-                              , .unwrap-or |
-                          cond
-                              contains? namespaces ns-alias
-                              []
-                                  get namespaces ns-alias
-                                  , .unwrap-or |
-                                , def-part :ns-def
-                            (contains? npm-namespaces ns-alias)
-                              []
-                                  get npm-namespaces ns-alias
-                                  , .unwrap-or |
-                                , def-part :npm-ns-def
-                            true nil
-                      true nil
-                  filter non-nil?
+                        cond
+                            contains? namespaces ns-alias
+                            [] $ []
+                                get namespaces ns-alias
+                                , .unwrap-or |
+                              , def-part :ns-def
+                          (contains? npm-namespaces ns-alias)
+                            [] $ []
+                                get npm-namespaces ns-alias
+                                , .unwrap-or |
+                              , def-part :npm-ns-def
+                          true $ []
+                    true $ []
           :examples $ []
           :schema $ quote $ Fn (List CirruNode)
             Map Tag $ Map String String
             , String String (Set String)
-              -> $ List Dynamic
+              -> $ List $ Tuple String String Tag
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
             -> deps-dict keys &set:to-list
@@ -3553,7 +3560,8 @@
             :mv-def $ List String
             :picker-mode Bool
             :focus-or-pick $ List Number
-            :deps-tree $ Map (List String) (List Dynamic)
+            :deps-tree $ Map (List String)
+              List $ Tuple String String Tag
             :effect-goto-def String
           :examples $ []
           :schema $ quote EnumDef

@@ -59,6 +59,7 @@ jobs:
         calcit edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
+        calcit calcit.cirru test app.analyze/analyze-deps --require-match --summary-only
         calcit calcit.cirru --check-only \
           --ns app.analyze \
           --ns app.comp.call-tree \
