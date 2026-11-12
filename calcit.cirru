@@ -14,6 +14,11 @@
   :files $ {}
     'app.analyze $ %{} 'FileEntry
       :defs $ {}
+        'ImportNode $ %{} 'CodeEntry
+          :doc "|Textual namespace-import tokens and nested lists, including legacy tags."
+          :code $ quote $ defunion ImportNode String Tag (List ImportNode)
+          :examples $ []
+          :schema $ quote UnionDef
         'analyze-deps $ %{} 'CodeEntry
           :doc "|对已载入的 Struct 文件/定义检查代码 List，按文件与定义键直接累积依赖图；保留原依赖三元组的类别 Tag，不将异构三元组伪装为 List<String>。"
           :code $ quote $ defn analyze-deps (files)
@@ -250,7 +255,7 @@
                   , Dynamic $ ->
                     Map Tag $ Map String String
                 let
-                    rule $ regularize-rule $ decode-map-as raw-rule (List Dynamic)
+                    rule $ regularize-rule $ decode-map-as raw-rule (List ImportNode)
                     target $ decode-map-as
                       .unwrap $ get rule 0
                       , 'String
@@ -299,12 +304,21 @@
         'regularize-rule $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn regularize-rule (rule)
             -> rule
-              filter $ fn (item) (not= item |[])
+              filter $ fn (item)
+                hint-fn $ Fn ImportNode $ -> Bool
+                match item
+                  (String token) (not= token |[])
+                  (Tag _) true
+                  (List _) true
               map $ fn (item)
-                if (list? item) (regularize-rule item) item
+                hint-fn $ Fn ImportNode $ -> ImportNode
+                match item
+                  (String token) token
+                  (Tag token) token
+                  (List items) (regularize-rule items)
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
-            -> $ List Dynamic
+          :schema $ quote $ Fn (List ImportNode)
+            -> $ List ImportNode
           :tests $ [] $ %{} 'TestEntry (:name |drops-only-legacy-list-markers)
             :code $ quote $ assert=
               [] |respo.core :refer $ [] |render!
@@ -1079,7 +1093,7 @@
             Map (List String) DefMetrics
             , String
               -> $ List $ List (List Number)
-              :features :js-ffi
+              :features :js-ffi :state
         'build-defs-metrics $ %{} 'CodeEntry
           :doc "|只以依赖记录的前两个 String 构成缓存键；先缓存节点再递归，循环及共享节点不重复布局。内部和第三方依赖互斥分组，保留原三元组类别。"
           :code $ quote $ defn build-defs-metrics (entry deps-tree depth pkg)
@@ -1110,6 +1124,7 @@
               List $ Tuple String String Tag
             , Number String
               -> $ List DefMetrics
+              :features :state
           :tests $ [] $ %{} 'TestEntry
             :name |cycles-share-layout-and-separate-external-dependencies
             :code $ quote $ let
@@ -1223,7 +1238,7 @@
           :schema $ quote $ Fn
             Map (List String)
               List $ Tuple String String Tag
-            , String String (-> phlox.schema/PhloxElement) (:features :js-ffi)
+            , String String (-> phlox.schema/PhloxElement) (:features :js-ffi :state)
         'expand-layout-xy $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn expand-layout-xy (info)
             let
@@ -1235,11 +1250,12 @@
           :examples $ []
           :schema $ quote $ Fn DefMetrics
             -> $ List Number
+            :features :state
         'get-def-stack-y-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-def-stack-y-of (depth)
             .unwrap-or (get @*defs-layout-stack depth) 0
           :examples $ []
-          :schema $ quote $ Fn Number (-> Number)
+          :schema $ quote $ Fn Number (-> Number) (:features :state)
         'new-def-stack-y-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn new-def-stack-y-of (depth size)
             let
@@ -1247,7 +1263,7 @@
               swap! *defs-layout-stack assoc depth $ + previous size
               , previous
           :examples $ []
-          :schema $ quote $ Fn Number Number (-> Number)
+          :schema $ quote $ Fn Number Number (-> Number) (:features :state)
           :tests $ [] $ %{} 'TestEntry (:name |accumulates-layout-with-numeric-default)
             :code $ quote $ do
               reset! *defs-layout-stack $ {}
@@ -2906,7 +2922,7 @@
                   :position $ [] 1 1
                   :style $ {} (:fill |red) (:font-size 14) (:font-family |Hind)
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (-> phlox.schema/PhloxElement)
+          :schema $ quote $ Fn (Map Tag Dynamic) (-> phlox.schema/PhloxElement) (:features :state)
         'comp-hint $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-hint (states focus target)
             let
@@ -3101,7 +3117,7 @@
               raise "|Expected one application operation Enum"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit)
+          :schema $ quote $ Fn Dynamic (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |single-operation-navigation-and-mixed-state)
             :code $ quote $ let
                 before @*store
@@ -3144,7 +3160,7 @@
             println "|App Started"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'mount-target $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mount-target ()
             match (respo-browser/query-selector |.app)
@@ -3164,14 +3180,14 @@
               hud! |error build-errors
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
             render! (comp-container @*store) dispatch! $ {}
             render-navbar!
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'render-navbar! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-navbar! ()
             let
@@ -3182,7 +3198,7 @@
                 comp-navbar @*store $ >> states :dom
                 , dispatch!
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.main
           :require (|pixi.js :as PIXI)
@@ -3762,7 +3778,7 @@
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (println "|start web server") (start-server!)
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'on-request $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-request (req)
             let
@@ -3805,6 +3821,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic)
             -> $ Map Tag Dynamic
+            :features :io
         'patch-compact-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn patch-compact-data (compact-data inc-changes) (persistence/apply-patch compact-data inc-changes)
           :examples $ []
@@ -3813,7 +3830,7 @@
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (println |reload...)
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io)
         'start-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn start-server! ()
             reset! *app-server $ Some $ serve-http!
@@ -3823,7 +3840,7 @@
               fn (req) (on-request req)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.server
           :require
@@ -4235,6 +4252,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
             -> $ Map Tag Dynamic
+            :features :io
             :open :decode
           :tests $ [] $ %{} 'TestEntry (:name |mutations-preserve-metadata-and-history)
             :code $ quote $ let
