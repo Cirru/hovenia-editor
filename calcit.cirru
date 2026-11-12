@@ -79,17 +79,9 @@
               assert= None $ lookup-target-def |missing files ([] |app.demo :defs |main) |app
         'dependency-key $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dependency-key (dependency)
-            let
-                parts $ decode-map-as dependency $ List Dynamic
-              []
-                decode-map-as
-                  .unwrap $ get parts 0
-                  , 'String
-                decode-map-as
-                  .unwrap $ get parts 1
-                  , 'String
+            let[] (namespace name _kind) dependency $ [] namespace name
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn (Tuple String String Tag)
             -> $ List String
         'digit-pattern $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn digit-pattern () (new js/RegExp |^\d$)
@@ -951,17 +943,11 @@
                     -> dependants &set:to-list $ map-indexed $ fn (idx item)
                       [] idx $ comp-button $ {}
                         :text $ str
-                          .unwrap-or
-                            nth (dependency-key item) 0
-                            , |
+                          .unwrap-or (nth item 0) |
                           , |/
-                            .unwrap-or
-                              nth (dependency-key item) 1
-                              , |
+                            .unwrap-or (nth item 1) |
                             , "|  " $ count
-                              .unwrap-or
-                                get deps-tree $ dependency-key item
-                                []
+                              .unwrap-or (get deps-tree item) ([])
                         :position $ [] 0 $ * idx 40
                         :align-right? true
                         :on $ {} $ :pointertap
@@ -976,12 +962,11 @@
                                 decode-map-as (.-ctrlKey e) 'Bool
                               do
                                 d! $ app.schema/Op :def-path $ []
-                                  .unwrap $ get (dependency-key item) 0
+                                  .unwrap $ get item 0
                                   , :defs
-                                    .unwrap $ get (dependency-key item) 1
+                                    .unwrap $ get item 1
                                 d! $ app.schema/Op :router $ {} (:name :editor)
-                              d! $ app.schema/Op :router $ {} (:name :deps-of)
-                                :data $ dependency-key item
+                              d! $ app.schema/Op :router $ {} (:name :deps-of) (:data item)
                             , &unit
                   create-list :container
                     {} $ :position $ [] 320 -40
@@ -1097,30 +1082,28 @@
               :features :js-ffi
         'build-defs-metrics $ %{} 'CodeEntry
           :doc "|只以依赖记录的前两个 String 构成缓存键；先缓存节点再递归，循环及共享节点不重复布局。内部和第三方依赖互斥分组，保留原三元组类别。"
-          :code $ quote $ defn build-defs-metrics (entry3 deps-tree depth pkg)
-            let
-                entry $ dependency-key entry3
-              if
-                .some? $ get @*defs-metrics-states entry
-                []
-                let
-                    info $ .unwrap-or (get deps-tree entry) ([])
-                    scoped-defs $ filter info $ fn (item)
-                      starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    thirdpart-defs $ filter info $ fn (item)
-                      not $ starts-with?
-                        .unwrap $ first $ dependency-key item
-                        , pkg
-                    partial-self $ DefMetrics :depth depth :y
-                      new-def-stack-y-of depth $ + 2 $ count scoped-defs
-                      , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry
-                  swap! *defs-metrics-states assoc entry partial-self
-                  prepend
-                    mapcat scoped-defs $ fn (child)
-                      build-defs-metrics (dependency-key child) deps-tree (inc depth) pkg
-                    , partial-self
+          :code $ quote $ defn build-defs-metrics (entry deps-tree depth pkg)
+            if
+              .some? $ get @*defs-metrics-states entry
+              []
+              let
+                  info $ .unwrap-or (get deps-tree entry) ([])
+                  scoped-defs $ filter info $ fn (item)
+                    starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  thirdpart-defs $ filter info $ fn (item)
+                    not $ starts-with?
+                      .unwrap $ first $ dependency-key item
+                      , pkg
+                  partial-self $ DefMetrics :depth depth :y
+                    new-def-stack-y-of depth $ + 2 $ count scoped-defs
+                    , :scoped-defs scoped-defs :thirdpart-defs thirdpart-defs :entry entry
+                swap! *defs-metrics-states assoc entry partial-self
+                prepend
+                  mapcat scoped-defs $ fn (child)
+                    build-defs-metrics (dependency-key child) deps-tree (inc depth) pkg
+                  , partial-self
           :examples $ []
           :schema $ quote $ Fn (List String)
             Map (List String)
@@ -1194,9 +1177,7 @@
                   map-indexed metrics $ fn (idx info)
                     let
                         position $ expand-layout-xy info
-                        label $ str-def-entry
-                          dependency-key $ info :entry
-                          , pkg
+                        label $ str-def-entry (info :entry) pkg
                       [] idx $ container ({})
                         rect $ {} (:position position)
                           :size $ [] (measure-text-width! label 14 |Hind) 20
