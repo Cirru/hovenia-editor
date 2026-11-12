@@ -1299,16 +1299,21 @@
           :ffi $ {} (:backend :js) (:kind :external-object)
           :schema $ quote Trait
         'all-block? $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn all-block? (item) (every? item list?)
+          :code $ quote $ defn all-block? (item)
+            every? item $ fn (node)
+              match node
+                (String _token) false
+                (List _children) true
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
         'as-list $ %{} 'CodeEntry
           :doc "|Treat one syntax tree item as a list after its leaf case has been ruled out."
           :code $ quote $ defn as-list (item)
-            decode-map-as item $ List Dynamic
+            decode-map-as item $ List calcit.core/CirruNode
           :examples $ []
-          :schema $ quote $ Fn Dynamic
-            -> $ List Dynamic
+          :schema $ quote $ Fn Input
+            -> $ List CirruNode
+            :generics Input
         'base-dot $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def base-dot
             {} (:radius dot-radius) (:alpha 1)
@@ -1560,20 +1565,17 @@
                 , @events
         'is-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn is-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                let
-                    x0 $ .unwrap $ first xs
-                  if (string? x0) true $ recur $ decode-map-as x0 (List Dynamic)
-              true $ let
-                  x0 $ .unwrap $ first xs
-                if (string? x0)
-                  recur $ rest xs
+            if (.empty? xs) true $ match
+              .unwrap $ .first xs
+              (String _token)
+                recur $ .rest xs
+              (List children)
+                if
+                  = 1 $ .len xs
+                  recur children
                   , false
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
           :tests $ [] $ %{} 'TestEntry (:name |keeps-nested-linear-and-block-layout)
             :code $ quote $ do
               assert= true $ is-linear? $ [] |a |b
@@ -1655,21 +1657,18 @@
           :schema $ quote $ Map Tag Number
         'with-linear? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn with-linear? (xs)
-            cond
-                empty? xs
-                , true
-              (= 1 (count xs))
-                , true
-              true $ let
-                  x0 $ .unwrap $ first xs
-                if (string? x0)
-                  recur $ rest xs
-                  if
-                    is-linear? $ decode-map-as x0 $ List Dynamic
-                    recur $ rest xs
+            if
+              <= (.len xs) 1
+              , true $ match
+                .unwrap $ .first xs
+                (String _token)
+                  recur $ .rest xs
+                (List children)
+                  if (is-linear? children)
+                    recur $ .rest xs
                     , false
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (-> Bool)
+          :schema $ quote $ Fn (List CirruNode) (-> Bool)
         'wrap-block-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-block-expr (xs coord focus)
             loop
