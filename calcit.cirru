@@ -2811,6 +2811,10 @@
           :require $ |mobile-detect :default mobile-detect
     'app.container $ %{} 'FileEntry
       :defs $ {}
+        'QuotedNode $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defunion QuotedNode Symbol (List QuotedNode)
+          :examples $ []
+          :schema $ quote UnionDef
         'comp-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-container (store)
             let
@@ -2922,7 +2926,7 @@
                       d! $ :: :states cursor $ assoc state :p1 next-position
                 text $ {}
                   :text $ slice
-                    format-to-lisp $ turn-quoted target
+                    format-to-lisp $ turn-quoted $ decode-map-as target calcit.core/CirruNode
                     , 0 $ Some 200
                   :position $ complex/add position $ [] 12 -6
                   :style $ {}
@@ -2933,11 +2937,11 @@
           :schema $ quote $ Fn Dynamic Dynamic Dynamic (-> phlox.schema/PhloxElement)
         'turn-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn turn-quoted (target)
-            if (string? target) (to-symbol target)
-              if (list? target) (map target turn-quoted)
-                raise "|Expected a Cirru String token or expression List"
+            match target
+              (String token) (to-symbol token)
+              (List children) (map children turn-quoted)
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn CirruNode (-> QuotedNode)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.container
           :require
