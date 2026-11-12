@@ -1610,9 +1610,10 @@
             -> Unit
             :features :js-ffi
         'pattern-number $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn pattern-number () (new js/RegExp "|^-?\\d+(\\.\\d+)?$")
+          :code $ quote $ defn pattern-number ()
+            js-cast (new js/RegExp "|^-?\\d+(\\.\\d+)?$") app.comp.editor/RegexHost
           :examples $ []
-          :schema $ quote $ Fn (-> JsObject) (:features :js-ffi)
+          :schema $ quote $ Fn (-> RegexHost) (:features :js-ffi)
         'pick-leaf-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pick-leaf-color (s head?)
             let
@@ -1627,7 +1628,7 @@
                 (= || first-char) (hslx 70 50 40)
                 (= |: first-char) (hslx 240 90 74)
                 (= |. first-char) (hslx 100 100 70)
-                (.!test (unsafe-coerce (pattern-number) RegexHost) s)
+                (let ((pattern (pattern-number))) (pattern .test s))
                   hslx 330 100 40
                 head? $ hslx 160 70 76
                 true $ hslx 190 50 50
