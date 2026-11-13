@@ -3487,11 +3487,12 @@
         'serialize-defs $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-defs (defs)
             filter-map-kv defs $ fn (name entry)
-              hint-fn $ Fn String Dynamic $ -> (MapEntryDecision String AnyStruct)
+              hint-fn $ Fn String Entry $ -> (MapEntryDecision String AnyStruct)
               MapEntryDecision :keep name $ serialize-entry entry
           :examples $ []
-          :schema $ quote $ Fn (Map String Dynamic)
+          :schema $ quote $ Fn (Map String Entry)
             -> $ Map String AnyStruct
+            :generics Entry
             :open :reflect
         'serialize-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-entry (entry)
