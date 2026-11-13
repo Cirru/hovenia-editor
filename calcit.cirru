@@ -3661,8 +3661,9 @@
           :code $ quote $ defn entry-fields (entry)
             if (struct? entry) (&struct:to-map entry) (raise "|Expected a Snapshot entry Struct")
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Entry
             -> $ Map Tag Dynamic
+            :generics Entry
         'entry-tree $ %{} 'CodeEntry
           :doc "|读取载入转换后的 quote Enum 树。Struct 字段显式读取，不让 get-in 跨 Struct，也不吞掉缺失或错误的代码载荷。"
           :code $ quote $ defn entry-tree (entry)
@@ -3677,8 +3678,9 @@
                   raise "|Expected quote code Enum"
                 raise "|Expected transformed Snapshot code Enum"
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Entry
             -> $ List CirruNode
+            :generics Entry
         'event-field $ %{} 'CodeEntry
           :doc "|Read one event field as an Option. Respo passes RespoEvent structs, Phlox passes maps, and host fields may be nil."
           :code $ quote $ defn event-field (e field)
