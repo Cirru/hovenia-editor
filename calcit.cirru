@@ -3067,7 +3067,7 @@
                 &struct:assoc entry :code $ :: 'quote $ &cirru-quote:to-list quoted
               raise "|Expected a Snapshot CodeEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.fetch
           :require
@@ -3502,7 +3502,7 @@
                   , 'CirruQuote
               if (struct? entry) (&struct:assoc entry :code code) (raise "|Expected a Snapshot CodeEntry Struct")
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
         'serialize-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-file (file)
             let
@@ -3517,7 +3517,7 @@
                   &struct:assoc :defs $ serialize-defs defs
                 raise "|Expected a Snapshot FileEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.persistence
           :require $ app.schema :as schema
@@ -3727,7 +3727,7 @@
                   (List _) (raise "|Expected a named Snapshot code entry")
                 raise "|Expected a named Snapshot code entry"
           :examples $ []
-          :schema $ quote $ Fn Dynamic String (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input String (-> AnyStruct) (:generics Input) (:open :reflect)
         'replace-node-op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn replace-node-op (focus node)
             Op :cirru-edit-node $ decode-map-as ([] focus node)
