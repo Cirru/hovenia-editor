@@ -3709,8 +3709,9 @@
               (:ok value) (Some value)
               (:err _error) None
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic)
+          :schema $ quote $ Fn Base (List Part)
             -> $ Option Dynamic
+            :generics Base Part
         'rename-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn rename-entry (entry name)
             let
