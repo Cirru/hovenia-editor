@@ -3686,8 +3686,9 @@
                   if (nil? value) None $ Some value
                 (:none) None
           :examples $ []
-          :schema $ quote $ Fn Dynamic Tag
+          :schema $ quote $ Fn Event Tag
             -> $ Option Dynamic
+            :generics Event
         'inline $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defmacro inline (path)
             read-file $ str |data/ path
