@@ -3840,13 +3840,8 @@
             app.config :refer $ cors-headers
             app.persistence :as persistence
     'app.style $ %{} 'FileEntry
-      :defs $ {}
-        'button $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def button
-            merge ui/button $ {} $ :background :black
-          :examples $ []
-          :schema $ quote Dynamic
-        'css-hover-entry $ %{} 'CodeEntry (:doc |)
+      :defs $ {} $ 'css-hover-entry
+        %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-hover-entry
             {}
               |$0 $ {} (:cursor :pointer) (:font-family ui/font-code) (:cursor :pointer) (:line-height |2) (:padding "|0 8px")
