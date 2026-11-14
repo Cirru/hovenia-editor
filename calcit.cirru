@@ -1315,14 +1315,6 @@
                 (List _children) true
           :examples $ []
           :schema $ quote $ Fn (List CirruNode) (-> Bool)
-        'as-list $ %{} 'CodeEntry
-          :doc "|Treat one syntax tree item as a list after its leaf case has been ruled out."
-          :code $ quote $ defn as-list (item)
-            decode-map-as item $ List calcit.core/CirruNode
-          :examples $ []
-          :schema $ quote $ Fn Input
-            -> $ List CirruNode
-            :generics Input
         'base-dot $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def base-dot
             {} (:radius dot-radius) (:alpha 1)
@@ -1369,15 +1361,14 @@
                         and
                           not $ and meta? $ = |Tab key
                           , target-is-body?
-                        match (app.schema/path-value item focus)
+                        match (schema/code-at-focus item focus)
                           (:none) &unit
                           (:some target)
-                            cond
-                                list? target
+                            match target
+                              (List _children)
                                 handle-expr-event focus def-path (dissoc e :event) d!
-                              (string? target)
-                                handle-leaf-event focus def-path target (dissoc e :event) d!
-                              true $ js/console.error "|unknown target" target
+                              (String token)
+                                handle-leaf-event focus def-path token (dissoc e :event) d!
                     , &unit
                 info :tree
           :examples $ []
@@ -1614,7 +1605,7 @@
               d! $ app.schema/Op :focus-or-pick coord
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic) (List Number)
+          :schema $ quote $ Fn Dynamic (List CirruNode) (List Number)
             Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi
@@ -1692,7 +1683,7 @@
                 prev-leaf? false
               hint-fn $ Fn
                 List $ List Dynamic
-                List Dynamic
+                List CirruNode
                 , Number Number Number Number (Option Number) Bool (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
@@ -1720,7 +1711,10 @@
                   , :width x-position :y-stack y-stack :winding-x winding-x
                 if
                   and prev-leaf? $ match (first ys)
-                    (:some head) (string? head)
+                    (:some head)
+                      match head
+                        (String _token) true
+                        (List _children) false
                     (:none) false
                   let
                       item $ .unwrap $ first ys
@@ -1742,14 +1736,16 @@
                   let
                       item $ .unwrap $ first ys
                       next-coord $ conj coord idx
-                      info $ cond
-                          string? item
-                          wrap-leaf (decode-map-as item 'String) next-coord focus $ = idx 0
-                        (is-linear? (as-list item))
-                          wrap-linear-expr (as-list item) next-coord focus false
-                        (and (with-linear? (as-list item)) (not (all-block? (as-list item))))
-                          wrap-expr-with-linear (as-list item) next-coord focus true false 0
-                        true $ wrap-block-expr (as-list item) next-coord focus
+                      info $ match item
+                        (String leaf)
+                          wrap-leaf leaf next-coord focus $ = idx 0
+                        (List children)
+                          cond
+                              is-linear? children
+                              wrap-linear-expr children next-coord focus false
+                            (and (with-linear? children) (not (all-block? children)))
+                              wrap-expr-with-linear children next-coord focus true false 0
+                            true $ wrap-block-expr children next-coord focus
                       width $ info :width
                       tree $ info :tree
                       next-y-stack $ if
@@ -1777,9 +1773,11 @@
                       inc idx
                       , width
                         if (= 0 idx) (info :winding-x) winding-x
-                        string? item
+                        match item
+                          (String _token) true
+                          (List _children) false
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) (-> LayoutInfo) (:features :js-ffi)
         'wrap-expr-with-linear $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
@@ -1794,7 +1792,7 @@
                 winding-x None
               hint-fn $ Fn
                 List $ List Dynamic
-                List Dynamic
+                List CirruNode
                 , Number Number Number Number Number Bool (Option Number) (-> LayoutInfo) (:features :js-ffi)
               if (empty? ys)
                 LayoutInfo :tree
@@ -1823,10 +1821,10 @@
                 let
                     item $ .unwrap $ first ys
                     next-coord $ conj coord idx
-                  cond
-                      string? item
+                  match item
+                    (String leaf)
                       let
-                          info $ wrap-leaf item next-coord focus $ = idx 0
+                          info $ wrap-leaf leaf next-coord focus $ = idx 0
                           width $ info :width
                           tree $ info :tree
                         recur
@@ -1839,190 +1837,189 @@
                             > (+ x-position width leaf-gap) y-stack-extend-x
                             , 1 y-stack
                           , y-stack-max y-stack-extend-x (inc idx) winding-okay? winding-x
-                    (and winding-okay? (is-linear? (as-list item)) (not= 1 (count ys)))
-                      let
-                          focused? $ = next-coord focus
-                          info $ wrap-linear-expr (as-list item) next-coord focus true
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            polyline $ {}
-                              :style $ if focused? style-active-line style-shadow-line
-                              :position $ [] 0 0
-                              :points $ [] ([] 0 0)
-                                [] 0 $ * -1 line-height
-                            circle $ merge base-dot $ {}
-                              :fill $ hslx 180 60 40
-                              :on $ {} $ :pointertap
-                                fn (e d!)
-                                  hint-fn $ Fn Dynamic
-                                    Fn schema/Op $ -> Unit
-                                    -> Unit
-                                  on-expr-click e (as-list item) next-coord d!
-                            if focused? shape-focus $ container $ {}
-                            container
-                              {} $ :position $ [] 0 (* -1 line-height)
-                              info :tree
-                          rest ys
-                          + x-position leaf-gap
-                          , y-stack y-stack-max
-                            &max y-stack-extend-x $ + x-position $ info :width
-                            inc idx
-                            , false $ Some x-position
-                    (and (is-linear? (as-list item)) (not= 1 (count ys)))
-                      let
-                          focused? $ = next-coord focus
-                          info $ wrap-linear-expr (as-list item) next-coord focus true
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            polyline $ {}
-                              :style $ if focused? style-active-line style-shadow-line
-                              :position $ [] 0 0
-                              :points $ [] ([] 0 0)
-                                [] 0 $ * y-stack line-height
-                            circle $ merge base-dot $ {}
-                              :fill $ hslx 160 100 30
-                              :on $ {} $ :pointertap
-                                fn (e d!)
-                                  hint-fn $ Fn Dynamic
-                                    Fn schema/Op $ -> Unit
-                                    -> Unit
-                                  on-expr-click e (as-list item) next-coord d!
-                            if (= next-coord focus) shape-focus $ container $ {}
-                            container
-                              {} $ :position $ [] 0 (* y-stack line-height)
-                              info :tree
-                          rest ys
-                          + x-position leaf-gap
-                          inc y-stack
-                          &max y-stack-max $ inc y-stack
-                          &max y-stack-extend-x $ + x-position leaf-gap $ info :width
-                          inc idx
-                          , false winding-x
-                    (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? (as-list item))))
-                      let
-                          info $ wrap-linear-expr (as-list item) next-coord focus false
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            info :tree
-                          rest ys
-                          + x-position width leaf-gap
-                          &max y-stack $ info :y-stack
-                          &max y-stack-max $ &max y-stack $ info :y-stack
-                          , y-stack-extend-x (inc idx) winding-okay? winding-x
-                    (and (= 1 (count ys)) (&= y-stack 1))
-                      let
-                          info $ cond
-                              is-linear? $ as-list item
-                              wrap-linear-expr (as-list item) next-coord focus false
-                            (and (with-linear? (as-list item)) (not (all-block? (as-list item))))
-                              wrap-expr-with-linear (as-list item) next-coord focus winding-okay? false $ + acc-x x-position
-                            true $ wrap-block-expr (as-list item) next-coord focus
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ container
-                            {} $ :position $ [] x-position 0
-                            info :tree
-                          rest ys
-                          + x-position width leaf-gap
-                          &max y-stack $ info :y-stack
-                          &max y-stack-max $ &max y-stack $ info :y-stack
-                          , y-stack-extend-x (inc idx) winding-okay? $ match winding-x
-                            (:some _) winding-x
-                            (:none)
-                              match (info :winding-x)
-                                (:some x)
-                                  Some $ + x-position x
-                                (:none) None
-                    (and (> acc-x twist-distance) (= 1 (count ys)))
-                      let
-                          info $ cond
-                              and
-                                with-linear? $ as-list item
-                                not $ all-block? $ as-list item
-                              wrap-expr-with-linear (as-list item) next-coord focus winding-okay? true $ + acc-x x-position $ negate twist-distance
-                            true $ wrap-block-expr (as-list item) next-coord focus
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ let
+                    (List children)
+                      cond
+                          and winding-okay? (is-linear? children)
+                            not= 1 $ count ys
+                          let
                               focused? $ = next-coord focus
-                            container
-                              {} $ :position $ [] x-position 0
-                              polyline $ {}
-                                :style $ if focused? style-active-line style-shadow-line
-                                :position $ [] 0 0
-                                :points $ [] ([] 0 0)
-                                  [] 0 $ * y-stack line-height
-                                  [] (negate twist-distance) (* y-stack line-height)
-                                  [] (negate twist-distance)
-                                    * (inc y-stack) line-height
-                              circle $ merge base-dot $ {}
-                                :fill $ hslx 300 100 30
-                                :on $ {} $ :pointertap
-                                  fn (e d!)
-                                    hint-fn $ Fn Dynamic
-                                      Fn schema/Op $ -> Unit
-                                      -> Unit
-                                    on-expr-click e (as-list item) next-coord d!
-                              if focused? shape-focus $ container $ {}
-                              container
-                                {} $ :position $ [] (negate twist-distance)
-                                  * (inc y-stack) line-height
-                                info :tree
-                          rest ys
-                          + x-position width leaf-gap
-                          + y-stack (info :y-stack) 1
-                          &max y-stack-max $ inc $ + y-stack (info :y-stack)
-                          , y-stack-extend-x (inc idx) winding-okay? winding-x
-                    (= 1 (count ys))
-                      let
-                          info $ cond
-                              and
-                                with-linear? $ as-list item
-                                not $ all-block? $ as-list item
-                              wrap-expr-with-linear (as-list item) next-coord focus winding-okay? true $ + acc-x x-position
-                            true $ assoc
-                              wrap-block-expr (as-list item) next-coord focus
-                              , :width 0
-                          width $ info :width
-                        recur
-                          conj acc $ [] idx $ let
+                              info $ wrap-linear-expr children next-coord focus true
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ container
+                                {} $ :position $ [] x-position 0
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * -1 line-height
+                                circle $ merge base-dot $ {}
+                                  :fill $ hslx 180 60 40
+                                  :on $ {} $ :pointertap
+                                    fn (e d!)
+                                      hint-fn $ Fn Dynamic
+                                        Fn schema/Op $ -> Unit
+                                        -> Unit
+                                      on-expr-click e children next-coord d!
+                                if focused? shape-focus $ container $ {}
+                                container
+                                  {} $ :position $ [] 0 (* -1 line-height)
+                                  info :tree
+                              rest ys
+                              + x-position leaf-gap
+                              , y-stack y-stack-max
+                                &max y-stack-extend-x $ + x-position $ info :width
+                                inc idx
+                                , false $ Some x-position
+                        (and (is-linear? children) (not= 1 (count ys)))
+                          let
                               focused? $ = next-coord focus
-                            container
-                              {} $ :position $ [] x-position 0
-                              polyline $ {}
-                                :style $ if focused? style-active-line style-shadow-line
-                                :position $ [] 0 0
-                                :points $ [] ([] 0 0)
-                                  [] 0 $ * y-stack line-height
-                              circle $ merge base-dot $ {}
-                                :fill $ hslx 300 100 30
-                                :on $ {} $ :pointertap
-                                  fn (e d!)
-                                    hint-fn $ Fn Dynamic
-                                      Fn schema/Op $ -> Unit
-                                      -> Unit
-                                    on-expr-click e (as-list item) next-coord d!
-                              if focused? shape-focus $ container $ {}
-                              container
-                                {} $ :position $ [] 0 (* y-stack line-height)
+                              info $ wrap-linear-expr children next-coord focus true
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ container
+                                {} $ :position $ [] x-position 0
+                                polyline $ {}
+                                  :style $ if focused? style-active-line style-shadow-line
+                                  :position $ [] 0 0
+                                  :points $ [] ([] 0 0)
+                                    [] 0 $ * y-stack line-height
+                                circle $ merge base-dot $ {}
+                                  :fill $ hslx 160 100 30
+                                  :on $ {} $ :pointertap
+                                    fn (e d!)
+                                      hint-fn $ Fn Dynamic
+                                        Fn schema/Op $ -> Unit
+                                        -> Unit
+                                      on-expr-click e children next-coord d!
+                                if (= next-coord focus) shape-focus $ container $ {}
+                                container
+                                  {} $ :position $ [] 0 (* y-stack line-height)
+                                  info :tree
+                              rest ys
+                              + x-position leaf-gap
+                              inc y-stack
+                              &max y-stack-max $ inc y-stack
+                              &max y-stack-extend-x $ + x-position leaf-gap $ info :width
+                              inc idx
+                              , false winding-x
+                        (and (= 1 (count ys)) (and (> y-stack 1) (is-linear? children)))
+                          let
+                              info $ wrap-linear-expr children next-coord focus false
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ container
+                                {} $ :position $ [] x-position 0
                                 info :tree
-                          rest ys
-                          + x-position width leaf-gap
-                          + y-stack $ info :y-stack
-                          &max y-stack-max $ + y-stack $ info :y-stack
-                          , y-stack-extend-x (inc idx) winding-okay? winding-x
-                    true $ LayoutInfo :tree
-                      create-list :container ({})
-                        conj acc $ [] idx $ comp-error ys
-                      , :width x-position :y-stack y-stack :winding-x None
+                              rest ys
+                              + x-position width leaf-gap
+                              &max y-stack $ info :y-stack
+                              &max y-stack-max $ &max y-stack $ info :y-stack
+                              , y-stack-extend-x (inc idx) winding-okay? winding-x
+                        (and (= 1 (count ys)) (&= y-stack 1))
+                          let
+                              info $ cond
+                                  is-linear? children
+                                  wrap-linear-expr children next-coord focus false
+                                (and (with-linear? children) (not (all-block? children)))
+                                  wrap-expr-with-linear children next-coord focus winding-okay? false $ + acc-x x-position
+                                true $ wrap-block-expr children next-coord focus
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ container
+                                {} $ :position $ [] x-position 0
+                                info :tree
+                              rest ys
+                              + x-position width leaf-gap
+                              &max y-stack $ info :y-stack
+                              &max y-stack-max $ &max y-stack $ info :y-stack
+                              , y-stack-extend-x (inc idx) winding-okay? $ match winding-x
+                                (:some _) winding-x
+                                (:none)
+                                  match (info :winding-x)
+                                    (:some x)
+                                      Some $ + x-position x
+                                    (:none) None
+                        (and (> acc-x twist-distance) (= 1 (count ys)))
+                          let
+                              info $ cond
+                                  and (with-linear? children)
+                                    not $ all-block? children
+                                  wrap-expr-with-linear children next-coord focus winding-okay? true $ + acc-x x-position $ negate twist-distance
+                                true $ wrap-block-expr children next-coord focus
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ let
+                                  focused? $ = next-coord focus
+                                container
+                                  {} $ :position $ [] x-position 0
+                                  polyline $ {}
+                                    :style $ if focused? style-active-line style-shadow-line
+                                    :position $ [] 0 0
+                                    :points $ [] ([] 0 0)
+                                      [] 0 $ * y-stack line-height
+                                      [] (negate twist-distance) (* y-stack line-height)
+                                      [] (negate twist-distance)
+                                        * (inc y-stack) line-height
+                                  circle $ merge base-dot $ {}
+                                    :fill $ hslx 300 100 30
+                                    :on $ {} $ :pointertap
+                                      fn (e d!)
+                                        hint-fn $ Fn Dynamic
+                                          Fn schema/Op $ -> Unit
+                                          -> Unit
+                                        on-expr-click e children next-coord d!
+                                  if focused? shape-focus $ container $ {}
+                                  container
+                                    {} $ :position $ [] (negate twist-distance)
+                                      * (inc y-stack) line-height
+                                    info :tree
+                              rest ys
+                              + x-position width leaf-gap
+                              + y-stack (info :y-stack) 1
+                              &max y-stack-max $ inc $ + y-stack (info :y-stack)
+                              , y-stack-extend-x (inc idx) winding-okay? winding-x
+                        (= 1 (count ys))
+                          let
+                              info $ cond
+                                  and (with-linear? children)
+                                    not $ all-block? children
+                                  wrap-expr-with-linear children next-coord focus winding-okay? true $ + acc-x x-position
+                                true $ assoc (wrap-block-expr children next-coord focus) :width 0
+                              width $ info :width
+                            recur
+                              conj acc $ [] idx $ let
+                                  focused? $ = next-coord focus
+                                container
+                                  {} $ :position $ [] x-position 0
+                                  polyline $ {}
+                                    :style $ if focused? style-active-line style-shadow-line
+                                    :position $ [] 0 0
+                                    :points $ [] ([] 0 0)
+                                      [] 0 $ * y-stack line-height
+                                  circle $ merge base-dot $ {}
+                                    :fill $ hslx 300 100 30
+                                    :on $ {} $ :pointertap
+                                      fn (e d!)
+                                        hint-fn $ Fn Dynamic
+                                          Fn schema/Op $ -> Unit
+                                          -> Unit
+                                        on-expr-click e children next-coord d!
+                                  if focused? shape-focus $ container $ {}
+                                  container
+                                    {} $ :position $ [] 0 (* y-stack line-height)
+                                    info :tree
+                              rest ys
+                              + x-position width leaf-gap
+                              + y-stack $ info :y-stack
+                              &max y-stack-max $ + y-stack $ info :y-stack
+                              , y-stack-extend-x (inc idx) winding-okay? winding-x
+                        true $ LayoutInfo :tree
+                          create-list :container ({})
+                            conj acc $ [] idx $ comp-error ys
+                          , :width x-position :y-stack y-stack :winding-x None
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool Bool Number (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool Bool Number (-> LayoutInfo) (:features :js-ffi)
         'wrap-leaf $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-leaf (s coord focus head?)
             let
@@ -2107,12 +2104,12 @@
                 let
                     item $ .unwrap $ first ys
                     next-coord $ conj coord idx
-                    info $ cond
-                        string? item
-                        wrap-leaf item next-coord focus $ = idx 0
-                      (is-linear? (as-list item))
-                        wrap-linear-expr (as-list item) next-coord focus false
-                      true $ LayoutInfo :tree (comp-error item) :width 20 :y-stack 1 :winding-x None
+                    info $ match item
+                      (String leaf)
+                        wrap-leaf leaf next-coord focus $ = idx 0
+                      (List children)
+                        if (is-linear? children) (wrap-linear-expr children next-coord focus false)
+                          LayoutInfo :tree (comp-error item) :width 20 :y-stack 1 :winding-x None
                     width $ info :width
                     tree $ info :tree
                   recur
@@ -2124,7 +2121,7 @@
                     &max y-stack $ info :y-stack
                     inc idx
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic) (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.editor
           :require
@@ -3591,6 +3588,34 @@
           :examples $ []
           :schema $ quote $ Fn Dynamic (List DefinitionPathPart) Dynamic
             -> $ Map Dynamic Dynamic
+        'code-at-focus $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn code-at-focus (node focus)
+            match (first focus)
+              (:none) (Some node)
+              (:some index)
+                let
+                    child $ match node
+                      (List children) (get children index)
+                      (String token) (get token index)
+                  match child
+                    (:some value)
+                      recur value $ rest focus
+                    (:none) None
+          :examples $ []
+          :schema $ quote $ Fn CirruNode (List Number)
+            -> $ Option CirruNode
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-nested-focus-and-missing-paths)
+            :code $ quote $ let
+                tree $ [] |root $ [] |nested |tail
+              assert=
+                Some $ [] |nested |tail
+                code-at-focus tree $ [] 1
+              assert= (Some |tail)
+                code-at-focus tree $ [] 1 1
+              assert= (Some |t)
+                code-at-focus tree $ [] 1 1 0
+              assert= None $ code-at-focus tree $ [] 1 2
+            :tags $ #{} :unit
         'definition-at $ %{} 'CodeEntry
           :doc "|显式沿文件 Map 和 FileEntry Struct 读取 ns/defs 路径；只验证实际使用的节点，不对每次按键遍历整个文件图，也不让 get-in 跨 Struct。"
           :code $ quote $ defn definition-at (files path)
@@ -4227,14 +4252,14 @@
                         (:none) (assoc store :warning "|target definition not found")
                         (:some entry)
                           match
-                            app.schema/path-value (schema/entry-tree entry) picked
+                            schema/code-at-focus (schema/entry-tree entry) picked
                             (:none) (assoc store :warning "|target node not found")
                             (:some item)
                               let
                                   focus $ decode-map-as
                                     .unwrap-or (get editor :focus) ([])
                                     List Number
-                                  changed $ replace-node store focus $ decode-map-as item calcit.core/CirruNode
+                                  changed $ replace-node store focus item
                                 assoc-in changed ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) picked
               (:deps-tree op-data) (assoc store :deps-tree op-data)
