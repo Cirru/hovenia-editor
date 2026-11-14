@@ -3005,7 +3005,7 @@
                 text $ str key
               if (starts-with? text |') (slice text 1) text
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> String)
+          :schema $ quote $ Fn Key (-> String) (:generics Key)
         'transform-cirru-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn transform-cirru-quoted (snapshot)
             let
