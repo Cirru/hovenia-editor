@@ -1326,34 +1326,6 @@
             match key (|: |;) (|; |:) (|\ ||) (|| |\) (_ key)
           :examples $ []
           :schema $ quote $ Fn String (-> String)
-        'code-at-focus $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn code-at-focus (node focus)
-            match (first focus)
-              (:none) (Some node)
-              (:some index)
-                let
-                    child $ match node
-                      (List children) (get children index)
-                      (String token) (get token index)
-                  match child
-                    (:some value)
-                      recur value $ rest focus
-                    (:none) None
-          :examples $ []
-          :schema $ quote $ Fn CirruNode (List Number)
-            -> $ Option CirruNode
-          :tests $ [] $ %{} 'TestEntry (:name |preserves-nested-focus-and-missing-paths)
-            :code $ quote $ let
-                tree $ [] |root $ [] |nested |tail
-              assert=
-                Some $ [] |nested |tail
-                code-at-focus tree $ [] 1
-              assert= (Some |tail)
-                code-at-focus tree $ [] 1 1
-              assert= (Some |t)
-                code-at-focus tree $ [] 1 1 0
-              assert= None $ code-at-focus tree $ [] 1 2
-            :tags $ #{} :unit
         'comp-editor $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-editor (entry focus def-path pkg)
             let
@@ -1389,7 +1361,7 @@
                         and
                           not $ and meta? $ = |Tab key
                           , target-is-body?
-                        match (code-at-focus item focus)
+                        match (schema/code-at-focus item focus)
                           (:none) &unit
                           (:some target)
                             match target
@@ -3616,6 +3588,34 @@
           :examples $ []
           :schema $ quote $ Fn Dynamic (List DefinitionPathPart) Dynamic
             -> $ Map Dynamic Dynamic
+        'code-at-focus $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn code-at-focus (node focus)
+            match (first focus)
+              (:none) (Some node)
+              (:some index)
+                let
+                    child $ match node
+                      (List children) (get children index)
+                      (String token) (get token index)
+                  match child
+                    (:some value)
+                      recur value $ rest focus
+                    (:none) None
+          :examples $ []
+          :schema $ quote $ Fn CirruNode (List Number)
+            -> $ Option CirruNode
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-nested-focus-and-missing-paths)
+            :code $ quote $ let
+                tree $ [] |root $ [] |nested |tail
+              assert=
+                Some $ [] |nested |tail
+                code-at-focus tree $ [] 1
+              assert= (Some |tail)
+                code-at-focus tree $ [] 1 1
+              assert= (Some |t)
+                code-at-focus tree $ [] 1 1 0
+              assert= None $ code-at-focus tree $ [] 1 2
+            :tags $ #{} :unit
         'definition-at $ %{} 'CodeEntry
           :doc "|显式沿文件 Map 和 FileEntry Struct 读取 ns/defs 路径；只验证实际使用的节点，不对每次按键遍历整个文件图，也不让 get-in 跨 Struct。"
           :code $ quote $ defn definition-at (files path)
@@ -4252,14 +4252,14 @@
                         (:none) (assoc store :warning "|target definition not found")
                         (:some entry)
                           match
-                            app.schema/path-value (schema/entry-tree entry) picked
+                            schema/code-at-focus (schema/entry-tree entry) picked
                             (:none) (assoc store :warning "|target node not found")
                             (:some item)
                               let
                                   focus $ decode-map-as
                                     .unwrap-or (get editor :focus) ([])
                                     List Number
-                                  changed $ replace-node store focus $ decode-map-as item calcit.core/CirruNode
+                                  changed $ replace-node store focus item
                                 assoc-in changed ([] :editor :picker-mode?) false
                     assoc-in store ([] :editor :focus) picked
               (:deps-tree op-data) (assoc store :deps-tree op-data)
