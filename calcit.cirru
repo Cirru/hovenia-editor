@@ -3067,7 +3067,7 @@
                 &struct:assoc entry :code $ :: 'quote $ &cirru-quote:to-list quoted
               raise "|Expected a Snapshot CodeEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.fetch
           :require
@@ -3487,11 +3487,12 @@
         'serialize-defs $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-defs (defs)
             filter-map-kv defs $ fn (name entry)
-              hint-fn $ Fn String Dynamic $ -> (MapEntryDecision String AnyStruct)
+              hint-fn $ Fn String Entry $ -> (MapEntryDecision String AnyStruct)
               MapEntryDecision :keep name $ serialize-entry entry
           :examples $ []
-          :schema $ quote $ Fn (Map String Dynamic)
+          :schema $ quote $ Fn (Map String Entry)
             -> $ Map String AnyStruct
+            :generics Entry
             :open :reflect
         'serialize-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-entry (entry)
@@ -3502,7 +3503,7 @@
                   , 'CirruQuote
               if (struct? entry) (&struct:assoc entry :code code) (raise "|Expected a Snapshot CodeEntry Struct")
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
         'serialize-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-file (file)
             let
@@ -3517,7 +3518,7 @@
                   &struct:assoc :defs $ serialize-defs defs
                 raise "|Expected a Snapshot FileEntry Struct"
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.persistence
           :require $ app.schema :as schema
@@ -3661,8 +3662,9 @@
           :code $ quote $ defn entry-fields (entry)
             if (struct? entry) (&struct:to-map entry) (raise "|Expected a Snapshot entry Struct")
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Entry
             -> $ Map Tag Dynamic
+            :generics Entry
         'entry-tree $ %{} 'CodeEntry
           :doc "|读取载入转换后的 quote Enum 树。Struct 字段显式读取，不让 get-in 跨 Struct，也不吞掉缺失或错误的代码载荷。"
           :code $ quote $ defn entry-tree (entry)
@@ -3677,8 +3679,9 @@
                   raise "|Expected quote code Enum"
                 raise "|Expected transformed Snapshot code Enum"
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Entry
             -> $ List CirruNode
+            :generics Entry
         'event-field $ %{} 'CodeEntry
           :doc "|Read one event field as an Option. Respo passes RespoEvent structs, Phlox passes maps, and host fields may be nil."
           :code $ quote $ defn event-field (e field)
@@ -3727,7 +3730,7 @@
                   (List _) (raise "|Expected a named Snapshot code entry")
                 raise "|Expected a named Snapshot code entry"
           :examples $ []
-          :schema $ quote $ Fn Dynamic String (-> AnyStruct) (:open :reflect)
+          :schema $ quote $ Fn Input String (-> AnyStruct) (:generics Input) (:open :reflect)
         'replace-node-op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn replace-node-op (focus node)
             Op :cirru-edit-node $ decode-map-as ([] focus node)
