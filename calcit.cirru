@@ -1155,13 +1155,6 @@
                   dependency-key $ .unwrap $ first scoped
               reset! *defs-layout-stack $ {}
               reset! *defs-metrics-states $ {}
-        'calcit-def? $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn calcit-def? (item)
-            let
-                kind $ .unwrap-or (nth item 2) :unknown
-              or (= :def kind) (= :ns kind)
-          :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Bool)
         'comp-deps-tree $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-deps-tree (deps-tree init-fn pkg)
             reset! *defs-layout-stack $ {}
@@ -3005,7 +2998,7 @@
                 text $ str key
               if (starts-with? text |') (slice text 1) text
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> String)
+          :schema $ quote $ Fn Key (-> String) (:generics Key)
         'transform-cirru-quoted $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn transform-cirru-quoted (snapshot)
             let
@@ -3113,7 +3106,7 @@
               raise "|Expected one application operation Enum"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :io :state)
+          :schema $ quote $ Fn Operation (-> Unit) (:generics Operation) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |single-operation-navigation-and-mixed-state)
             :code $ quote $ let
                 before @*store
