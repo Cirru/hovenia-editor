@@ -1326,6 +1326,34 @@
             match key (|: |;) (|; |:) (|\ ||) (|| |\) (_ key)
           :examples $ []
           :schema $ quote $ Fn String (-> String)
+        'code-at-focus $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn code-at-focus (node focus)
+            match (first focus)
+              (:none) (Some node)
+              (:some index)
+                let
+                    child $ match node
+                      (List children) (get children index)
+                      (String token) (get token index)
+                  match child
+                    (:some value)
+                      recur value $ rest focus
+                    (:none) None
+          :examples $ []
+          :schema $ quote $ Fn CirruNode (List Number)
+            -> $ Option CirruNode
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-nested-focus-and-missing-paths)
+            :code $ quote $ let
+                tree $ [] |root $ [] |nested |tail
+              assert=
+                Some $ [] |nested |tail
+                code-at-focus tree $ [] 1
+              assert= (Some |tail)
+                code-at-focus tree $ [] 1 1
+              assert= (Some |t)
+                code-at-focus tree $ [] 1 1 0
+              assert= None $ code-at-focus tree $ [] 1 2
+            :tags $ #{} :unit
         'comp-editor $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-editor (entry focus def-path pkg)
             let
@@ -1361,15 +1389,14 @@
                         and
                           not $ and meta? $ = |Tab key
                           , target-is-body?
-                        match (app.schema/path-value item focus)
+                        match (code-at-focus item focus)
                           (:none) &unit
                           (:some target)
-                            cond
-                                list? target
+                            match target
+                              (List _children)
                                 handle-expr-event focus def-path (dissoc e :event) d!
-                              (string? target)
-                                handle-leaf-event focus def-path target (dissoc e :event) d!
-                              true $ js/console.error "|unknown target" target
+                              (String token)
+                                handle-leaf-event focus def-path token (dissoc e :event) d!
                     , &unit
                 info :tree
           :examples $ []
