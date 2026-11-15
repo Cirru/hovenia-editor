@@ -178,23 +178,41 @@
               -> $ List $ Tuple String String Tag
         'lookup-dependants $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-dependants (deps-dict)
-            -> deps-dict keys &set:to-list
-              map $ fn (entry)
-                [] entry $ -> deps-dict
-                  filter $ fn (pair)
-                    let
-                        deps $ nth pair 1
-                      any? deps $ fn (piece)
-                        and
-                          = (nth piece 0) (nth entry 0)
-                          = (nth piece 1) (nth entry 1)
-                  keys
-              pairs-map
+            filter-map-kv deps-dict $ fn (entry _deps)
+              MapEntryDecision :keep entry $ keys $ filter-map-kv deps-dict
+                fn (candidate deps)
+                  if
+                    any? deps $ fn (piece)
+                      and
+                        = (nth piece 0) (nth entry 0)
+                        = (nth piece 1) (nth entry 1)
+                    MapEntryDecision :keep candidate deps
+                    MapEntryDecision :drop
           :examples $ []
           :schema $ quote $ Fn
             Map (List String)
               List $ List String
-            -> Dynamic
+            -> $ Map (List String)
+              Set $ List String
+          :tests $ [] $ %{} 'TestEntry (:name |finds-reverse-dependencies)
+            :code $ quote $ let
+                a $ [] |app |a
+                b $ [] |app |b
+                c $ [] |app |c
+                graph $ {}
+                    [] |app |a
+                    [] $ [] |app |b |extra
+                  ([] |app |b) ([])
+                  ([] |app |c)
+                    [] ([] |app |b) ([] |app |b)
+                result $ lookup-dependants graph
+              assert=
+                Some $ keys $ {} (a true) (c true)
+                get result b
+              assert=
+                Some $ keys $ {}
+                get result a
+              assert= None $ get result $ [] |missing |entry
         'lookup-target-def $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn lookup-target-def (token files def-path pkg)
             let
