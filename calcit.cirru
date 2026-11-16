@@ -5,7 +5,7 @@
   :entries $ {}
     :default $ {} (:description |) (:init-fn 'app.main/main!) (:mode :js) (:reload-fn 'app.main/reload!) (:target :browser)
       :feature-policy $ {}
-      :modules $ [] |memof/ |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/ |js-ffi/
+      :modules $ [] |respo.calcit/ |respo-ui.calcit/ |phlox/ |touch-control/ |pointed-prompt/ |alerts.calcit/ |respo-cirru-editor/ |js-ffi/
       :type-slots $ {} $ :dispatch-op 'app.schema/Op
     :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :node)
       :feature-policy $ {}
@@ -552,7 +552,6 @@
             app.analyze :refer $ lookup-target-def strip-at dependency-key
             phlox.util :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
-            memof.once :refer $ memof1-call
             phlox.comp.slider :refer $ comp-spin-slider
     'app.comp.command $ %{} 'FileEntry
       :defs $ {}
@@ -1060,7 +1059,6 @@
             app.analyze :refer $ lookup-target-def strip-at dependency-key
             phlox.util :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
-            memof.once :refer $ memof1-call
     'app.comp.deps-tree $ %{} 'FileEntry
       :defs $ {}
         '*defs-layout-stack $ %{} 'CodeEntry (:doc |)
@@ -2423,12 +2421,10 @@
                 if
                     get state :menu?
                     , .unwrap-or false
-                  Some $ memof1-call comp-menu (>> states :menu)
-                    decode-map-as
-                        get store :files
-                        , .unwrap-or $ {}
-                      Map String Dynamic
-                    fn (d!)
+                  Some $ let
+                      menu $ >> states :menu
+                      files $ decode-map-as (get store :files) (Map String Dynamic)
+                    respo.memo/memo-comp-by :header comp-menu menu files $ fn (d!)
                       d! $ :: :states cursor $ assoc state :menu? false
                   , None
                 if
@@ -2686,7 +2682,6 @@
             app.comp.stack :refer $ comp-stack
             app.style :refer $ css-hover-entry
             app.comp.command :refer $ comp-command on-save run-command
-            memof.once :refer $ memof1-call
             respo.css :refer $ defstyle
             respo-ui.css :as css
             app.schema :as schema
@@ -2886,7 +2881,7 @@
                         :position $ [] -60 0
                         :style $ {} (:fill 0x66aaaa) (:font-size 20) (:font-family "|Josefin Sans")
                     (:some entry)
-                      decode-map-as (memof1-call comp-editor entry focus definition-path package-name) phlox.schema/PhloxElement
+                      decode-map-as (respo.memo/memo-value-by :header comp-editor entry focus definition-path package-name) phlox.schema/PhloxElement
                 :deps-tree $ if (nil? deps-tree)
                   text $ {} (:text "|tree is empty")
                     :position $ [] 1 1
@@ -2977,7 +2972,6 @@
             app.analyze :refer $ lookup-target-def strip-at
             phlox.util :refer $ measure-text-width!
             app.comp.editor :refer $ comp-editor
-            memof.once :refer $ memof1-call
             app.comp.deps-of :refer $ comp-deps-of
             app.comp.call-tree :refer $ comp-call-tree
             app.schema :refer $ definition-at
