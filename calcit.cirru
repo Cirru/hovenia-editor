@@ -444,7 +444,7 @@
             Map (List String)
               List $ Tuple String String Tag
             List String
-            , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
+            , String (-> phlox.schema/PhloxElement) (:features :js-ffi :state)
         'comp-sector $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-sector (call-tree radius start-radian radian-size idx)
             let
@@ -691,7 +691,7 @@
               Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
-            :features :js-ffi
+            :features :io :js-ffi :state
         'comp-command-tips $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-command-tips (set-text!)
             div ({})
@@ -849,7 +849,7 @@
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic)
             Fn app.schema/Op $ -> Unit
             -> Unit
-            :features :js-ffi
+            :features :io :js-ffi :state
           :tests $ [] $ %{} 'TestEntry
             :name |commands-dispatch-current-enums-and-selected-target
             :code $ quote $ let
@@ -1045,7 +1045,7 @@
             Map (List String)
               List $ Tuple String String Tag
             List String
-            , String (-> phlox.schema/PhloxElement) (:features :js-ffi)
+            , String (-> phlox.schema/PhloxElement) (:features :js-ffi :state)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.deps-of
           :require
@@ -1388,7 +1388,7 @@
                     , &unit
                 info :tree
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Number) (List schema/DefinitionPathPart) String (-> phlox.schema/PhloxElement) (:features :js-ffi)
+          :schema $ quote $ Fn Dynamic (List Number) (List schema/DefinitionPathPart) String (-> phlox.schema/PhloxElement) (:features :js-ffi :state)
         'comp-error $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-error (ys)
             circle
@@ -1624,7 +1624,7 @@
           :schema $ quote $ Fn Dynamic (List CirruNode) (List Number)
             Fn schema/Op $ -> Unit
             -> Unit
-            :features :js-ffi
+            :features :js-ffi :state
         'pattern-number $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pattern-number ()
             js-cast (new js/RegExp "|^-?\\d+(\\.\\d+)?$") app.comp.editor/RegexHost
@@ -1793,7 +1793,7 @@
                           (String _token) true
                           (List _children) false
           :examples $ []
-          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) (-> LayoutInfo) (:features :js-ffi :state)
         'wrap-expr-with-linear $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-expr-with-linear (xs coord focus parent-winding-okay? smaller? acc-x)
             loop
@@ -2035,7 +2035,7 @@
                             conj acc $ [] idx $ comp-error ys
                           , :width x-position :y-stack y-stack :winding-x None
           :examples $ []
-          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool Bool Number (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool Bool Number (-> LayoutInfo) (:features :js-ffi :state)
         'wrap-leaf $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-leaf (s coord focus head?)
             let
@@ -2084,7 +2084,7 @@
                       :font-family "|Roboto Mono"
                 , :width width :y-stack 1 :winding-x None
           :examples $ []
-          :schema $ quote $ Fn String (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn String (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi :state)
         'wrap-linear-expr $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn wrap-linear-expr (xs coord focus smaller?)
             loop
@@ -2137,7 +2137,7 @@
                     &max y-stack $ info :y-stack
                     inc idx
           :examples $ []
-          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi)
+          :schema $ quote $ Fn (List CirruNode) (List Number) (List Number) Bool (-> LayoutInfo) (:features :js-ffi :state)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.editor
           :require
@@ -2504,7 +2504,7 @@
                   , &unit
                 .render command-plugin
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (Map Dynamic Dynamic) (-> respo.schema/Component) (:features :js-ffi)
+          :schema $ quote $ Fn (Map Tag Dynamic) (Map Dynamic Dynamic) (-> respo.schema/Component) (:features :io :js-ffi :state)
         'comp-picker-mode $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-picker-mode ()
             div
@@ -2998,8 +2998,8 @@
                 d! $ app.schema/Op :warn $ decode-map-as (js/String err) 'String
           :examples $ []
           :schema $ quote $ Fn
-            Fn schema/Op $ -> Unit
-            , Bool (-> Dynamic) (:features :js-ffi)
+            Fn schema/Op (-> Unit) (:features :io :state)
+            , Bool (-> Dynamic) (:features :io :js-ffi :state)
         'snapshot-key $ %{} 'CodeEntry
           :doc "|Current snapshots key files and definitions by symbol, older ones by string. The editor addresses them by string."
           :code $ quote $ defn snapshot-key (key)
@@ -3944,6 +3944,7 @@
           :examples $ []
           :schema $ quote $ Fn (Map Tag Dynamic) AnyEnum
             -> $ Map Tag Dynamic
+            :features :io
             :open :decode
           :tests $ [] $ %{} 'TestEntry
             :name |edits-copy-and-node-replacement-preserve-metadata
