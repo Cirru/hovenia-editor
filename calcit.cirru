@@ -1401,7 +1401,7 @@
                 :position $ [] 0 0
                 :style $ {} (:fill |red) (:font-size 10) (:font-family "|Roboto Mono")
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> phlox.schema/PhloxElement)
+          :schema $ quote $ Fn Input (-> phlox.schema/PhloxElement) (:generics Input)
         'event-position $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn event-position (event)
             let
