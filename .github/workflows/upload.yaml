@@ -51,7 +51,7 @@ jobs:
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        test "$(calcit --version)" = "0.43.0"
+        test "$(calcit --version)" = "0.44.0"
         test -f calcit.cirru
         test -f deps.cirru
         test ! -e compact.cirru
@@ -81,6 +81,7 @@ jobs:
           --summary-only --format json
         calcit calcit.cirru --entry server --check-only \
           --ns app.server --summary-only --format json
+        calcit fix --workflow strict --verify --format json | jq -e '.data.workflow.status == "passed" and .diagnostics == []'
 
     - name: Select CDN asset path
       id: asset-path
@@ -104,6 +105,7 @@ jobs:
       run: |
         set -euo pipefail
         yarn build
+        node --test tests/editor-layout.test.mjs
 
     - name: Check COS credentials
       id: cos-credentials
