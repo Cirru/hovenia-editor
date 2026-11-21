@@ -317,7 +317,7 @@
                       , target
                     _ $ raise $ str "|unknown rule: " method
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
+          :schema $ quote $ Fn (List ImportNode)
             -> $ Map Tag $ Map String String
           :tests $ [] $ %{} 'TestEntry (:name |preserves-namespace-and-npm-imports)
             :code $ quote $ let
