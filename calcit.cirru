@@ -2609,7 +2609,7 @@
                 entries $ mapcat (&map:to-list files)
                   fn (pair)
                     hint-fn $ Fn (Tuple String Dynamic)
-                      -> $ List $ List Dynamic
+                      -> $ List $ List schema/DefinitionPathPart
                     let
                         ns $ decode-map-as (nth pair 0) 'String
                         file $ nth pair 1
@@ -2619,10 +2619,12 @@
                             {}
                           Map String Dynamic
                       concat
-                        [] $ [] ns :ns
+                        [] $ assert-type ([] ns :ns) (List schema/DefinitionPathPart)
                         map
                           sort $ &set:to-list $ keys defs
-                          fn (name) ([] ns :defs name)
+                          fn (name)
+                            hint-fn $ Fn String $ -> (List schema/DefinitionPathPart)
+                            [] ns :defs name
               concat
                 filter entries $ fn (path)
                   and
@@ -2644,7 +2646,7 @@
                         , part
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic) String
-            -> $ List $ List Dynamic
+            -> $ List $ List schema/DefinitionPathPart
           :tests $ [] $ %{} 'TestEntry (:name |snapshot-struct-paths-and-search)
             :code $ quote $ let
                 files $ {} $ |app.demo
