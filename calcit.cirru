@@ -2549,25 +2549,24 @@
                             hint-fn $ Fn respo.schema/RespoEvent
                               Fn schema/Op $ -> Unit
                               -> Unit
-                            d! $ app.schema/Op :def-path $ decode-map-as entry (List app.schema/DefinitionPathPart)
+                            d! $ app.schema/Op :def-path entry
                             on-close d!
                             d! $ :: :states cursor $ assoc state :query |
                         if
                           = 2 $ count entry
                           <> $ str
-                              first entry
-                              , .unwrap-or |
+                            path-part-text $ first entry
                             , "| :ns"
                           div ({})
-                            <> $ str $ .unwrap-or (last entry) |
+                            <> $ path-part-text $ last entry
                             space-x 8
                             <>
-                              str $ .unwrap-or (first entry) |
+                              path-part-text $ first entry
                               {} (:font-size 10)
                                 :color $ hsl 0 0 70
           :examples $ []
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic)
-            List $ List Dynamic
+            List $ List schema/DefinitionPathPart
             , Number
               Fn
                 Fn schema/Op $ -> Unit
@@ -2602,6 +2601,21 @@
             .?!select $ js/document.querySelector query
           :examples $ []
           :schema $ quote $ Fn String (-> respo.schema/Effect) (:features :js-ffi)
+        'path-part-text $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn path-part-text (part)
+            match part
+              (:none) |
+              (:some value)
+                match value
+                  (String text) text
+                  (Tag tag) (str tag)
+          :examples $ []
+          :schema $ quote $ Fn (Option schema/DefinitionPathPart) (-> String)
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-path-text)
+            :code $ quote $ do
+              assert= | $ path-part-text None
+              assert= |app.demo $ path-part-text $ Some |app.demo
+              assert= |:defs $ path-part-text $ Some :defs
         'search-entries $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn search-entries (files query)
             let
