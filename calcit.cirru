@@ -2424,7 +2424,9 @@
                     , .unwrap-or false
                   Some $ let
                       menu $ >> states :menu
-                      files $ decode-map-as (get store :files) (Map String Dynamic)
+                      files $ decode-map-as
+                        .unwrap-or (get store :files) ({})
+                        Map String Dynamic
                     respo.memo/memo-comp-by :header comp-menu menu files $ fn (d!)
                       d! $ :: :states cursor $ assoc state :menu? false
                   , None
