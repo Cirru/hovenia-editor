@@ -524,7 +524,7 @@
                     :radian $ [] (+ start-radian radian-size) start-radian
                     :radius radius
                     :anticlockwise? true
-                  g :close-path nil
+                  g :close-path
                   g :end-fill
           :examples $ []
           :schema $ quote $ Fn Number Number Number Number Number (-> phlox.schema/PhloxElement) (:features :js-ffi)
@@ -917,8 +917,9 @@
                       g :bezier-to $ {} (:p1 p1) (:p2 p2) (:to-p to)
           :examples $ []
           :schema $ quote $ Fn
-            List $ List Dynamic
-            -> Dynamic
+            List $ List $ List Number
+            -> phlox.schema/PhloxElement
+            :features :js-ffi
         'comp-deps-of $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn comp-deps-of (deps-tree entry pkg) (; js/console.log deps-tree entry)
             if (contains? deps-tree entry)
