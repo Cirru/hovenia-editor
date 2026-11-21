@@ -228,11 +228,11 @@
                 namespaces $ .unwrap $ get dict :namespaces
                 referred $ .unwrap $ get dict :defs
               if (contains? file-defs token)
-                Some $ decode-map-as ([] ns :defs token) (List app.schema/DefinitionPathPart)
+                Some $ [] ns :defs token
                 match (get referred token)
                   (:some target-ns)
                     if (starts-with? target-ns pkg)
-                      Some $ decode-map-as ([] target-ns :defs token) (List app.schema/DefinitionPathPart)
+                      Some $ [] target-ns :defs token
                       , None
                   (:none)
                     if
@@ -246,13 +246,26 @@
                         match (get namespaces ns-part)
                           (:some target-ns)
                             if (starts-with? target-ns pkg)
-                              Some $ decode-map-as ([] target-ns :defs def-part) (List app.schema/DefinitionPathPart)
+                              Some $ [] target-ns :defs def-part
                               , None
                           (:none) None
                       , None
           :examples $ []
-          :schema $ quote $ Fn String (Map String Dynamic) (List Dynamic) String
+          :schema $ quote $ Fn String (Map String F) (List Dynamic) String
             -> $ Option $ List schema/DefinitionPathPart
+            :generics F
+          :tests $ [] $ %{} 'TestEntry (:name |referred-navigation)
+            :code $ quote $ let
+                raw $ decode-map-as
+                  parse-cirru-edn "|{} $ :files $ {}\n  |app.demo $ %{} :FileEntry\n    :ns $ %{} :CodeEntry\n      :code $ quote $ ns app.demo $ :require (app.other :refer $ helper)\n    :defs $ {}"
+                  Map Tag Dynamic
+                loaded $ app.fetch/transform-cirru-quoted raw
+                files $ decode-map-as
+                  .unwrap $ get loaded :files
+                  Map String Dynamic
+              assert=
+                Some $ [] |app.other :defs |helper
+                lookup-target-def |helper files ([] |app.demo :defs |main) |app
         'parse-import-dict $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-import-dict (ns-form)
             let
