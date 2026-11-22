@@ -228,11 +228,11 @@
                 namespaces $ .unwrap $ get dict :namespaces
                 referred $ .unwrap $ get dict :defs
               if (contains? file-defs token)
-                Some $ decode-map-as ([] ns :defs token) (List app.schema/DefinitionPathPart)
+                Some $ [] ns :defs token
                 match (get referred token)
                   (:some target-ns)
                     if (starts-with? target-ns pkg)
-                      Some $ decode-map-as ([] target-ns :defs token) (List app.schema/DefinitionPathPart)
+                      Some $ [] target-ns :defs token
                       , None
                   (:none)
                     if
@@ -246,13 +246,26 @@
                         match (get namespaces ns-part)
                           (:some target-ns)
                             if (starts-with? target-ns pkg)
-                              Some $ decode-map-as ([] target-ns :defs def-part) (List app.schema/DefinitionPathPart)
+                              Some $ [] target-ns :defs def-part
                               , None
                           (:none) None
                       , None
           :examples $ []
-          :schema $ quote $ Fn String (Map String Dynamic) (List Dynamic) String
+          :schema $ quote $ Fn String (Map String F) (List Dynamic) String
             -> $ Option $ List schema/DefinitionPathPart
+            :generics F
+          :tests $ [] $ %{} 'TestEntry (:name |referred-navigation)
+            :code $ quote $ let
+                raw $ decode-map-as
+                  parse-cirru-edn "|{} $ :files $ {}\n  |app.demo $ %{} :FileEntry\n    :ns $ %{} :CodeEntry\n      :code $ quote $ ns app.demo $ :require (app.other :refer $ helper)\n    :defs $ {}"
+                  Map Tag Dynamic
+                loaded $ app.fetch/transform-cirru-quoted raw
+                files $ decode-map-as
+                  .unwrap $ get loaded :files
+                  Map String Dynamic
+              assert=
+                Some $ [] |app.other :defs |helper
+                lookup-target-def |helper files ([] |app.demo :defs |main) |app
         'parse-import-dict $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-import-dict (ns-form)
             let
@@ -304,7 +317,7 @@
                       , target
                     _ $ raise $ str "|unknown rule: " method
           :examples $ []
-          :schema $ quote $ Fn (List Dynamic)
+          :schema $ quote $ Fn (List ImportNode)
             -> $ Map Tag $ Map String String
           :tests $ [] $ %{} 'TestEntry (:name |preserves-namespace-and-npm-imports)
             :code $ quote $ let
@@ -2424,7 +2437,9 @@
                     , .unwrap-or false
                   Some $ let
                       menu $ >> states :menu
-                      files $ decode-map-as (get store :files) (Map String Dynamic)
+                      files $ decode-map-as
+                        .unwrap-or (get store :files) ({})
+                        Map String Dynamic
                     respo.memo/memo-comp-by :header comp-menu menu files $ fn (d!)
                       d! $ :: :states cursor $ assoc state :menu? false
                   , None
@@ -2549,25 +2564,24 @@
                             hint-fn $ Fn respo.schema/RespoEvent
                               Fn schema/Op $ -> Unit
                               -> Unit
-                            d! $ app.schema/Op :def-path $ decode-map-as entry (List app.schema/DefinitionPathPart)
+                            d! $ app.schema/Op :def-path entry
                             on-close d!
                             d! $ :: :states cursor $ assoc state :query |
                         if
                           = 2 $ count entry
                           <> $ str
-                              first entry
-                              , .unwrap-or |
+                            path-part-text $ first entry
                             , "| :ns"
                           div ({})
-                            <> $ str $ .unwrap-or (last entry) |
+                            <> $ path-part-text $ last entry
                             space-x 8
                             <>
-                              str $ .unwrap-or (first entry) |
+                              path-part-text $ first entry
                               {} (:font-size 10)
                                 :color $ hsl 0 0 70
           :examples $ []
           :schema $ quote $ Fn (List Dynamic) (Map Tag Dynamic)
-            List $ List Dynamic
+            List $ List schema/DefinitionPathPart
             , Number
               Fn
                 Fn schema/Op $ -> Unit
@@ -2602,6 +2616,21 @@
             .?!select $ js/document.querySelector query
           :examples $ []
           :schema $ quote $ Fn String (-> respo.schema/Effect) (:features :js-ffi)
+        'path-part-text $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn path-part-text (part)
+            match part
+              (:none) |
+              (:some value)
+                match value
+                  (String text) text
+                  (Tag tag) (str tag)
+          :examples $ []
+          :schema $ quote $ Fn (Option schema/DefinitionPathPart) (-> String)
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-path-text)
+            :code $ quote $ do
+              assert= | $ path-part-text None
+              assert= |app.demo $ path-part-text $ Some |app.demo
+              assert= |:defs $ path-part-text $ Some :defs
         'search-entries $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn search-entries (files query)
             let
@@ -2609,7 +2638,7 @@
                 entries $ mapcat (&map:to-list files)
                   fn (pair)
                     hint-fn $ Fn (Tuple String Dynamic)
-                      -> $ List $ List Dynamic
+                      -> $ List $ List schema/DefinitionPathPart
                     let
                         ns $ decode-map-as (nth pair 0) 'String
                         file $ nth pair 1
@@ -2619,10 +2648,12 @@
                             {}
                           Map String Dynamic
                       concat
-                        [] $ [] ns :ns
+                        [] $ assert-type ([] ns :ns) (List schema/DefinitionPathPart)
                         map
                           sort $ &set:to-list $ keys defs
-                          fn (name) ([] ns :defs name)
+                          fn (name)
+                            hint-fn $ Fn String $ -> (List schema/DefinitionPathPart)
+                            [] ns :defs name
               concat
                 filter entries $ fn (path)
                   and
@@ -2644,7 +2675,7 @@
                         , part
           :examples $ []
           :schema $ quote $ Fn (Map String Dynamic) String
-            -> $ List $ List Dynamic
+            -> $ List $ List schema/DefinitionPathPart
           :tests $ [] $ %{} 'TestEntry (:name |snapshot-struct-paths-and-search)
             :code $ quote $ let
                 files $ {} $ |app.demo
