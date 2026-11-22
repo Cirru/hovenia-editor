@@ -2,7 +2,7 @@
 {} (:calcit-version |0.44.0)
   :version |0.1.1
   :dependencies $ {} (|Cirru/respo-cirru-editor |0.7.5)
-    |Phlox-GL/phlox |0.9.8
+    |Phlox-GL/phlox |0.9.9
     |Respo/respo-ui.calcit |0.15.7
     |Respo/respo.calcit |0.19.13
     |Triadica/touch-control |0.0.43

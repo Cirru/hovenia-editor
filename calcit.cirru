@@ -997,7 +997,7 @@
                         :align-right? true
                         :on $ {} $ :pointertap
                           fn (e d!)
-                            hint-fn $ Fn Dynamic
+                            hint-fn $ Fn phlox.core/PixiPointerEventHost
                               Fn app.schema/Op $ -> Unit
                               -> Unit
                               :features :js-ffi
@@ -1033,7 +1033,7 @@
                         :align-right? false
                         :on $ {} $ :pointertap
                           fn (e d!)
-                            hint-fn $ Fn Dynamic
+                            hint-fn $ Fn phlox.core/PixiPointerEventHost
                               Fn app.schema/Op $ -> Unit
                               -> Unit
                               :features :js-ffi
@@ -1240,7 +1240,7 @@
                                     :fill $ hslx 0 0 20
                                     :on $ {} $ :pointertap
                                       fn (event d!)
-                                        hint-fn $ Fn Dynamic
+                                        hint-fn $ Fn phlox.core/PixiPointerEventHost
                                           Fn app.schema/Op $ -> Unit
                                           -> Unit
                                           :features :js-ffi
@@ -1428,7 +1428,7 @@
                     decode-map-as (point :y) 'Number
                 raise "|Expected a Pixi global point"
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn phlox.core/PixiPointerEventHost
             -> $ List Number
             :features :js-ffi
         'handle-expr-event $ %{} 'CodeEntry (:doc |)
@@ -1635,7 +1635,7 @@
               d! $ app.schema/Op :focus-or-pick coord
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List CirruNode) (List Number)
+          :schema $ quote $ Fn phlox.core/PixiPointerEventHost (List CirruNode) (List Number)
             Fn schema/Op $ -> Unit
             -> Unit
             :features :js-ffi :state
@@ -1732,7 +1732,7 @@
                         :fill $ hslx 120 100 70
                         :on $ {} $ :pointertap
                           fn (e d!)
-                            hint-fn $ Fn Dynamic
+                            hint-fn $ Fn phlox.core/PixiPointerEventHost
                               Fn schema/Op $ -> Unit
                               -> Unit
                             on-expr-click e xs coord d!
@@ -1839,7 +1839,7 @@
                           :fill $ hslx 10 60 50
                           :on $ {} $ :pointertap
                             fn (e d!)
-                              hint-fn $ Fn Dynamic
+                              hint-fn $ Fn phlox.core/PixiPointerEventHost
                                 Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
@@ -1887,7 +1887,7 @@
                                   :fill $ hslx 180 60 40
                                   :on $ {} $ :pointertap
                                     fn (e d!)
-                                      hint-fn $ Fn Dynamic
+                                      hint-fn $ Fn phlox.core/PixiPointerEventHost
                                         Fn schema/Op $ -> Unit
                                         -> Unit
                                       on-expr-click e children next-coord d!
@@ -1918,7 +1918,7 @@
                                   :fill $ hslx 160 100 30
                                   :on $ {} $ :pointertap
                                     fn (e d!)
-                                      hint-fn $ Fn Dynamic
+                                      hint-fn $ Fn phlox.core/PixiPointerEventHost
                                         Fn schema/Op $ -> Unit
                                         -> Unit
                                       on-expr-click e children next-coord d!
@@ -1995,7 +1995,7 @@
                                     :fill $ hslx 300 100 30
                                     :on $ {} $ :pointertap
                                       fn (e d!)
-                                        hint-fn $ Fn Dynamic
+                                        hint-fn $ Fn phlox.core/PixiPointerEventHost
                                           Fn schema/Op $ -> Unit
                                           -> Unit
                                         on-expr-click e children next-coord d!
@@ -2031,7 +2031,7 @@
                                     :fill $ hslx 300 100 30
                                     :on $ {} $ :pointertap
                                       fn (e d!)
-                                        hint-fn $ Fn Dynamic
+                                        hint-fn $ Fn phlox.core/PixiPointerEventHost
                                           Fn schema/Op $ -> Unit
                                           -> Unit
                                         on-expr-click e children next-coord d!
@@ -2066,7 +2066,7 @@
                       :color $ hslx 60 80 100
                     :on $ {} $ :pointertap
                       fn (e d!)
-                        hint-fn $ Fn Dynamic
+                        hint-fn $ Fn phlox.core/PixiPointerEventHost
                           Fn schema/Op $ -> Unit
                           -> Unit
                           :features :js-ffi
@@ -2122,7 +2122,7 @@
                           :fill $ hslx 260 80 60
                           :on $ {} $ :pointertap
                             fn (e d!)
-                              hint-fn $ Fn Dynamic
+                              hint-fn $ Fn phlox.core/PixiPointerEventHost
                                 Fn schema/Op $ -> Unit
                                 -> Unit
                               on-expr-click e xs coord d!
