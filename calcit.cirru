@@ -3328,12 +3328,17 @@
           :require $ js-ffi.browser :refer $ random
     'app.persistence $ %{} 'FileEntry
       :defs $ {}
+        'SnapshotKey $ %{} 'CodeEntry
+          :doc "|String and Symbol keys used by Snapshot namespace and definition maps."
+          :code $ quote $ defunion SnapshotKey String Symbol
+          :examples $ []
+          :schema $ quote UnionDef
         'apply-patch $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn apply-patch (snapshot changes)
             let
                 files $ decode-map-as
                   .unwrap-or (get snapshot :files) ({})
-                  Map String Dynamic
+                  Map SnapshotKey Dynamic
                 removed $ decode-map-as
                   .unwrap-or (get changes :removed) (#{})
                   Set String
@@ -3343,21 +3348,21 @@
                 changed $ decode-map-as
                   .unwrap-or (get changes :changed) ({})
                   Map String Dynamic
+                files-index $ snapshot-key-index files
                 next-files $ foldl (&map:to-list changed)
-                  merge
-                    unselect-keys files $ &set:to-list removed
-                    , added
+                  merge-snapshot-entries files removed added $ {}
                   fn (acc pair)
-                    hint-fn $ Fn (Map String Dynamic) (Tuple String Dynamic)
-                      -> $ Map String Dynamic
+                    hint-fn $ Fn (Map SnapshotKey Dynamic) (Tuple String Dynamic)
+                      -> $ Map SnapshotKey Dynamic
                     let
                         name $ decode-map-as (nth pair 0) 'String
+                        key $ snapshot-key-for files-index name
                         change $ decode-map-as (nth pair 1) (Map Tag Dynamic)
-                        file $ .unwrap $ get acc name
+                        file $ .unwrap $ get acc key
                         fields $ schema/entry-fields file
                         defs $ decode-map-as
                           .unwrap $ get fields :defs
-                          Map String Dynamic
+                          Map SnapshotKey Dynamic
                         removed-defs $ decode-map-as
                           .unwrap-or (get change :removed-defs) (#{})
                           Set String
@@ -3373,11 +3378,9 @@
                             (:some ns-entry)
                               if (nil? ns-entry) entry $ &struct:assoc entry :ns ns-entry
                             (:none) entry
-                        next-defs $ merge
-                          unselect-keys defs $ &set:to-list removed-defs
-                          , added-defs changed-defs
+                        next-defs $ merge-snapshot-entries defs removed-defs added-defs changed-defs
                       if (struct? file)
-                        assoc acc name $ -> (with-ns file) (&struct:assoc :defs next-defs)
+                        assoc acc key $ -> (with-ns file) (&struct:assoc :defs next-defs)
                         raise "|Expected a Snapshot FileEntry Struct"
               assoc snapshot :files next-files
           :examples $ []
@@ -3451,7 +3454,7 @@
             :name |serialized-save-roundtrip-preserves-snapshot-metadata
             :code $ quote $ let
                 raw $ decode-map-as
-                  parse-cirru-edn "|{} (:package |app) (:extra-root |kept-root)\n  :configs $ {} (:init-fn |app.keep/main)\n  :files $ {}\n    |app.keep $ %{} :FileEntry (:extra |kept-file)\n      :ns $ %{} :CodeEntry (:doc |namespace)\n        :code $ quote $ ns app.keep\n      :defs $ {}\n        |main $ %{} :CodeEntry (:doc |kept-doc) (:schema 'String)\n          :tests $ []\n            {} (:name |returns-label) (:tags $ #{} :unit)\n              :code $ quote $ assert= |old main\n          :code $ quote $ def main |old\n        |gone $ %{} :CodeEntry (:doc |remove-me)\n          :code $ quote $ def gone 1\n        |same $ %{} :CodeEntry (:doc |untouched)\n          :code $ quote $ def same 2\n    |app.meta $ %{} :FileEntry (:extra |old-meta)\n      :ns $ %{} :CodeEntry (:doc |metadata)\n        :code $ quote $ ns app.meta\n      :defs $ {}\n    |app.removed $ %{} :FileEntry\n      :ns $ %{} :CodeEntry (:doc |removed)\n        :code $ quote $ ns app.removed\n      :defs $ {}\n"
+                  parse-cirru-edn "|{} (:package |app) (:extra-root |kept-root)\n  :configs $ {} (:init-fn |app.keep/main)\n  :files $ {}\n    'app.keep $ %{} :FileEntry (:extra |kept-file)\n      :ns $ %{} :CodeEntry (:doc |namespace)\n        :code $ quote $ ns app.keep\n      :defs $ {}\n        'main $ %{} :CodeEntry (:doc |kept-doc) (:schema 'String)\n          :tests $ []\n            {} (:name |returns-label) (:tags $ #{} :unit)\n              :code $ quote $ assert= |old main\n          :code $ quote $ def main |old\n        'gone $ %{} :CodeEntry (:doc |remove-me)\n          :code $ quote $ def gone 1\n        |same $ %{} :CodeEntry (:doc |untouched)\n          :code $ quote $ def same 2\n    |app.meta $ %{} :FileEntry (:extra |old-meta)\n      :ns $ %{} :CodeEntry (:doc |metadata)\n        :code $ quote $ ns app.meta\n      :defs $ {}\n    'app.removed $ %{} :FileEntry\n      :ns $ %{} :CodeEntry (:doc |removed)\n        :code $ quote $ ns app.removed\n      :defs $ {}\n"
                   Map Tag Dynamic
                 loaded $ app.fetch/transform-cirru-quoted raw
                 before $ decode-map-as
@@ -3478,12 +3481,25 @@
                   Map Tag Dynamic
                 saved $ apply-patch raw wire
                 restored $ app.fetch/transform-cirru-quoted saved
-                saved-files $ decode-map-as
+                raw-saved-files $ decode-map-as
                   .unwrap $ get saved :files
+                  Map SnapshotKey Dynamic
+                raw-keep $ .unwrap $ get raw-saved-files 'app.keep
+                raw-defs $ decode-map-as
+                  .unwrap $ get (schema/entry-fields raw-keep) :defs
+                  Map SnapshotKey Dynamic
+                saved-files $ decode-map-as
+                  .unwrap $ get restored :files
                   Map String Dynamic
-                saved-entry $ .unwrap $ schema/definition-at saved-files path
+                saved-entry $ .unwrap $ get raw-defs 'main
                 fields $ schema/entry-fields saved-entry
                 noop $ build-patch before before
+              assert= true $ contains? raw-saved-files 'app.keep
+              assert= false $ contains? raw-saved-files |app.keep
+              assert= true $ contains? raw-defs 'main
+              assert= false $ contains? raw-defs |main
+              assert= false $ contains? raw-defs 'gone
+              assert= true $ contains? raw-defs |added
               assert= (Some |kept-root) (get saved :extra-root)
               assert= (get raw :configs) (get saved :configs)
               assert= (Some after) (get restored :files)
@@ -3518,6 +3534,25 @@
                 .unwrap $ get noop :changed
               assert= (#{})
                 .unwrap $ get noop :removed
+        'merge-snapshot-entries $ %{} 'CodeEntry
+          :doc "|Apply string-named changes while preserving keys already in the Snapshot."
+          :code $ quote $ defn merge-snapshot-entries (entries removed added changed)
+            let
+                index $ snapshot-key-index entries
+                remaining $ foldl (.to-list removed) entries $ fn (acc name)
+                  hint-fn $ Fn (Map SnapshotKey Dynamic) String $ -> (Map SnapshotKey Dynamic)
+                  dissoc acc $ snapshot-key-for index name
+                with-added $ foldl (&map:to-list added) remaining $ fn (acc pair)
+                  hint-fn $ Fn (Map SnapshotKey Dynamic) (Tuple String Dynamic)
+                    -> $ Map SnapshotKey Dynamic
+                  let[] (name value) pair $ assoc acc (snapshot-key-for index name) value
+              foldl (&map:to-list changed) with-added $ fn (acc pair)
+                hint-fn $ Fn (Map SnapshotKey Dynamic) (Tuple String Dynamic)
+                  -> $ Map SnapshotKey Dynamic
+                let[] (name value) pair $ assoc acc (snapshot-key-for index name) value
+          :examples $ []
+          :schema $ quote $ Fn (Map SnapshotKey Dynamic) (Set String) (Map String Dynamic) (Map String Dynamic)
+            -> $ Map SnapshotKey Dynamic
         'serialize-defs $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn serialize-defs (defs)
             filter-map-kv defs $ fn (name entry)
@@ -3553,6 +3588,28 @@
                 raise "|Expected a Snapshot FileEntry Struct"
           :examples $ []
           :schema $ quote $ Fn Input (-> AnyStruct) (:generics Input) (:open :reflect)
+        'snapshot-key-for $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn snapshot-key-for (index name)
+            .unwrap-or (get index name) name
+          :examples $ []
+          :schema $ quote $ Fn (Map String SnapshotKey) String (-> SnapshotKey)
+        'snapshot-key-index $ %{} 'CodeEntry
+          :doc "|Index names without changing existing Snapshot key representations."
+          :code $ quote $ defn snapshot-key-index (entries)
+            foldl (&map:to-list entries) ({})
+              fn (index pair)
+                hint-fn $ Fn (Map String SnapshotKey) (Tuple SnapshotKey Value)
+                  -> $ Map String SnapshotKey
+                  :generics Value
+                let[] (key _value) pair $ let
+                    name $ app.fetch/snapshot-key key
+                  if (contains? index name)
+                    raise $ str "|Duplicate Snapshot name: " name
+                    assoc index name key
+          :examples $ []
+          :schema $ quote $ Fn (Map SnapshotKey Value)
+            -> $ Map String SnapshotKey
+            :generics Value
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.persistence
           :require $ app.schema :as schema
