@@ -3845,19 +3845,13 @@
         'on-request $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-request (req)
             let
-                url $ decode-map-as
-                  .unwrap-or (get req :url) |
-                  , 'String
-                method $ decode-map-as
-                  .unwrap-or (get req :method) :GET
-                  , 'Tag
-                request-body $ decode-map-as
-                  .unwrap-or (get req :body) |
-                  , 'String
+                url $ :url req
+                method $ :method req
+                request-body $ .unwrap-or (:body req) |
               match url
                 |/compact-data $ let
                     content $ read-file |calcit.cirru
-                  {} (:code 200) (:headers cors-headers) (:body content)
+                  http.core/Response :code 200 :headers cors-headers :body content
                 |/compact-inc $ match method
                   :PUT $ let
                       body request-body
@@ -3871,20 +3865,15 @@
                     write-file |.calcit-inc.cirru body
                     println "|wrote to" |.calcit-inc.cirru |and |calcit.cirru
                     ; println |data $ :body req
-                    {} (:code 200) (:headers cors-headers)
-                      :body $ format-cirru-edn $ {} (:ok? true) (:data |wrote)
-                  :OPTIONS $ {} (:code 200) (:headers cors-headers) (:body |OK)
+                    http.core/Response :code 200 :headers cors-headers :body $ format-cirru-edn $ {} (:ok? true) (:data |wrote)
+                  :OPTIONS $ http.core/Response :code 200 :headers cors-headers :body |OK
                   _ $ do (println "|Unknown method" method)
-                    {} (:code 400) (:headers cors-headers)
-                      :body $ format-cirru-edn $ {} (:ok? false)
-                        :message $ str "|Unknown method " method
+                    http.core/Response :code 400 :headers cors-headers :body $ format-cirru-edn $ {} (:ok? false)
+                      :message $ str "|Unknown method " method
                 _ $ do (eprintln "|unknown url" url)
-                  {} (:code 404)
-                    :body $ str "|unkown url " url
+                  http.core/Response :code 404 :headers ({}) :body $ str "|unkown url " url
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic)
-            -> $ Map Tag Dynamic
-            :features :io
+          :schema $ quote $ Fn http.core/Request (-> http.core/Response) (:features :io)
         'patch-compact-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn patch-compact-data (compact-data inc-changes) (persistence/apply-patch compact-data inc-changes)
           :examples $ []
@@ -3896,7 +3885,7 @@
           :schema $ quote $ Fn (-> Unit) (:features :io)
         'start-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn start-server! ()
-            reset! *app-server $ Some $ serve-http!
+            reset! *app-server $ Some $ serve-http-typed!
               Some $ decode-map-as
                 {} (:port 6101) (:host |0.0.0.0)
                 Map Tag http.core/ServerOptionValue
@@ -3907,7 +3896,7 @@
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.server
           :require
-            http.core :refer $ serve-http!
+            http.core :refer $ serve-http-typed!
             app.config :refer $ cors-headers
             app.persistence :as persistence
     'app.style $ %{} 'FileEntry
