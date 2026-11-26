@@ -917,10 +917,10 @@
               concat & $ -> connections $ map-indexed
                 fn (idx pair)
                   let
-                      from $ nth pair 0
-                      p1 $ nth pair 1
-                      p2 $ nth pair 2
-                      to $ nth pair 3
+                      from $ .unwrap $ nth pair 0
+                      p1 $ .unwrap $ nth pair 1
+                      p2 $ .unwrap $ nth pair 2
+                      to $ .unwrap $ nth pair 3
                     []
                       g :line-style $ {} (:width 2) (:alpha 1)
                         :color $ hclx
