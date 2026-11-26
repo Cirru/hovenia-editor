@@ -116,6 +116,9 @@ test("cyclic dependency graph draws numeric curves and navigates with an unwrapp
   assert.deepEqual(operations, [["router", { name: "editor" }],
     ["def-path", ["app.main", "defs", "b"]]]);
   const detail = await import("../js-out/app.comp.deps-of.mjs");
+  const detailOps = toJS(detail.comp_curves(fromArray([[[1, 2], [3, 4], [5, 6], [7, 8]]]))).props.ops;
+  assert.deepEqual(detailOps[1], ["move-to", [1, 2]]);
+  assert.deepEqual(detailOps[2], ["bezier-to", { p1: [3, 4], p2: [5, 6], "to-p": [7, 8] }]);
   clicks.length = 0;
   collect(toJS(detail.comp_deps_of(data, list("app.main", "a"), "app")));
   assert.equal(clicks.length, 2);
